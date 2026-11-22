@@ -199,3 +199,5 @@ dialog::backdrop { background: #0e0a11bf; }
 
 .sequel { color: var(--accent); border-color: #80594e; }
 @media (max-width: 420px) { .top { flex-wrap: wrap; padding-block: 7px; } .top-actions { margin-left: auto; } }
+
+@media (max-width: 420px) { .top-actions { flex-wrap: wrap; justify-content: flex-end; } }

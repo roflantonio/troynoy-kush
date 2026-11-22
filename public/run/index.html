@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0f1a27">
+  <meta name="description" content="Онлайн-гонка по четырём платформенным трассам для компании друзей.">
+  <title>Турбо-побег — платформенная гонка</title>
+  <link rel="stylesheet" href="./run.css">
+  <script type="module" src="./run.js?v=1"></script>
+</head>
+<body>
+  <div class="shell">
+    <header class="header">
+      <a class="brand" href="../"><span aria-hidden="true">✦</span> ТРОЙНОЙ КУШ</a>
+      <div class="header-actions">
+        <details class="sound-panel">
+          <summary>♫ <span>Звук</span></summary>
+          <div class="mix">
+            <label for="music"><span>Музыка</span><output id="music-value">28%</output></label>
+            <input id="music" type="range" min="0" max="100" value="28" aria-label="Музыка">
+            <label for="effects"><span>Эффекты</span><output id="effects-value">65%</output></label>
+            <input id="effects" type="range" min="0" max="100" value="65" aria-label="Эффекты">
+          </div>
+        </details>
+        <button type="button" class="button secondary" id="rules-open">Правила</button>
+      </div>
+    </header>
+    <main>
+      <section class="home" id="home">
+        <div class="hero">
+          <div class="kicker"><span aria-hidden="true">◈</span> Онлайн-платформер</div>
+          <h1>ТУРБО-<br><em>ПОБЕГ</em></h1>
+          <p>Стартуйте вместе. Перепрыгивайте провалы и ловушки. Побеждает тот, кто первым пройдёт все четыре трассы.</p>
+          <form id="entry" class="entry">
+            <label for="name">Твоё имя</label>
+            <input id="name" name="name" placeholder="Например, Пружина" maxlength="36" autocomplete="nickname" required>
+            <div class="buttons">
+              <button class="button primary" type="submit" id="create">Создать комнату</button>
+              <button class="button secondary" type="button" id="join-expand" aria-expanded="false">Войти по коду</button>
+            </div>
+            <div class="buttons" id="join-fields" hidden>
+              <label for="code" class="sr-only">Код комнаты</label>
+              <input id="code" placeholder="Код комнаты" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false">
+              <button class="button primary" type="submit" id="join">Войти</button>
+            </div>
+            <button class="button secondary" id="resume" type="button" hidden>Вернуться в комнату</button>
+            <p class="error" id="entry-error" role="alert" hidden></p>
+          </form>
+        </div>
+        <div class="preview">
+          <canvas id="preview" width="960" height="480" aria-hidden="true"></canvas>
+          <div class="preview-caption"><span>2–4 игрока</span><span>4 трассы</span><span>Общий старт</span></div>
+        </div>
+      </section>
+
+      <section id="race-room" hidden aria-label="Комната гонки">
+        <div class="room-bar">
+          <div class="room-code"><span id="room-code"></span><button id="invite" class="button secondary" type="button">Скопировать приглашение</button></div>
+          <button id="exit" type="button" class="button secondary">В меню</button>
+        </div>
+        <p class="notice" id="notice" role="status" hidden></p>
+        <section class="lobby" id="lobby" hidden>
+          <h1>Готовимся к старту</h1>
+          <p>Отправь ссылку друзьям. Для гонки нужно от двух до четырёх игроков.</p>
+          <div class="roster" id="roster"></div>
+          <button id="start" class="button primary" type="button" disabled>Начать гонку</button>
+          <p id="lobby-wait" hidden>Создатель комнаты скоро даст старт.</p>
+        </section>
+
+        <section id="race" hidden>
+          <div class="race-head">
+            <div><p class="kicker" id="level-number"></p><h1 id="level-name"></h1></div>
+            <time id="race-time">0:00.0</time>
+          </div>
+          <div class="race-grid">
+            <div>
+              <div class="board">
+                <canvas id="course" width="960" height="480" tabindex="0" aria-label="Трасса. Стрелки или A и D — движение, пробел, W или стрелка вверх — прыжок."></canvas>
+                <div id="countdown" class="race-count" hidden aria-live="polite"></div>
+                <div id="finish" class="result" hidden>
+                  <h2 id="finish-title">Финиш!</h2>
+                  <p id="finish-detail"></p>
+                  <button id="rematch" class="button primary" type="button">Новый заезд</button>
+                  <p id="finish-wait" hidden>Создатель комнаты может запустить новый заезд.</p>
+                </div>
+              </div>
+              <div class="course-bottom"><p id="level-hint"></p><span id="checkpoint" hidden>◈ Маяк сохранён</span></div>
+              <div id="touch" class="race-touch" hidden>
+                <div><button id="left" type="button" class="button secondary" aria-label="Влево">‹</button><button id="right" type="button" class="button secondary" aria-label="Вправо">›</button></div>
+                <button id="jump" type="button" class="button primary">Прыжок</button>
+              </div>
+            </div>
+            <aside class="standings">
+              <h2>Гонка</h2>
+              <div id="positions"></div>
+              <div class="keyboard"><kbd>A</kbd> <kbd>D</kbd> <span>движение</span><br><kbd>Пробел</kbd> <span>прыжок</span></div>
+            </aside>
+          </div>
+        </section>
+      </section>
+    </main>
+  </div>
+  <dialog id="rules">
+    <div class="dialog-title"><h2>Как играть</h2><button id="rules-close" class="button secondary" type="button" aria-label="Закрыть правила">×</button></div>
+    <ul>
+      <li>Создайте комнату на 2–4 игроков. Когда создатель нажмёт «Начать гонку», старт будет общим.</li>
+      <li>Стрелки или A и D двигают бегуна. Пробел, W или стрелка вверх — прыжок. На телефоне есть экранные кнопки.</li>
+      <li>Добеги до портала в конце каждой из четырёх трасс. После падения возвращаешься к последнему маяку или на начало трассы.</li>
+      <li>Первый, кто пройдёт все четыре трассы, выигрывает. Твой итог зависит от времени с общего старта.</li>
+    </ul>
+  </dialog>
+</body>
+</html>

@@ -27,10 +27,11 @@ await readAssets("public");
 
 const game = (await readFile("server/game.js", "utf8")).replace(/^export /gm, "");
 const arena = await readFile("server/arena.js", "utf8");
+const run = await readFile("server/run.js", "utf8");
 const app = (await readFile("server/worker.js", "utf8")).replace(/^import .*\n/gm, "");
 await mkdir("dist/server", { recursive: true });
 await mkdir("dist/.openai", { recursive: true });
-await writeFile("dist/server/index.js", "const assets = " + JSON.stringify(assets) + ";\n" + game + "\n" + arena + "\n" + app);
+await writeFile("dist/server/index.js", "const assets = " + JSON.stringify(assets) + ";\n" + game + "\n" + arena + "\n" + run + "\n" + app);
 if (existsSync(".openai/hosting.json")) {
   await copyFile(".openai/hosting.json", "dist/.openai/hosting.json");
 }

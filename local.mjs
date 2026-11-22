@@ -10,7 +10,7 @@ const { values } = parseArgs({
 });
 
 const store = new DatabaseSync(process.env.HEIST_SQLITE_PATH || "heist.sqlite");
-for (const migration of ["0000_rooms.sql", "0001_arena.sql"]) {
+for (const migration of ["0000_rooms.sql", "0001_arena.sql", "0002_runs.sql"]) {
   store.exec(await readFile(new URL("./drizzle/" + migration, import.meta.url), "utf8"));
 }
 const DB = {
