@@ -689,7 +689,8 @@ confirm.onclick = () => {
     audioContext = new Context();
     audioContext.resume().catch(() => {});
   }
-  if (touchScreen.matches) enterFullScreen(true);
+  const installed = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  if (touchScreen.matches && !installed) enterFullScreen(true);
   confirm.disabled = true;
   boot().finally(() => { confirm.disabled = false; });
 };
