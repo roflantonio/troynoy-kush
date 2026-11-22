@@ -100,7 +100,8 @@ async function roomResponse(request, url, env) {
     });
   } else {
     try {
-      response = await api(request, url.pathname, env.DB);
+      const handler = url.pathname.startsWith("/api/arena") ? arenaApi : api;
+      response = await handler(request, url.pathname, env.DB);
     } catch (error) {
       if (error instanceof GameError) response = json({ error: error.message }, error.status);
       else {
@@ -120,6 +121,10 @@ export default {
     const url = new URL(request.url);
     const { pathname } = url;
     if (pathname.startsWith("/api/")) return roomResponse(request, url, env);
+    if (pathname === "/arena") {
+      url.pathname = "/arena/";
+      return Response.redirect(url, 308);
+    }
     const asset = Object.hasOwn(assets, pathname) ? assets[pathname] : null;
     if (!asset) return new Response("Страница не найдена", { status: 404 });
     const [type, data] = asset;

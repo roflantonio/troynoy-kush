@@ -10,7 +10,9 @@ const { values } = parseArgs({
 });
 
 const store = new DatabaseSync(process.env.HEIST_SQLITE_PATH || "heist.sqlite");
-store.exec(await readFile(new URL("./drizzle/0000_rooms.sql", import.meta.url), "utf8"));
+for (const migration of ["0000_rooms.sql", "0001_arena.sql"]) {
+  store.exec(await readFile(new URL("./drizzle/" + migration, import.meta.url), "utf8"));
+}
 const DB = {
   prepare(statement) {
     const prepared = store.prepare(statement);
@@ -18,6 +20,7 @@ const DB = {
       bind(...params) {
         return {
           first: async () => prepared.get(...params) ?? null,
+          all: async () => ({ results: prepared.all(...params) }),
           run: async () => ({ meta: { changes: Number(prepared.run(...params).changes) } }),
         };
       },
