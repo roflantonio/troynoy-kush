@@ -157,7 +157,8 @@ function drawRunner(ctx, p, slot, camera, t, tint, name = "", ghost = false) {
   const x = p.x - camera, y = p.y, color = tint ?? COLORS[slot];
   if (x < -100 || x > WIDTH + 100) return;
   ctx.save();
-  ctx.globalAlpha = ghost ? .65 : p.shield > 0 && Math.sin(t * 31) < 0 ? .54 : 1;
+  const labelOpacity = ghost ? (p.opacity ?? 1) * .65 : 1;
+  ctx.globalAlpha = ghost ? labelOpacity : p.shield > 0 && Math.sin(t * 31) < 0 ? .54 : 1;
   const stride = (p.moved || Math.abs(p.vx ?? 0) > 55) ? 3.8 * Math.sin(t * 24 + slot) : 0;
   ctx.translate(x + SIZE.w / 2, y);
   ctx.scale(p.face ?? 1, 1);
@@ -175,12 +176,15 @@ function drawRunner(ctx, p, slot, camera, t, tint, name = "", ghost = false) {
   tile(ctx, 7, 19, 6, 5, "#fff2cc", 2);
   ctx.restore();
   if (name) {
+    ctx.save();
+    ctx.globalAlpha = labelOpacity;
     ctx.textAlign = "center";
     ctx.font = "700 14px Manrope, system-ui";
     const w = Math.min(162, ctx.measureText(name).width + 13);
     tile(ctx, x + SIZE.w / 2 - w / 2, y - 24, w, 19, "#11182ba8", 5);
     ctx.fillStyle = color;
     ctx.fillText(name, x + SIZE.w / 2, y - 10, w - 10);
+    ctx.restore();
   }
 }
 

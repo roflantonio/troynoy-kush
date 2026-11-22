@@ -1,6 +1,7 @@
 import { COLORS, LEVELS } from "./levels.js";
 import { runner, STEP, tickRunner } from "./physics.js";
-import { renderTo, scenePreview } from "./draw.js";
+import { renderTo, scenePreview } from "./draw.js?v=2";
+import { RemoteRunner } from "./ghosts.js";
 import { Soundtrack } from "../arena/audio.js";
 import { codeFrom, roomUrl, validCode } from "../arena/network.js";
 
@@ -16,7 +17,7 @@ let session = read(sessionStorage, "turbo-room");
 let room;
 let player;
 let atLevel = 0;
-let ghostTargets = [];
+const ghosts = new Map();
 let offset = 0;
 let timer;
 let polling = 0;
@@ -122,7 +123,7 @@ function mainMenu(forget = false) {
   room = null;
   player = null;
   queue = [];
-  ghostTargets = [];
+  ghosts.clear();
   shownRoster = "";
   clearKeys();
   audio.inMatch = false;
@@ -158,12 +159,18 @@ function lobbyView() {
   $("lobby-wait").hidden = room.me === 0;
 }
 
-function updateGhosts(incoming) {
-  const names = new Map(room.players.map(p => [p.slot, p.name]));
-  ghostTargets = incoming.filter(p => p.slot !== room.me).map(p => {
-    const old = ghostTargets.find(other => other.slot === p.slot && other.level === p.level);
-    return { ...p, name: names.get(p.slot), sx: old?.sx ?? p.x, sy: old?.sy ?? p.y };
-  });
+function updateGhosts(incoming, serverNow) {
+  const receivedAt = performance.now();
+  for (const packet of incoming) {
+    if (packet.slot === room.me) continue;
+    const old = ghosts.get(packet.slot);
+    const track = old?.latest?.level === packet.level ? old : new RemoteRunner();
+    track.receive(packet, receivedAt, serverNow);
+    ghosts.set(packet.slot, track);
+  }
+  for (const member of room.players) {
+    if (ghosts.has(member.slot) && ghosts.get(member.slot).latest.level !== member.level) ghosts.delete(member.slot);
+  }
 }
 
 function setLevel(level, checkpoint = false, falls = 0) {
@@ -210,8 +217,8 @@ function advanceImmediately() {
 
 function standings() {
   const data = room.players.map(p => {
-    const position = p.slot === room.me ? player?.x
-      : ghostTargets.find(other => other.slot === p.slot && other.level === p.level)?.x;
+    const sample = ghosts.get(p.slot)?.latest;
+    const position = p.slot === room.me ? player?.x : sample?.level === p.level ? sample.x : undefined;
     const level = p.slot === room.me && player ? atLevel : p.level;
     const awaiting = p.slot === room.me && player?.done && !p.done;
     const pct = p.level >= LEVELS.length || awaiting ? 100 : Math.round((level
@@ -276,7 +283,7 @@ function accept(data) {
   const me = room.players.find(p => p.slot === room.me);
   const newRace = !last || last.match !== room.match;
   if (newRace) {
-    ghostTargets = [];
+    ghosts.clear();
     resultKey = "";
     clearKeys();
     clockAnchor = performance.now() + room.start - (Date.now() + offset);
@@ -289,7 +296,7 @@ function accept(data) {
     }
     if (!player || (me.level > atLevel && me.level < LEVELS.length)) setLevel(me.level);
   }
-  if (data.ghosts) updateGhosts(data.ghosts);
+  if (data.ghosts) updateGhosts(data.ghosts, room.now);
   audio.inMatch = room.phase === "race" && !me.done;
   showResult(me, before?.level === undefined || last.match !== room.match ? null : before);
   standings();
@@ -338,7 +345,8 @@ function liveTime() { return performance.now() - clockAnchor; }
 function myGhost() {
   if (room.phase !== "race" || !player || liveTime() < 0 || room.players.find(p => p.slot === room.me).done) return null;
   return { level: atLevel, x: player.x, y: player.y, face: player.face, down: player.respawn > 0,
-    flash: player.shield > 0, moved: Math.abs(player.vx) > 55, checkpoint: player.checkpoint };
+    flash: player.shield > 0, moved: Math.abs(player.vx) > 55, checkpoint: player.checkpoint,
+    vx: player.vx, vy: player.vy, falls: player.falls };
 }
 
 async function poll(expected) {
@@ -450,11 +458,13 @@ function frame(now) {
       $("countdown").textContent = String(Math.ceil(-ms / 1000));
       audio.effect("join");
     }
-    const rivals = ghostTargets.filter(p => p.level === atLevel).map(p => {
-      if (Math.abs(p.sx - p.x) > 180) { p.sx = p.x; p.sy = p.y; }
-      else { p.sx += (p.x - p.sx) * .14; p.sy += (p.y - p.sy) * .18; }
-      return { ...p, x: p.sx, y: p.sy };
-    });
+    const rivals = [];
+    for (const member of room.players) {
+      const track = ghosts.get(member.slot);
+      if (track?.latest.level !== atLevel) continue;
+      const frame = track.drawAt(now);
+      if (frame) rivals.push({ ...frame, name: member.name });
+    }
     paint(atLevel, player, room.me, rivals, Math.max(0, ms / 1000));
   }
   requestAnimationFrame(frame);

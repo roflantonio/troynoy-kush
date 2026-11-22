@@ -66,14 +66,17 @@ async function runGhosts(db, room, player, input, now, revision) {
       y: Math.round(Math.max(-90, Math.min(575, body.y))),
       face: body.face === -1 ? -1 : 1, down: body.down === true, flash: body.flash === true,
       moved: body.moved === true, checkpoint: body.checkpoint === true,
+      vx: Number.isFinite(body.vx) ? Math.round(Math.max(-460, Math.min(460, body.vx))) : 0,
+      vy: Number.isFinite(body.vy) ? Math.round(Math.max(-920, Math.min(1150, body.vy))) : 0,
+      falls: Number.isInteger(body.falls) ? Math.max(0, Math.min(1000, body.falls)) : null,
     };
     await db.prepare(`INSERT INTO run_ghosts (room, match, slot, at, packet) VALUES (?, ?, ?, ?, ?)
       ON CONFLICT(room, match, slot) DO UPDATE SET at = excluded.at, packet = excluded.packet`)
       .bind(room.code, room.match, player.slot, now, JSON.stringify(ghost)).run();
   }
-  const rows = await db.prepare("SELECT slot, packet FROM run_ghosts WHERE room = ? AND match = ? AND at >= ?")
+  const rows = await db.prepare("SELECT slot, at, packet FROM run_ghosts WHERE room = ? AND match = ? AND at >= ?")
     .bind(room.code, room.match, now - 4200).all();
-  const ghosts = rows.results.map(({ slot, packet }) => ({ slot, ...JSON.parse(packet) }))
+  const ghosts = rows.results.map(({ slot, at, packet }) => ({ slot, at, ...JSON.parse(packet) }))
     .filter(ghost => room.players.some(member => member.slot === ghost.slot && member.level === ghost.level));
   return json({ room: runView(room, player, now, revision), ghosts });
 }
