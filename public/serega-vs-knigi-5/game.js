@@ -19,6 +19,7 @@ const imageCache = new Map();
 const frameCache = new Map();
 const sounds = new Map();
 const videos = new Set();
+const overlaySurfaces = [];
 const targetButtons = new Map();
 const pointers = new Map();
 const keyLabels = {13:'Enter',16:'Shift',32:'Пробел',37:'◀',38:'▲',39:'▶',40:'▼'};
@@ -187,6 +188,7 @@ function setVideo(entity, path) {
   }
   const video = document.createElement('video');
   video.playsInline = true;
+  video.hidden = true;
   video.preload = 'auto';
   video.disablePictureInPicture = true;
   video.loop = Boolean(entity.videoLoop);
@@ -239,12 +241,12 @@ function readyToPlay() {
   return [...videos].every(entity => !entity.playing || entity.video.readyState >= 2);
 }
 
-function sprite(id,x,y) {
+function sprite(ctx,id,x,y) {
   const img = imageCache.get(id)?.bitmap;
   if (img?.naturalWidth) ctx.drawImage(img,Math.round(x),Math.round(y));
 }
 
-function textLines(text, width) {
+function textLines(ctx,text,width) {
   const lines = [];
   for (const paragraph of text.split(/\r?\n/)) {
     let line = '';
@@ -262,7 +264,7 @@ function textLines(text, width) {
   return lines;
 }
 
-function drawText(entity, bounds) {
+function drawText(entity,bounds,ctx) {
   const {detail} = entity.def;
   const [face,size,weight] = project.fonts[detail.Font] ?? ['Arial',24,400];
   ctx.font = weight + ' ' + size + 'px "' + face + '", serif';
@@ -270,14 +272,14 @@ function drawText(entity, bounds) {
   ctx.textBaseline = 'top';
   ctx.textAlign = (detail.flags & 1) ? 'center' : (detail.flags & 2) ? 'right' : 'left';
   const x = bounds.x + (ctx.textAlign === 'center' ? bounds.w/2 : ctx.textAlign === 'right' ? bounds.w : 0);
-  const lines = textLines(detail.paragraphs[entity.paragraph] ?? '',bounds.w);
+  const lines = textLines(ctx,detail.paragraphs[entity.paragraph] ?? '',bounds.w);
   const leading = size * 1.08;
   const totalHeight = lines.length * leading;
   const y = bounds.y + (detail.flags & 4 ? (bounds.h-totalHeight)/2 : detail.flags & 8 ? bounds.h-totalHeight : 0);
   for (const [i,line] of lines.entries()) ctx.fillText(line,x,y+i*leading);
 }
 
-function drawActive(entity,bounds) {
+function drawActive(entity,bounds,ctx) {
   const direction = animationDirection(entity);
   if (!direction?.Frames.length) return;
   const id = activeImage(entity);
@@ -290,10 +292,10 @@ function drawActive(entity,bounds) {
   if (entity.renderedSprite === undefined) return;
   const actual = project.images[entity.renderedSprite];
   const intended = project.images[id];
-  sprite(entity.renderedSprite,bounds.x + intended[2] - actual[2],bounds.y + intended[3] - actual[3]);
+  sprite(ctx,entity.renderedSprite,bounds.x + intended[2] - actual[2],bounds.y + intended[3] - actual[3]);
 }
 
-function drawCounter(entity,bounds) {
+function drawCounter(entity,bounds,ctx) {
   const {detail} = entity.def;
   if (detail.DisplayType === 1) {
     let x = bounds.x;
@@ -303,7 +305,7 @@ function drawCounter(entity,bounds) {
       const img = project.images[id];
       if (!img) continue;
       x -= img[0];
-      sprite(id,x,bounds.y-img[1]);
+      sprite(ctx,id,x,bounds.y-img[1]);
     }
   } else if (detail.DisplayType === 3) {
     const ratio = clamp((entity.value-detail.Minimum) / (detail.Maximum-detail.Minimum),0,1);
@@ -363,24 +365,59 @@ function tapLabel(name) {
   return label[runtime.frame.id]?.[name] ?? name;
 }
 
+function videoSurface(depth) {
+  if (!overlaySurfaces[depth-1]) {
+    const overlay = document.createElement('canvas');
+    overlay.width = project.width;
+    overlay.height = project.height;
+    overlay.style.zIndex = depth*2;
+    media.append(overlay);
+    overlaySurfaces[depth-1] = {canvas:overlay,ctx:overlay.getContext('2d')};
+  }
+  const surface = overlaySurfaces[depth-1];
+  surface.canvas.hidden = false;
+  surface.ctx.clearRect(0,0,project.width,project.height);
+  return surface.ctx;
+}
+
+function positionVideo(video,bounds,depth,opacity) {
+  const coords = [bounds.x/project.width,bounds.y/project.height,bounds.w/project.width,bounds.h/project.height];
+  const key = coords.join(',') + '/' + depth + '/' + opacity;
+  if (video.layoutKey === key) return;
+  const [left,top,width,height] = coords.map(fraction => fraction*100 + '%');
+  Object.assign(video.style,{left,top,width,height,zIndex:depth*2-1,opacity});
+  video.layoutKey = key;
+}
+
 function render() {
   if (!runtime?.frame) return;
   const frame = runtime.frame;
   ctx.fillStyle = frame.background;
   ctx.fillRect(0,0,project.width,project.height);
   const items = runtime.entities.filter(e => e.visible && !e.dead && !frame.layers[e.layer]?.hidden).sort((a,b) => a.layer-b.layer);
+  const visibleVideos = new Set();
+  let depth = 0;
+  let surface = ctx;
   for (const entity of items) {
     const {type,InkEffect,InkEffectParameter,BlendCoeff} = entity.def;
     const b = runtime.displayBounds(entity);
     if (!b || b.x > project.width+100 || b.y > project.height+100 || b.x+b.w < -100 || b.y+b.h < -100) continue;
     if (entity.flash && Math.floor(runtime.time / entity.flash) % 2) continue;
-    ctx.globalAlpha = InkEffect === 1 ? 1 - clamp(InkEffectParameter / 128,0,1) : 1 - (BlendCoeff ?? 0)/255;
-    if (type === 2) drawActive(entity,b);
-    if (type === 3) drawText(entity,b);
-    if (type === 7) drawCounter(entity,b);
-    if (type === 32 && entity.video?.readyState >= 2) ctx.drawImage(entity.video,b.x,b.y,b.w,b.h);
+    const opacity = InkEffect === 1 ? 1 - clamp(InkEffectParameter / 128,0,1) : 1 - (BlendCoeff ?? 0)/255;
+    if (type === 32 && entity.video?.readyState >= 2) {
+      positionVideo(entity.video,b,++depth,opacity);
+      visibleVideos.add(entity.video);
+      surface = videoSurface(depth);
+      continue;
+    }
+    surface.globalAlpha = opacity;
+    if (type === 2) drawActive(entity,b,surface);
+    if (type === 3) drawText(entity,b,surface);
+    if (type === 7) drawCounter(entity,b,surface);
+    surface.globalAlpha = 1;
   }
-  ctx.globalAlpha = 1;
+  for (const entity of videos) entity.video.hidden = !visibleVideos.has(entity.video);
+  for (let i = depth; i < overlaySurfaces.length; i++) overlaySurfaces[i].canvas.hidden = true;
   renderTargets();
 }
 

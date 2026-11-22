@@ -32,9 +32,9 @@ body {
   background: #000;
   touch-action: none;
 }
-#scene, #targets { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
-#media { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; pointer-events: none; }
-#media video { width: 1px; height: 1px; }
+#media, #media canvas, #targets { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
+#media { isolation: isolate; pointer-events: none; }
+#media video { position: absolute; display: block; object-fit: fill; }
 button { font: inherit; color: inherit; cursor: pointer; }
 button:focus-visible { outline: 3px solid #ffe66b; outline-offset: -3px; }
 .target {
