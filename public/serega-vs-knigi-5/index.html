@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#080808">
+  <title>Серёга против книг 5</title>
+  <link rel="stylesheet" href="game.css">
+  <script defer src="movement.js"></script>
+  <script defer src="runtime.js"></script>
+  <script defer src="game.js"></script>
+</head>
+<body>
+<main id="game" aria-label="Серёга против книг 5">
+  <div id="stage">
+    <canvas id="scene" width="1280" height="720" aria-hidden="true"></canvas>
+    <div id="targets"></div>
+    <section id="notice" aria-live="polite">
+      <h1>Серёга против книг 5</h1>
+      <p></p>
+      <button id="confirm" type="button">Играть</button>
+    </section>
+  </div>
+  <div id="controls" aria-label="Сенсорное управление" hidden>
+    <div id="directions"></div>
+    <div id="actions"></div>
+    <button id="menu" type="button">Меню</button>
+  </div>
+  <div id="media" aria-hidden="true"></div>
+</main>
+</body>
+</html>
