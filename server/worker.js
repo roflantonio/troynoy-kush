@@ -122,7 +122,7 @@ export default {
     const url = new URL(request.url);
     const { pathname } = url;
     if (pathname.startsWith("/api/")) return roomResponse(request, url, env);
-    if (pathname === "/arena" || pathname === "/run") {
+    if (pathname === "/arena" || pathname === "/run" || pathname === "/heist") {
       url.pathname = pathname + "/";
       return Response.redirect(url, 308);
     }

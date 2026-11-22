@@ -6,6 +6,7 @@ const typeByExt = {
   css: "text/css; charset=utf-8",
   js: "application/javascript; charset=utf-8",
   webp: "image/webp",
+  jpg: "image/jpeg",
   mp3: "audio/mpeg",
   woff2: "font/woff2",
 };

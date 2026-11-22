@@ -3,82 +3,71 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#141018">
-  <meta name="description" content="Тройной куш — онлайн-игра про блеф и удачу для троих друзей.">
-  <title>Тройной куш — игра для троих</title>
-  <link rel="stylesheet" href="./style.css">
-  <script src="./app.js" type="module"></script>
+  <meta name="theme-color" content="#100d17">
+  <meta name="description" content="Botan Cock Games. Три онлайн-игры для компании и главный проект студии «Серёга против книг 5».">
+  <title>Botan Cock Games</title>
+  <link rel="icon" href="./launch/joker.jpg" type="image/jpeg">
+  <link rel="stylesheet" href="./launch/launcher.css">
+  <script type="module" src="./launch/launcher.js"></script>
 </head>
 <body>
+  <div class="backdrop" aria-hidden="true"></div>
   <div class="shell">
     <header class="top">
-      <a class="brand" href="./" aria-label="Тройной куш, главная"><span class="brand-icon" aria-hidden="true">✦</span><span>ТРОЙНОЙ КУШ</span></a>
-      <div class="top-actions">
-        <a class="top-button sequel" href="./run/">Турбо-побег</a>
-        <a class="top-button sequel" href="./arena/">Лазерный налёт</a>
-        <button class="top-button" id="sound" type="button" aria-label="Включить звук" aria-pressed="false"><span aria-hidden="true">♪</span><span class="sound-label">Звук</span></button>
-        <button class="top-button" id="open-rules" type="button"><span aria-hidden="true">?</span>Правила</button>
-      </div>
+      <a class="wordmark" href="./"><img src="./launch/joker.jpg" width="49" height="49" alt=""><span>Botan Cock Games</span></a>
+      <nav aria-label="Разделы сайта">
+        <a href="#games">Игры</a>
+        <a href="#featured">Главный проект</a>
+      </nav>
+      <button type="button" class="music" id="music" aria-pressed="false"><span aria-hidden="true">♫</span> <span>Музыка</span></button>
+      <audio id="soundtrack" loop preload="none" src="./run/turbo-pobeg.mp3"></audio>
     </header>
 
     <main>
-      <div id="home">
-        <section class="hero" aria-labelledby="hero-title">
-          <div class="hero-content">
-            <div class="kicker"><span aria-hidden="true">✦ ✦ ✦</span> ИГРА ДЛЯ ТРОИХ</div>
-            <h1 id="hero-title">ТРОЙНОЙ<br><em>КУШ.</em></h1>
-            <p class="hero-copy">Один сейф. Трое налётчиков. Забери добычу, пока друзья не придумали то же самое.</p>
-            <form id="entry-form" class="entry">
-              <label for="nickname">Твоё имя</label>
-              <input id="nickname" name="nickname" placeholder="Например, Ловкач" required maxlength="36" autocomplete="nickname">
-              <div class="entry-buttons">
-                <button type="submit" class="button hot" id="create">Создать комнату</button>
-                <button type="button" class="button ghost" id="show-join" aria-expanded="false">Войти по коду</button>
-              </div>
-              <div id="join-fields" class="join-fields" hidden>
-                <label class="sr-only" for="room-code">Код комнаты</label>
-                <input id="room-code" name="code" placeholder="Код комнаты" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false">
-                <button type="submit" id="join" class="button hot">Войти</button>
-              </div>
-              <p class="error" id="entry-error" role="alert" hidden></p>
-              <button type="button" id="resume" class="button ghost resume" hidden></button>
-            </form>
-          </div>
-          <div class="hero-art" aria-hidden="true">
-            <img src="./vault.webp" alt="" width="1152" height="1016" fetchpriority="high">
-          </div>
-        </section>
+      <section class="hero" id="games" aria-labelledby="games-title">
+        <h1 id="games-title">BOTAN COCK <em>GAMES</em></h1>
+        <p>Собери друзей и выбери, во что сыграть.</p>
+      </section>
 
-        <section class="features" aria-label="Что ждёт в игре">
-          <article><span class="feature-icon orange" aria-hidden="true">◈</span><div><h2>Хватай добычу</h2><p>Один предмет на раунд. Самый дорогой заметят все.</p></div></article>
-          <article><span class="feature-icon violet" aria-hidden="true">⌁</span><div><h2>Сбивай со следа</h2><p>Ставь метки на добычу и меняй планы до последнего.</p></div></article>
-          <article><span class="feature-icon green" aria-hidden="true">ϟ</span><div><h2>Прибереги козырь</h2><p>Удвой добычу или спаси очки при столкновении.</p></div></article>
-        </section>
+      <div class="games" aria-label="Браузерные игры">
+        <a class="game heist" href="./heist/">
+          <img src="./launch/cover-heist.webp" width="640" height="880" alt="" fetchpriority="high">
+          <span class="genre">Блеф и стратегия</span>
+          <div class="game-info">
+            <h2>Тройной куш</h2>
+            <div class="game-meta"><span>3 игрока</span><span class="play">Играть</span></div>
+          </div>
+        </a>
+        <a class="game arena" href="./arena/">
+          <img src="./launch/cover-arena.webp" width="640" height="880" alt="" fetchpriority="high">
+          <span class="genre">Шутер с видом сверху</span>
+          <div class="game-info">
+            <h2>Лазерный налёт</h2>
+            <div class="game-meta"><span>3 игрока</span><span class="play">Играть</span></div>
+          </div>
+        </a>
+        <a class="game runner" href="./run/">
+          <img src="./launch/cover-run.webp" width="640" height="880" alt="" fetchpriority="high">
+          <span class="genre">Платформенная гонка</span>
+          <div class="game-info">
+            <h2>Турбо-побег</h2>
+            <div class="game-meta"><span>2–4 игрока</span><span class="play">Играть</span></div>
+          </div>
+        </a>
       </div>
 
-      <section id="room" class="room" hidden aria-label="Игровая комната">
-        <div id="room-toolbar" class="room-toolbar"></div>
-        <div id="room-content"></div>
-        <div class="room-notice" role="status" id="room-notice" hidden></div>
+      <p class="vpn"><span aria-hidden="true">ⓘ</span> Если игра не загружается, попробуй подключиться через VPN.</p>
+
+      <section class="featured" id="featured" aria-labelledby="featured-title">
+        <div class="feature-image"><img src="./launch/serega.jpg" width="1181" height="457" alt="Серёга против книг 5" loading="lazy"></div>
+        <div class="feature-body">
+          <p class="featured-eyebrow">Главный проект <span>AAA</span></p>
+          <h2 id="featured-title">Серёга против книг 5</h2>
+          <p class="feature-copy">История обычного ботана, который попал в необычные обстоятельства.</p>
+          <a class="feature-play" href="https://gamejolt.com/games/SeregavsKnigi5/1036541">Открыть на Game Jolt</a>
+        </div>
       </section>
     </main>
-
-    <footer class="footer"><span>ТРОЙНОЙ КУШ</span><span>3 игрока · 7 раундов · около 5 минут</span></footer>
   </div>
-
-  <dialog id="rules">
-    <div class="dialog-head">
-      <h2>Правила налёта</h2>
-      <button class="top-button close" type="button" id="close-rules" aria-label="Закрыть правила">×</button>
-    </div>
-    <ol class="rules-list">
-      <li><b>Соберитесь втроём.</b> Один создаёт комнату, двое заходят по ссылке или коду.</li>
-      <li><b>Выбери добычу за 25 секунд.</b> Можно поставить видимую всем метку, а затем подтвердить любой предмет. Подтверждённый выбор остаётся тайным до конца раунда.</li>
-      <li><b>Избегай совпадений.</b> Если ты единственный выбрал предмет, получаешь его стоимость. При совпадении все выбравшие этот предмет получают 0.</li>
-      <li><b>Используй приёмы.</b> Удвоение умножает удачную добычу на два. Щит даёт 3 очка при совпадении. Каждый приём доступен один раз за игру.</li>
-      <li><b>Собери больше всех за 7 раундов.</b> Игроки с одинаковым лучшим счётом делят победу.</li>
-    </ol>
-    <button type="button" class="button hot" id="rules-ok">Понятно</button>
-  </dialog>
 </body>
 </html>
