@@ -87,3 +87,26 @@ button:focus-visible { outline: 3px solid #ffe66b; outline-offset: -3px; }
     #controls { flex-wrap: wrap; }
   }
 }
+
+#debug {
+  width: min(440px, calc(100vw - 32px));
+  padding: 20px;
+  border: 1px solid #666;
+  border-radius: 10px;
+  background: #181818;
+  color: #fff;
+}
+#debug::backdrop { background: #0009; }
+#debug form { display: grid; gap: 10px; }
+#debug h2 { margin: 0 0 4px; font-size: 20px; }
+#debug select, #debug button {
+  min-height: 44px;
+  padding: 0 10px;
+  border: 1px solid #888;
+  border-radius: 5px;
+  background: #292929;
+  color: inherit;
+  font: inherit;
+}
+#debug select { width: 100%; }
+.debug-buttons { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }

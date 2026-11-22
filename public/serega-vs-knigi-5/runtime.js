@@ -107,7 +107,10 @@ class GameRuntime {
     }
     if (def.type === 32) return {x,y,w:def.size[0],h:def.size[1]};
     if (def.type === 3 || def.type === 7) {
-      return {x,y,w:def.detail.Width,h:def.detail.Height};
+      const {Width, Height, DisplayType} = def.detail;
+      // Fusion stores horizontal bar widths as negative values.
+      const w = def.type === 7 && DisplayType === 3 ? Math.abs(Width) : Width;
+      return {x,y,w,h:Height};
     }
     return null;
   }

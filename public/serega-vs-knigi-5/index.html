@@ -26,6 +26,17 @@
     <div id="actions"></div>
     <button id="menu" type="button">Меню</button>
   </div>
+  <dialog id="debug" aria-labelledby="debug-title">
+    <form id="debug-form">
+      <h2 id="debug-title">Отладка сцен</h2>
+      <label for="debug-scene">Сцена</label>
+      <select id="debug-scene" autofocus></select>
+      <div class="debug-buttons">
+        <button type="button" id="debug-close">Закрыть</button>
+        <button type="submit">Открыть сцену</button>
+      </div>
+    </form>
+  </dialog>
   <div id="media" aria-hidden="true"></div>
 </main>
 </body>

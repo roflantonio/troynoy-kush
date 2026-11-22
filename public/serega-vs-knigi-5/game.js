@@ -12,6 +12,8 @@ const notice = document.querySelector('#notice');
 const confirm = document.querySelector('#confirm');
 const media = document.querySelector('#media');
 const screenMenu = document.querySelector('#menu');
+const debug = document.querySelector('#debug');
+const debugScene = document.querySelector('#debug-scene');
 
 const imageCache = new Map();
 const frameCache = new Map();
@@ -27,6 +29,7 @@ let loading = false;
 let nextLoad = 0;
 let lastTime = performance.now();
 let accumulator = 0;
+let resumeDebugMedia = null;
 
 async function json(url) {
   const response = await fetch(url);
@@ -440,8 +443,48 @@ stage.addEventListener('pointermove', event => updatePoint(event,false));
 stage.addEventListener('pointerleave', () => { if (runtime) runtime.glance = null; });
 targets.addEventListener('pointerdown', event => updatePoint(event,true));
 screenMenu.onclick = goToMenu;
+
+function openDebug() {
+  debugScene.value = String(runtime.frame.id);
+  runtime.down.clear();
+  runtime.tapped.clear();
+  runtime.click = null;
+  pointers.clear();
+
+  const pausedAudio = [...sounds.values()].map(track => track.audio).filter(audio => !audio.paused);
+  const pausedVideos = [...videos].filter(entity => entity.playing);
+  for (const audio of pausedAudio) audio.pause();
+  for (const entity of pausedVideos) entity.video.pause();
+  resumeDebugMedia = () => {
+    for (const audio of pausedAudio) audio.play().catch(() => {});
+    for (const entity of pausedVideos) if (entity.video && entity.playing) playVideo(entity);
+  };
+  debug.showModal();
+}
+
+debug.addEventListener('close', () => {
+  resumeDebugMedia?.();
+  resumeDebugMedia = null;
+});
+document.querySelector('#debug-close').onclick = () => debug.close();
+document.querySelector('#debug-form').onsubmit = event => {
+  event.preventDefault();
+  const id = Number(debugScene.value);
+  if (!project.frames.some(frame => frame.id === id)) return;
+  resumeDebugMedia = null;
+  debug.close();
+  stopSounds();
+  go(id);
+};
 window.addEventListener('keydown', event => {
-  if (!runtime?.frame || !notice.hidden) return;
+  if (event.code === 'KeyP' && runtime?.frame) {
+    event.preventDefault();
+    if (event.repeat) return;
+    if (debug.open) debug.close();
+    else openDebug();
+    return;
+  }
+  if (debug.open || !runtime?.frame || !notice.hidden) return;
   if (event.key === 'Escape' && !document.fullscreenElement) { goToMenu(); return; }
   if (event.target instanceof HTMLButtonElement && (event.key === 'Enter' || event.key === ' ')) return;
   if (releaseKeys.has(event.keyCode) && ![9,27].includes(event.keyCode)) event.preventDefault();
@@ -471,9 +514,12 @@ function drawLoop(now) {
 async function boot() {
   try {
     project = await json('project.json');
+    debugScene.replaceChildren(...project.frames.map(({id,name}, index) =>
+      new Option(`${index + 1}. ${name}`, String(id))
+    ));
     runtime = new GameRuntime(project,{
       go, quit, cursor: visible => { targets.style.cursor = visible ? '' : 'none'; },
-      selectFrame, waiting: () => loading || !notice.hidden || !readyToPlay(),
+      selectFrame, waiting: () => debug.open || loading || !notice.hidden || !readyToPlay(),
       playSound, stopSound, stopSounds, isPlaying: name => Boolean(audioTrack(name)),
       soundVolume: (name,value) => { const track = audioTrack(name); if (track) track.audio.volume = clamp(value,0,1); },
       soundPan: (name,value) => { const track = audioTrack(name); if (track?.pan) track.pan.pan.value = clamp(value,-1,1); },
