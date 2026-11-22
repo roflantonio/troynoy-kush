@@ -11,7 +11,7 @@ const actions = document.querySelector('#actions');
 const notice = document.querySelector('#notice');
 const confirm = document.querySelector('#confirm');
 const media = document.querySelector('#media');
-const screenMenu = document.querySelector('#menu');
+const touchScreen = window.matchMedia('(any-pointer: coarse)');
 const debug = document.querySelector('#debug');
 const debugScene = document.querySelector('#debug-scene');
 
@@ -22,7 +22,8 @@ const videos = new Set();
 const overlaySurfaces = [];
 const targetButtons = new Map();
 const pointers = new Map();
-const keyLabels = {13:'Enter',16:'Shift',32:'Пробел',37:'◀',38:'▲',39:'▶',40:'▼'};
+const keyLabels = {13:'Enter',16:'Shift',32:'Пробел',37:'‹',38:'⌃',39:'›',40:'⌄'};
+const directionLabels = {37:'Влево',38:'Вверх',39:'Вправо',40:'Вниз'};
 const releaseKeys = new Set([9,16,17,18,27,32,37,38,39,40]);
 const savePrefix = 'serega-books-5/';
 let project, runtime, audioContext;
@@ -431,6 +432,8 @@ function makeTouchKey(code) {
   const button = document.createElement('button');
   button.type = 'button';
   button.textContent = keyLabels[code] ?? String.fromCharCode(code);
+  button.dataset.key = code;
+  if (directionLabels[code]) button.setAttribute('aria-label',directionLabels[code]);
   button.addEventListener('pointerdown', event => {
     if (event.pointerType === 'touch') event.preventDefault();
     button.setPointerCapture(event.pointerId);
@@ -469,8 +472,9 @@ function selectFrame(frame) {
     }
   }
   for (const code of keys) (code >= 37 && code <= 40 ? directions : actions).append(makeTouchKey(code));
-  controls.hidden = frame.id === 1;
-  screenMenu.hidden = frame.id === 1;
+  controls.hidden = frame.cinematic || keys.size === 0;
+  directions.hidden = directions.childElementCount === 0;
+  actions.hidden = actions.childElementCount === 0;
   for (const code of pointers.values()) runtime.keyUp(code);
   pointers.clear();
 }
@@ -490,7 +494,6 @@ for (const area of [stage,controls]) {
 stage.addEventListener('pointermove', event => updatePoint(event,false));
 stage.addEventListener('pointerleave', () => { if (runtime) runtime.glance = null; });
 targets.addEventListener('pointerdown', event => updatePoint(event,true));
-screenMenu.onclick = goToMenu;
 
 function openDebug() {
   debugScene.value = String(runtime.frame.id);
@@ -532,7 +535,7 @@ window.addEventListener('keydown', event => {
     else openDebug();
     return;
   }
-  if (debug.open || !runtime?.frame || !notice.hidden) return;
+  if (debug.open || !runtime?.frame || runtime.frame.cinematic || !notice.hidden) return;
   if (event.key === 'Escape' && !document.fullscreenElement) { goToMenu(); return; }
   if (event.target instanceof HTMLButtonElement && (event.key === 'Enter' || event.key === ' ')) return;
   if (releaseKeys.has(event.keyCode) && ![9,27].includes(event.keyCode)) event.preventDefault();
@@ -595,6 +598,7 @@ confirm.onclick = () => {
     audioContext = new Context();
     audioContext.resume().catch(() => {});
   }
+  if (touchScreen.matches) enterFullScreen(true);
   confirm.disabled = true;
   boot().finally(() => { confirm.disabled = false; });
 };

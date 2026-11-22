@@ -67,7 +67,7 @@ button:focus-visible { outline: 3px solid #ffe66b; outline-offset: -3px; }
 #notice h1 { margin: 0; font-size: clamp(18px, 4vw, 42px); }
 #notice p { margin: 0; max-width: 45ch; }
 #notice p:empty { display: none; }
-#confirm, #controls button {
+#confirm {
   min-height: 44px;
   min-width: 44px;
   padding: 0 11px;
@@ -75,23 +75,60 @@ button:focus-visible { outline: 3px solid #ffe66b; outline-offset: -3px; }
   border-radius: 8px;
   background: #1b1b1bef;
 }
-#controls {
-  display: none;
-  padding: 6px max(6px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left));
-  gap: 6px;
-  touch-action: none;
-}
-#directions, #actions { display: flex; flex-wrap: wrap; gap: 4px; }
-#actions { flex: 1; justify-content: center; }
-#controls button:active, #confirm:active { background: #4c4c4c; }
+#controls { display: none; }
+#confirm:active { background: #4c4c4c; }
 
 @media (any-pointer: coarse) {
-  #game { --screen-width: min(100vw, calc((100dvh - 57px) * 16 / 9)); }
-  #controls { display: flex; }
-  @media (orientation: portrait) {
-    #game { --screen-width: 100vw; }
-    #controls { flex-wrap: wrap; }
+  #game {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    width: 100%;
+    height: 100%;
   }
+  #controls {
+    --key-size: clamp(44px, 10vmin, 62px);
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 6px;
+    padding: 6px max(6px, env(safe-area-inset-right)) max(6px, env(safe-area-inset-bottom)) max(6px, env(safe-area-inset-left));
+    pointer-events: none;
+    touch-action: none;
+  }
+  #directions, #actions {
+    display: grid;
+    grid-template-columns: repeat(3, var(--key-size));
+    align-items: end;
+    gap: 4px;
+  }
+  #actions { margin-left: auto; justify-items: end; }
+  #directions:not(:has([data-key="38"], [data-key="40"])) {
+    grid-template-columns: repeat(2, var(--key-size));
+  }
+  #directions:has([data-key="38"], [data-key="40"]) [data-key="38"] { grid-area: 1 / 2; }
+  #directions:has([data-key="38"], [data-key="40"]) [data-key="37"] { grid-area: 2 / 1; }
+  #directions:has([data-key="38"], [data-key="40"]) [data-key="40"] { grid-area: 2 / 2; }
+  #directions:has([data-key="38"], [data-key="40"]) [data-key="39"] { grid-area: 2 / 3; }
+  #controls button {
+    pointer-events: auto;
+    touch-action: none;
+    width: var(--key-size);
+    height: var(--key-size);
+    padding: 0;
+    border: 1px solid #fff8;
+    border-radius: 50%;
+    background: #141b296e;
+    color: #fff;
+    font-weight: 700;
+    font-size: clamp(11px, 2.6vmin, 14px);
+    text-shadow: 0 1px 3px #000;
+  }
+  #controls #directions button { font-size: 26px; }
+  #controls button:active { background: #141b29c9; border-color: #fff; }
 }
 
 #debug {
