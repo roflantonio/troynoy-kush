@@ -186,9 +186,9 @@ async function recoverHost(conn, match) {
     if (connection !== conn || room.match !== match || state) return;
     const previous = packets.find(entry => entry.slot === 0)?.packet;
     if (snapshotValid(previous)) useSnapshot(previous);
-    else state = startMatch();
+    else useSnapshot(startMatch());
   } catch {
-    if (connection === conn && room.match === match && !state) state = startMatch();
+    if (connection === conn && room.match === match && !state) useSnapshot(startMatch());
   }
   timerMark = performance.now();
 }
