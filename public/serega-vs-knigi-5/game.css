@@ -75,7 +75,27 @@ button:focus-visible { outline: 3px solid #ffe66b; outline-offset: -3px; }
   border-radius: 8px;
   background: #1b1b1bef;
 }
-#controls { display: none; }
+#controls, #rotate-phone { display: none; }
+
+@media (any-pointer: coarse) and (orientation: portrait) {
+  #rotate-phone {
+    position: absolute;
+    top: max(16px, env(safe-area-inset-top));
+    left: 12px;
+    right: 12px;
+    z-index: 1;
+    display: block;
+    width: fit-content;
+    max-width: calc(100% - 24px);
+    margin: 0 auto;
+    padding: 8px 14px;
+    border-radius: 10px;
+    background: #252525;
+    color: #fff;
+    text-align: center;
+    pointer-events: none;
+  }
+}
 #confirm:active { background: #4c4c4c; }
 
 @media (any-pointer: coarse) {
