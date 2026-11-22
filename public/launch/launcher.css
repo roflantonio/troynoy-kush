@@ -178,8 +178,22 @@ main { max-width: 1010px; margin: 0 auto; }
 .featured-eyebrow span { color: var(--acid); background: #273323; border: 1px solid #536442; border-radius: 5px; font: 700 .87rem/1.25 var(--display); letter-spacing: .07em; padding: 3px 6px; }
 .featured h2 { font: 700 clamp(1.7rem, 3.65vw, 2.55rem)/1.12 var(--display); margin-top: 8px; }
 .feature-copy { font-size: .88rem; color: var(--muted); margin: 7px 0 12px; }
+.feature-notes {
+  margin: 0 0 12px;
+  padding: 9px 12px;
+  border-left: 3px solid #f0ba64;
+  border-radius: 5px;
+  background: #f0ba641a;
+  color: #ffe5b8;
+  font-size: .88rem;
+  line-height: 1.45;
+}
+.feature-notes p + p { margin-top: 4px; }
+.feature-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .feature-play { min-height: 42px; padding: 7px 13px; display: inline-flex; align-items: center; border-radius: 7px; color: #202117; background: var(--acid); font-size: .88rem; font-weight: 800; }
 .feature-play:hover { background: #d7ffa9; }
+.feature-gamejolt { background: #282235; color: #f3eaff; border: 1px solid #725b92; }
+.feature-gamejolt:hover { background: #382d4c; }
 @media (max-width: 780px) {
   .shell { padding-inline: 21px; }
   .games { gap: 11px; }
