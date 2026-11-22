@@ -28,7 +28,7 @@ jobs:
       - uses: actions/configure-pages@v5
       - run: node build-pages.mjs
         env:
-          HEIST_API_ORIGIN: ${{ vars.HEIST_API_ORIGIN }}
+          HEIST_API_ORIGIN: ${{ vars.HEIST_API_ORIGIN || 'https://troynoy-kush.chalkyflounder13.chatgpt.site' }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist/pages

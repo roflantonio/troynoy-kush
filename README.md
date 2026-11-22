@@ -11,7 +11,7 @@
 GitHub Pages обслуживает игровые страницы. Для комнат и подсчёта очков потребуется общедоступный HTTPS-сервер. Его можно развернуть на Cloudflare Workers с базой D1 и привязкой `DB`. Команда `npm run build` собирает воркер в `dist/server/index.js`. Примените миграцию `drizzle/0000_rooms.sql` к D1 перед запуском воркера.
 
 1. На сервере укажите `HEIST_PAGES_ORIGIN` как источник GitHub Pages, например `https://account.github.io`. Путь репозитория в эту переменную не входит.
-2. В настройках GitHub Pages выберите GitHub Actions. Создайте переменную репозитория `HEIST_API_ORIGIN` с адресом сервера комнат, например `https://game.example.com`.
+2. В настройках GitHub Pages выберите GitHub Actions. Для своего сервера создайте переменную репозитория `HEIST_API_ORIGIN` с адресом сервера комнат, например `https://game.example.com`.
 3. Запустите **Publish game to GitHub Pages** в разделе Actions. Отправьте друзьям ссылку, которую выдаст GitHub Pages.
 
 Игрокам нужен доступ как к странице GitHub Pages, так и к серверу комнат.
