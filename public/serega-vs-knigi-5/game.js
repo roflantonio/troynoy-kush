@@ -266,13 +266,19 @@ function textLines(ctx,text,width) {
 
 function drawText(entity,bounds,ctx) {
   const {detail} = entity.def;
-  const [face,size,weight] = project.fonts[detail.Font] ?? ['Arial',24,400];
-  ctx.font = weight + ' ' + size + 'px "' + face + '", serif';
+  const [face,size,weight,style = 'normal'] = project.fonts[detail.Font] ?? ['Arial',24,400];
+  ctx.font = style + ' ' + weight + ' ' + size + 'px "' + face + '", serif';
   ctx.fillStyle = detail.color;
   ctx.textBaseline = 'top';
   ctx.textAlign = (detail.flags & 1) ? 'center' : (detail.flags & 2) ? 'right' : 'left';
   const x = bounds.x + (ctx.textAlign === 'center' ? bounds.w/2 : ctx.textAlign === 'right' ? bounds.w : 0);
-  const lines = textLines(ctx,detail.paragraphs[entity.paragraph] ?? '',bounds.w);
+  const paragraph = detail.paragraphs[entity.paragraph] ?? '';
+  if (detail.singleLine) {
+    ctx.textBaseline = 'middle';
+    ctx.fillText(paragraph.trim(),x,bounds.y + bounds.h / 2,bounds.w);
+    return;
+  }
+  const lines = textLines(ctx,paragraph,bounds.w);
   const leading = size * 1.08;
   const totalHeight = lines.length * leading;
   const y = bounds.y + (detail.flags & 4 ? (bounds.h-totalHeight)/2 : detail.flags & 8 ? bounds.h-totalHeight : 0);
@@ -426,6 +432,7 @@ function makeTouchKey(code) {
   button.type = 'button';
   button.textContent = keyLabels[code] ?? String.fromCharCode(code);
   button.addEventListener('pointerdown', event => {
+    if (event.pointerType === 'touch') event.preventDefault();
     button.setPointerCapture(event.pointerId);
     pointers.set(event.pointerId,code);
     runtime.keyDown(code);
@@ -476,6 +483,10 @@ function updatePoint(event, pressed) {
   if (pressed) runtime.click = point;
 }
 
+for (const area of [stage,controls]) {
+  area.addEventListener('selectstart', event => event.preventDefault());
+  area.addEventListener('contextmenu', event => event.preventDefault());
+}
 stage.addEventListener('pointermove', event => updatePoint(event,false));
 stage.addEventListener('pointerleave', () => { if (runtime) runtime.glance = null; });
 targets.addEventListener('pointerdown', event => updatePoint(event,true));
