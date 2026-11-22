@@ -129,8 +129,17 @@ class GameRuntime {
     return b && point.x >= b.x && point.x < b.x+b.w && point.y >= b.y && point.y < b.y+b.h;
   }
 
+  collisionBounds(entity) {
+    const rect = this.bounds(entity);
+    const scale = entity.def.collisionScale;
+    if (!rect || scale === undefined) return rect;
+    const w = rect.w * scale;
+    const h = rect.h * scale;
+    return {x:rect.x + (rect.w-w)/2, y:rect.y + (rect.h-h)/2, w, h};
+  }
+
   overlaps(left, right) {
-    const a = this.bounds(left), b = this.bounds(right);
+    const a = this.collisionBounds(left), b = this.collisionBounds(right);
     return a && b && a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y;
   }
 
