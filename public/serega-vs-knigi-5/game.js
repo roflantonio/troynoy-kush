@@ -18,6 +18,7 @@ const debugScene = document.querySelector('#debug-scene');
 const imageCache = new Map();
 const frameCache = new Map();
 const sounds = new Map();
+const soundBuffers = new Map();
 const videos = new Set();
 const overlaySurfaces = [];
 const targetButtons = new Map();
@@ -135,13 +136,68 @@ function audioTrack(name) {
 }
 
 function stopSound(name) {
-  const track = audioTrack(name);
-  if (track) {
+  const key = String(name).toLowerCase();
+  const track = sounds.get(key);
+  if (!track) return;
+  sounds.delete(key);
+  if (track.audio) {
+    track.audio.onended = null;
     track.audio.pause();
-    track.node?.disconnect();
-    track.pan?.disconnect();
-    sounds.delete(String(name).toLowerCase());
   }
+  if (track.source) {
+    track.source.onended = null;
+    track.source.stop();
+    track.source.disconnect();
+  }
+  track.node?.disconnect();
+  track.pan?.disconnect();
+}
+
+function playAudioElement(key,track) {
+  if (sounds.get(key) !== track) return;
+  track.retry = false;
+  track.audio.play().catch(error => {
+    if (sounds.get(key) !== track) return;
+    if (error.name === 'NotAllowedError' || error.name === 'AbortError') track.retry = true;
+    else stopSound(key);
+  });
+}
+
+function startAudioElement(key,track) {
+  const audio = new Audio(track.url);
+  track.audio = audio;
+  audio.loop = track.count === 0;
+  audio.volume = track.volume;
+  if (!touchScreen.matches && audioContext?.createStereoPanner) {
+    track.node = audioContext.createMediaElementSource(audio);
+    track.pan = audioContext.createStereoPanner();
+    track.pan.pan.value = track.balance;
+    track.node.connect(track.pan).connect(audioContext.destination);
+  }
+  audio.onended = () => {
+    if (--track.count <= 0) stopSound(key);
+    else {
+      audio.currentTime = 0;
+      playAudioElement(key,track);
+    }
+  };
+  playAudioElement(key,track);
+}
+
+function loadSoundBuffer(url) {
+  if (soundBuffers.has(url)) return soundBuffers.get(url);
+  const buffer = fetch(url).then(response => {
+    if (!response.ok) throw new Error('Audio request failed');
+    return response.arrayBuffer();
+  }).then(bytes => audioContext.decodeAudioData(bytes));
+  if (soundBuffers.size >= 8) soundBuffers.delete(soundBuffers.keys().next().value);
+  soundBuffers.set(url,buffer);
+  buffer.then(decoded => {
+    if (decoded.duration > 15 && soundBuffers.get(url) === buffer) soundBuffers.delete(url);
+  },() => {
+    if (soundBuffers.get(url) === buffer) soundBuffers.delete(url);
+  });
+  return buffer;
 }
 
 function playSound(name,count) {
@@ -149,24 +205,46 @@ function playSound(name,count) {
   const id = project.sounds[key];
   if (id === undefined) return;
   stopSound(name);
-  const audio = new Audio('audio/' + id + '.mp3');
-  const track = {audio, count};
+  const track = {url:'audio/' + id + '.mp3',count,volume:1,balance:0};
   sounds.set(key,track);
-  audio.loop = count === 0;
-  if (audioContext?.createStereoPanner) {
-    track.node = audioContext.createMediaElementSource(audio);
-    track.pan = audioContext.createStereoPanner();
-    track.node.connect(track.pan).connect(audioContext.destination);
+  if (!touchScreen.matches || !audioContext) {
+    startAudioElement(key,track);
+    return;
   }
-  audio.onended = () => {
-    if (--track.count <= 0) stopSound(name);
-    else {
-      audio.currentTime = 0;
-      audio.play().catch(() => stopSound(name));
-    }
-  };
-  audio.play().catch(() => stopSound(name));
+
+  loadSoundBuffer(track.url).then(buffer => {
+    if (sounds.get(key) !== track) return;
+    const source = audioContext.createBufferSource();
+    const gain = audioContext.createGain();
+    source.buffer = buffer;
+    source.loop = count !== 1;
+    gain.gain.value = track.volume;
+    source.connect(gain);
+    if (audioContext.createStereoPanner) {
+      track.pan = audioContext.createStereoPanner();
+      track.pan.pan.value = track.balance;
+      gain.connect(track.pan).connect(audioContext.destination);
+    } else gain.connect(audioContext.destination);
+    track.node = gain;
+    track.source = source;
+    source.onended = () => { if (sounds.get(key) === track) stopSound(key); };
+    source.start();
+    if (count > 1) source.stop(audioContext.currentTime + buffer.duration * count);
+  },() => {
+    if (sounds.get(key) === track) startAudioElement(key,track);
+  });
 }
+
+function recoverAudio() {
+  if (debug.open || document.hidden) return;
+  if (audioContext && audioContext.state !== 'running') audioContext.resume().catch(() => {});
+  for (const [key,track] of sounds) if (track.retry) playAudioElement(key,track);
+}
+
+for (const event of ['pointerup','touchend','keydown']) {
+  window.addEventListener(event,recoverAudio,{capture:true});
+}
+document.addEventListener('visibilitychange',recoverAudio);
 
 function removeVideo(entity) {
   if (!entity.video) return;
@@ -502,18 +580,20 @@ function openDebug() {
   runtime.click = null;
   pointers.clear();
 
-  const pausedAudio = [...sounds.values()].map(track => track.audio).filter(audio => !audio.paused);
+  const pausedAudio = [...sounds.values()].filter(track => track.audio && !track.audio.paused);
+  if (touchScreen.matches) audioContext?.suspend().catch(() => {});
   const pausedVideos = [...videos].filter(entity => entity.playing);
-  for (const audio of pausedAudio) audio.pause();
+  for (const track of pausedAudio) track.audio.pause();
   for (const entity of pausedVideos) entity.video.pause();
   resumeDebugMedia = () => {
-    for (const audio of pausedAudio) audio.play().catch(() => {});
+    for (const [key,track] of sounds) if (pausedAudio.includes(track)) playAudioElement(key,track);
     for (const entity of pausedVideos) if (entity.video && entity.playing) playVideo(entity);
   };
   debug.showModal();
 }
 
 debug.addEventListener('close', () => {
+  recoverAudio();
   resumeDebugMedia?.();
   resumeDebugMedia = null;
 });
@@ -572,8 +652,19 @@ async function boot() {
       go, quit, cursor: visible => { targets.style.cursor = visible ? '' : 'none'; },
       selectFrame, waiting: () => debug.open || loading || !notice.hidden || !readyToPlay(),
       playSound, stopSound, stopSounds, isPlaying: name => Boolean(audioTrack(name)),
-      soundVolume: (name,value) => { const track = audioTrack(name); if (track) track.audio.volume = clamp(value,0,1); },
-      soundPan: (name,value) => { const track = audioTrack(name); if (track?.pan) track.pan.pan.value = clamp(value,-1,1); },
+      soundVolume: (name,value) => {
+        const track = audioTrack(name);
+        if (!track) return;
+        track.volume = clamp(value,0,1);
+        if (track.audio) track.audio.volume = track.volume;
+        else if (track.node) track.node.gain.value = track.volume;
+      },
+      soundPan: (name,value) => {
+        const track = audioTrack(name);
+        if (!track) return;
+        track.balance = clamp(value,-1,1);
+        if (track.pan) track.pan.pan.value = track.balance;
+      },
       setVideo, playVideo, stopVideo, removeVideo, videoPlaying: entity => Boolean(entity.playing),
       loopVideo: (entity,loop) => { entity.videoLoop = loop; if (entity.video) entity.video.loop = loop; },
       videoVolume: (entity,value) => {

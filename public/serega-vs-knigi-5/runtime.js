@@ -52,10 +52,21 @@ class GameRuntime {
       if (entity.projectile && (entity.x < -512 || entity.y < -512 ||
           entity.x > this.frame.width + 512 || entity.y > this.frame.height + 512)) entity.dead = true;
     }
+    this.resolveSolidMovement();
     this.runEvents();
     this.entities = this.entities.filter(entity => !entity.dead);
     this.tapped.clear();
     this.click = null;
+  }
+
+  resolveSolidMovement() {
+    const config = this.frame.solidMovement;
+    if (!config) return;
+    const body = this.entities.find(entity => entity.def === this.frame.objects[config.body] && !entity.dead);
+    if (!body) return;
+    const walls = this.entities.filter(entity => !entity.dead &&
+      config.walls.some(handle => entity.def === this.frame.objects[handle]));
+    slideAlongWalls(body,walls.map(wall => this.collisionBounds(wall)),this.collisionBounds(body));
   }
 
   eventDef(handle) {

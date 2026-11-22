@@ -187,3 +187,37 @@ function bounceMovement(entity, obstacle, bounds) {
   else entity.vy *= -1;
   entity.direction = (flipX ? 48 - entity.direction : 32 - entity.direction) % 32;
 }
+
+function slideAlongWalls(body,walls,box) {
+  const dx = body.x - body.prevX, dy = body.y - body.prevY;
+  const origin = {x:box.x-dx,y:box.y-dy};
+  const overlapsAt = (wall,x,y) => x < wall.x+wall.w && x+box.w > wall.x &&
+    y < wall.y+wall.h && y+box.h > wall.y;
+  const embedded = walls.filter(wall => overlapsAt(wall,origin.x,origin.y));
+  if (embedded.length) {
+    const exits = embedded.flatMap(wall => [
+      {x:wall.x-box.w,y:origin.y}, {x:wall.x+wall.w,y:origin.y},
+      {x:origin.x,y:wall.y-box.h}, {x:origin.x,y:wall.y+wall.h},
+    ]);
+    const nearestOpen = candidates => candidates
+      .filter(point => !walls.some(wall => overlapsAt(wall,point.x,point.y)))
+      .sort((a,b) => Math.hypot(a.x-origin.x,a.y-origin.y)-Math.hypot(b.x-origin.x,b.y-origin.y))[0];
+    const exit = nearestOpen(exits) ?? nearestOpen(exits.flatMap(horizontal =>
+      exits.map(vertical => ({x:horizontal.x,y:vertical.y}))
+    ));
+    if (exit) Object.assign(origin,exit);
+  }
+  let x = origin.x + dx;
+  for (const wall of walls) if (dx && overlapsAt(wall,x,origin.y)) {
+    x = dx > 0 ? Math.min(x,wall.x-box.w) : Math.max(x,wall.x+wall.w);
+  }
+  let y = origin.y + dy;
+  for (const wall of walls) if (dy && overlapsAt(wall,x,y)) {
+    y = dy > 0 ? Math.min(y,wall.y-box.h) : Math.max(y,wall.y+wall.h);
+  }
+  body.x += x-box.x;
+  body.y += y-box.y;
+  if (x !== origin.x+dx) body.vx = 0;
+  if (y !== origin.y+dy) body.vy = 0;
+  body.moving = Math.abs(x-origin.x) > 0.015 || Math.abs(y-origin.y) > 0.015;
+}
