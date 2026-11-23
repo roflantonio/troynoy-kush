@@ -21,6 +21,18 @@ class GameRuntime {
     }
     this.frame = frame;
     this.entities = frame.placements.map(([handle,x,y,layer]) => makeEntity(frame.objects[handle],x,y,layer));
+    this.track = null;
+    if (frame.trackMovement) {
+      const {body,road,crosses,crossMask} = frame.trackMovement;
+      const boxes = handles => {
+        const defs = new Set(handles.map(handle => frame.objects[handle]));
+        return this.entities.filter(entity => defs.has(entity.def)).map(entity => this.bounds(entity));
+      };
+      this.track = {
+        body:this.entities.find(entity => entity.def === frame.objects[body]),
+        rows:makeTrackRows(frame.width,frame.height,boxes(road),boxes([crosses]),crossMask),
+      };
+    }
     this.time = 0;
     this.previousTime = -1;
     this.camera = {x: 0, y: 0};
@@ -52,21 +64,14 @@ class GameRuntime {
       if (entity.projectile && (entity.x < -512 || entity.y < -512 ||
           entity.x > this.frame.width + 512 || entity.y > this.frame.height + 512)) entity.dead = true;
     }
-    this.resolveSolidMovement();
+    if (this.track?.body) {
+      const {body,rows} = this.track;
+      followTrack(body,this.collisionBounds(body),rows);
+    }
     this.runEvents();
     this.entities = this.entities.filter(entity => !entity.dead);
     this.tapped.clear();
     this.click = null;
-  }
-
-  resolveSolidMovement() {
-    const config = this.frame.solidMovement;
-    if (!config) return;
-    const body = this.entities.find(entity => entity.def === this.frame.objects[config.body] && !entity.dead);
-    if (!body) return;
-    const walls = this.entities.filter(entity => !entity.dead &&
-      config.walls.some(handle => entity.def === this.frame.objects[handle]));
-    slideAlongWalls(body,walls.map(wall => this.collisionBounds(wall)),this.collisionBounds(body));
   }
 
   eventDef(handle) {
