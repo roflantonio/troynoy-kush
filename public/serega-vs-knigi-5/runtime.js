@@ -21,6 +21,14 @@ class GameRuntime {
     }
     this.frame = frame;
     this.entities = frame.placements.map(([handle,x,y,layer]) => makeEntity(frame.objects[handle],x,y,layer));
+    this.walkAnimation = null;
+    if (frame.walkAnimation) {
+      const {sprite,driver} = frame.walkAnimation;
+      this.walkAnimation = {
+        sprite:this.entities.find(entity => entity.def === frame.objects[sprite]),
+        driver:this.entities.find(entity => entity.def === frame.objects[driver]),
+      };
+    }
     this.track = null;
     if (frame.trackMovement) {
       const {body,road,crosses,crossMask} = frame.trackMovement;
@@ -69,6 +77,12 @@ class GameRuntime {
       followTrack(body,this.collisionBounds(body),rows);
     }
     this.runEvents();
+    if (this.walkAnimation) {
+      const {sprite,driver} = this.walkAnimation;
+      const dx = driver.x-driver.prevX, dy = driver.y-driver.prevY;
+      if (Math.abs(dx) > 0.015) sprite.direction = dx < 0 ? 16 : 0;
+      setAnimation(sprite,Math.hypot(dx,dy) > 0.015 ? 1 : 0);
+    }
     this.entities = this.entities.filter(entity => !entity.dead);
     this.tapped.clear();
     this.click = null;
