@@ -1,5 +1,5 @@
 const note = midi => 440 * 2 ** ((midi - 69) / 12);
-// Slow, mostly sparse phrases give each scene room for footsteps and dialogue.
+// Each theme has a full harmonic progression with room for sound effects.
 const shore = [
   [[50,57,60,65],[69,72,77]], [[46,53,57,62],[74,72]], [[48,55,60,64],[67,72,76]], [[45,52,55,62],[74]],
   [[43,50,57,58],[70,74,69]], [[41,48,53,57],[65,67]], [[46,53,57,60],[69,72,74]], [[45,52,59,64],[71]],
@@ -28,8 +28,31 @@ const oath = [
 
 const tracks = {
   dock: { bars: shore, duration: 4.4, air: .49, cutoff: 1240, lead: .114 },
-  fort: { bars: depths, duration: 4.0, air: .84, cutoff: 890, lead: .082 },
+  fort: { bars: depths, duration: 4.0 },
   watcher: { bars: oath, duration: 3.5, air: .67, cutoff: 790, lead: .099 },
+};
+
+const fortKicks = [
+  [0, 3, 6, 8, 11, 14], [0, 2, 5, 8, 12, 15], [0, 4, 7, 10, 12, 14], [0, 3, 8, 11, 13],
+];
+const fortBass = [
+  [[0, 0], [3, 0], [5, 1], [6, 0], [8, 0], [11, 2], [12, 1], [14, 0]],
+  [[0, 0], [2, 1], [5, 0], [7, 2], [8, 0], [10, 0], [12, 1], [15, 2]],
+  [[0, 0], [3, 1], [4, 0], [7, 0], [10, 2], [12, 0], [14, 1]],
+  [[0, 0], [3, 0], [6, 1], [8, 0], [11, 0], [14, 2]],
+];
+const enemyTimbres = {
+  drowned: { pitch: 131, cutoff: 465, type: "sawtooth", scrape: 710 },
+  crab: { pitch: 366, cutoff: 1750, type: "triangle", scrape: 2590 },
+  sentinel: { pitch: 224, cutoff: 1250, type: "triangle", scrape: 1280 },
+  corsair: { pitch: 179, cutoff: 820, type: "sawtooth", scrape: 1110 },
+  captain: { pitch: 91, cutoff: 590, type: "sawtooth", scrape: 640 },
+};
+const floorTimbres = {
+  wood: { foot: 142, grit: 825, decay: .145, weight: .16 },
+  damp: { foot: 97, grit: 1760, decay: .22, weight: .105 },
+  stone: { foot: 113, grit: 2250, decay: .105, weight: .13 },
+  flagstone: { foot: 82, grit: 1520, decay: .18, weight: .15 },
 };
 
 export function pirateSound(enabled) {
@@ -37,11 +60,13 @@ export function pirateSound(enabled) {
   let master;
   let music;
   let effects;
+  let pursuit;
   let grit;
   let next = 0;
   let bar = 0;
   let syllable = 0;
   let track = "dock";
+  let danger = 0;
   let active = enabled;
 
   function tone(bus, at, from, to, span, strength, type = "triangle", cutoff = 5400) {
@@ -72,7 +97,7 @@ export function pirateSound(enabled) {
     gain.gain.exponentialRampToValueAtTime(strength, at + .008);
     gain.gain.exponentialRampToValueAtTime(.0001, at + span);
     source.connect(filter).connect(gain).connect(bus);
-    source.start(at);
+    source.start(at, Math.random() * Math.max(0, grit.duration - span));
     source.stop(at + span);
   }
 
@@ -92,10 +117,50 @@ export function pirateSound(enabled) {
     osc.stop(at + duration + .03);
   }
 
+  // Two measures at 120 BPM per harmony. The percussion fills are arranged across the full cue.
+  function fortBar(bus, at, chord, melody, index) {
+    const groove = (index + Math.floor(index / 4)) % fortKicks.length;
+    const [root, fifth] = chord;
+    const bass = [root - 12, fifth - 12, root];
+    for (const [tick, degree] of fortBass[groove]) {
+      const frequency = note(bass[degree]);
+      tone(bus, at + tick * .25, frequency, frequency, tick % 2 ? .18 : .26, degree ? .103 : .147, "triangle", 395);
+    }
+    for (const tick of fortKicks[groove]) {
+      tone(bus, at + tick * .25, tick % 2 ? 84 : 112, 42, .22, tick % 2 ? .127 : .255, "sine");
+    }
+    for (const tick of [4, 12]) {
+      const accent = at + tick * .25;
+      noise(bus, accent, .19, 1480, .16);
+      tone(bus, accent, 181, 92, .11, .085, "triangle", 475);
+    }
+    const shakerStart = index % 4 === 3 ? 2 : 1;
+    for (let tick = shakerStart; tick < 16; tick += 2) {
+      noise(bus, at + tick * .25, .077, 4880, tick % 4 === 1 ? .051 : .027);
+    }
+
+    const bed = index % 8 < 4 ? .044 : .030;
+    for (const pitch of chord.slice(1)) swell(bus, at, pitch, 4.24, bed, "sine", 950, .29);
+    melody.forEach((pitch, i) => {
+      const offset = (.50 + .25 * (index % 3)) + i * .75;
+      swell(bus, at + offset, pitch, .73, .104, "triangle", 1450, .040);
+      if (i === 0 && index % 3 === 0) swell(bus, at + offset + .51, pitch - 12, .90, .036, "sine", 860, .10);
+    });
+    for (const tick of index % 4 === 3 ? [7, 9, 13, 14, 15] : [3, 7, 11, 15]) {
+      const fill = at + tick * .25;
+      tone(pursuit, fill, 165 - (tick % 3) * 19, 62, .23, .215, "triangle", 760);
+      noise(pursuit, fill + .039, .087, 2320, .088);
+    }
+  }
+
   function playBar(part, at) {
     const index = bar++ % part.bars.length;
     const [chord, melody] = part.bars[index];
     const bus = music[track];
+    if (track === "fort") {
+      fortBar(bus, at, chord, melody, index);
+      return;
+    }
     const { duration, air, cutoff, lead } = part;
     chord.forEach((pitch, i) => swell(bus, at + i * .065, pitch, duration * 1.17,
       i === 0 ? .113 : .052, i === 1 || i === 2 ? "triangle" : "sine", cutoff * .65, air));
@@ -107,11 +172,16 @@ export function pirateSound(enabled) {
       if (track === "dock" || index % 3 === 0) swell(bus, onset + .24, pitch, 1.45, lead * .21, "sine", cutoff, .18);
     });
     if (track === "watcher") {
-      const drums = index % 4 === 2 ? [0, 1.95, 2.46] : index % 4 === 3 ? [.15] : [0, 1.42];
-      for (const offset of drums) tone(bus, at + offset, 91, 38, .54, .155, "sine");
-      if (index % 3 === 0) noise(bus, at + 2.6, .48, 460, .047);
-    } else if (track === "fort" && index % 3 === 1) {
-      swell(bus, at + .82, chord[0] - 12, duration * .73, .082, "sine", 280, .85);
+      const rhythm = index % 4 === 3 ? [0, 3, 6, 9, 11, 12, 13] : [0, 2, 5, 7, 10, 12];
+      for (const tick of rhythm) {
+        tone(bus, at + tick * .25, tick % 3 ? 105 : 145, tick % 3 ? 38 : 51,
+          .28, tick % 3 ? .139 : .244, tick % 3 ? "sine" : "triangle", 555);
+      }
+      for (const offset of [.88, 2.62]) noise(bus, at + offset, .25, 1560, .136);
+      for (const offset of [0, .75, 1.5, 2.5, 3.0]) {
+        const root = note(chord[0] - 12);
+        tone(bus, at + offset, root, root, .29, .136, "triangle", 420);
+      }
     }
   }
 
@@ -150,11 +220,19 @@ export function pirateSound(enabled) {
       channel.connect(reverb);
       return [name, channel];
     }));
+    pursuit = context.createGain();
+    pursuit.gain.value = danger;
+    pursuit.connect(music.fort);
     effects = context.createGain();
     effects.gain.value = .50;
     master.gain.value = active ? .6 : 0;
     effects.connect(master);
-    master.connect(context.destination);
+    const limiter = context.createDynamicsCompressor();
+    limiter.threshold.value = -17;
+    limiter.ratio.value = 3;
+    limiter.attack.value = .006;
+    limiter.release.value = .18;
+    master.connect(limiter).connect(context.destination);
     setInterval(score, 50);
   }
 
@@ -175,44 +253,132 @@ export function pirateSound(enabled) {
       pirate ? .10 : .138, pirate ? "triangle" : "sawtooth", pirate ? 1420 : 670);
   }
 
-  function effect(kind) {
+  function spatialBus(position) {
+    if (!position) return effects;
+    const volume = context.createGain();
+    volume.gain.value = position.level;
+    let output = volume;
+    if (position.muffled) {
+      const lowPass = context.createBiquadFilter();
+      lowPass.frequency.value = 700;
+      output = output.connect(lowPass);
+    }
+    if (typeof context.createStereoPanner === "function") {
+      const stereo = context.createStereoPanner();
+      stereo.pan.value = position.pan;
+      output = output.connect(stereo);
+    }
+    output.connect(effects);
+    return volume;
+  }
+
+  function enemyFoley(kind, color, bus, at) {
+    if (color === "charge" || color === "powder") {
+      const lunge = color === "charge";
+      tone(bus, at, lunge ? 70 : 222, lunge ? 164 : 455, .52, .29, lunge ? "sawtooth" : "triangle", lunge ? 590 : 1700);
+      noise(bus, at + .09, .37, lunge ? 850 : 2190, .23);
+      return;
+    }
+    const timbre = enemyTimbres[color];
+    const { pitch, cutoff, type, scrape } = timbre;
+    const varied = pitch * (.89 + Math.random() * .22);
+    if (kind === "enemy-step") {
+      noise(bus, at, .11, scrape, .14);
+      if (color === "sentinel" || color === "crab") {
+        tone(bus, at, varied * 3.1, varied * 1.7, .08, .084, "triangle", cutoff * 2);
+      } else tone(bus, at, 94, 53, .105, .078, "sine");
+    } else if (kind === "enemy-alert") {
+      noise(bus, at, .23, scrape, .22);
+      tone(bus, at, varied * .84, varied * 1.24, .33, .30, type, cutoff);
+      tone(bus, at + .125, varied * 1.27, varied * .61, .30, .20, type, cutoff);
+    } else if (kind === "enemy-windup") {
+      noise(bus, at, .17, scrape * 1.3, .24);
+      tone(bus, at, varied * (color === "corsair" ? 2.7 : .75), varied * 1.35,
+        .23, .23, type, cutoff * 1.35);
+    } else if (kind === "enemy-strike" || kind === "enemy-hit") {
+      noise(bus, at, .13, scrape * 1.5, .31);
+      tone(bus, at, varied * 1.48, varied * .69, .16, .21, type, cutoff * 1.4);
+    } else {
+      noise(bus, at, .28, scrape * .79, .30);
+      tone(bus, at, varied * 1.15, varied * .36, .42, .26, type, cutoff);
+      tone(bus, at + .16, 104, 51, .24, .11, "sine");
+    }
+  }
+
+  function effect(kind, color, position) {
     if (!active || !context || context.state !== "running" || document.hidden) return;
     const at = context.currentTime + .01;
+    const bus = spatialBus(position);
+    if (kind.startsWith("enemy-") || kind === "defeat") {
+      enemyFoley(kind, color, bus, at);
+      return;
+    }
     if (kind === "pistol" || kind === "scatter" || kind === "musket") {
-      noise(effects, at, kind === "scatter" ? .34 : kind === "musket" ? .28 : .21, kind === "musket" ? 920 : 1400, .63);
-      tone(effects, at, kind === "musket" ? 181 : 122, 38, .19, .28, "sine");
+      noise(bus, at, kind === "scatter" ? .34 : kind === "musket" ? .28 : .21, kind === "musket" ? 920 : 1400, .63);
+      tone(bus, at, kind === "musket" ? 181 : 122, 38, .19, .28, "sine");
     } else if (kind === "reload") {
-      noise(effects, at, .13, 980, .25);
-      tone(effects, at + .17, 720, 341, .071, .074, "triangle");
+      noise(bus, at, .13, 980, .25);
+      tone(bus, at + .17, 720, 341, .071, .074, "triangle");
     } else if (kind === "reload-ready") {
-      noise(effects, at, .12, 1710, .23);
-      tone(effects, at + .013, 1090, 498, .10, .108, "triangle");
-    } else if (kind === "dash") noise(effects, at, .18, 2800, .26);
-    else if (kind === "arena") {
-      noise(effects, at, .53, 570, .47);
-      tone(effects, at, 73, 29, .87, .46, "triangle", 560);
+      noise(bus, at, .12, 1710, .23);
+      tone(bus, at + .013, 1090, 498, .10, .108, "triangle");
+    } else if (kind === "player-step") {
+      const { foot, grit: texture, decay, weight } = floorTimbres[color];
+      const variation = .89 + Math.random() * .22;
+      tone(bus, at, foot * variation, foot * .55, decay, weight, "sine");
+      noise(bus, at + .006, decay, texture * variation, .24);
+      if (color === "damp") noise(bus, at + .063, .14, 2950 * variation, .135);
+      if (color === "wood") tone(bus, at + .028, 465 * variation, 284, .13, .069, "triangle", 1130);
+    } else if (kind === "ambience") {
+      if (color === "dock") {
+        noise(bus, at, .53, 430, .17);
+        tone(bus, at + .17, 312, 173, .48, .073, "triangle", 660);
+      } else {
+        tone(bus, at, 810, 343, .13, .092, "sine");
+        tone(bus, at + .28, 704, 320, .19, .048, "sine");
+      }
+    } else if (kind === "dash") {
+      noise(bus, at, .20, 2400, .29);
+      tone(bus, at + .032, 137, 72, .19, .093, "sine");
+    } else if (kind === "arena") {
+      noise(bus, at, .53, 570, .47);
+      tone(bus, at, 73, 29, .87, .46, "triangle", 560);
     } else if (kind === "arena-rage") {
-      tone(effects, at, 223, 45, .7, .32, "sawtooth", 650);
-      noise(effects, at, .47, 1340, .24);
+      tone(bus, at, 223, 45, .7, .32, "sawtooth", 650);
+      noise(bus, at, .47, 1340, .24);
     } else if (kind === "arena-fury" || kind === "boss-charge") {
-      tone(effects, at, 162, 34, .56, .31, "sawtooth", 540);
-      noise(effects, at, .47, 760, .23);
-    } else if (kind === "powder-mark") tone(effects, at, 320, 484, .34, .16, "triangle", 1700);
+      tone(bus, at, 162, 34, .56, .31, "sawtooth", 540);
+      noise(bus, at, .47, 760, .23);
+    } else if (kind === "seal-open") {
+      noise(bus, at, .53, 1000, .29);
+      tone(bus, at + .06, 115, 47, .52, .20, "triangle", 650);
+      tone(bus, at + .43, 800, 483, .15, .085, "triangle", 1560);
+    } else if (kind === "powder-mark") tone(bus, at, 320, 484, .34, .16, "triangle", 1700);
     else if (kind === "powder-burst") {
-      tone(effects, at, 149, 30, .27, .29, "sine");
-      noise(effects, at, .33, 660, .36);
-    } else if (kind === "boss-bolt") tone(effects, at, 192, 44, .31, .29, "sawtooth", 1140);
-    else if (kind === "blade") noise(effects, at, .17, 2200, .31);
-    else if (kind === "hurt" || kind === "dead") tone(effects, at, 130, 37, .25, .34, "sawtooth", 750);
+      tone(bus, at, 149, 30, .27, .29, "sine");
+      noise(bus, at, .33, 660, .36);
+    } else if (kind === "boss-bolt") tone(bus, at, 192, 44, .31, .29, "sawtooth", 1140);
+    else if (kind === "blade") noise(bus, at, .17, 2200, .31);
+    else if (kind === "hurt" || kind === "dead") tone(bus, at, 130, 37, .25, .34, "sawtooth", 750);
     else if (kind === "shield") {
-      tone(effects, at, 1460, 770, .14, .27, "triangle");
-      tone(effects, at, 1100, 1070, .08, .20, "square", 1800);
-    } else if (kind === "bolt") tone(effects, at, 590, 149, .23, .18, "triangle", 2200);
-    else if (kind === "empty") noise(effects, at, .065, 3600, .18);
-    else if (kind === "defeat") noise(effects, at, .23, 930, .21);
-    else {
-      const notes = kind === "relic" || kind === "win" ? [60, 64, 69, 72] : [55, 62];
-      notes.forEach((n, i) => tone(effects, at + i * .081, note(n), note(n), .38, .18, "triangle", 1600));
+      tone(bus, at, 1460, 770, .14, .27, "triangle");
+      tone(bus, at, 1100, 1070, .08, .20, "square", 1800);
+    } else if (kind === "bolt") {
+      noise(bus, at, .18, 1660, .49);
+      tone(bus, at, 323, 106, .24, .22, "triangle", 1280);
+    } else if (kind === "bolt-impact" || kind === "wall-hit") {
+      const blade = color === "blade";
+      noise(bus, at, blade ? .18 : .125, blade ? 1440 : 3100, .29);
+      tone(bus, at, blade ? 352 : 195, 86, .13, .129, "triangle", 1260);
+    } else if (kind === "empty") noise(bus, at, .065, 3600, .18);
+    else if (kind === "equip" || kind === "pickup") {
+      const healing = color === "heal";
+      noise(bus, at, healing ? .19 : .084, healing ? 744 : 2050, .27);
+      tone(bus, at + .016, healing ? 274 : 1060, healing ? 148 : 720, .12, .13, "triangle");
+      if (color === "ammo") tone(bus, at + .093, 1530, 603, .093, .09, "triangle");
+    } else if (kind === "relic" || kind === "win" || kind === "victory") {
+      const notes = kind === "relic" ? [60, 64, 69, 72] : [55, 62, 67, 74];
+      notes.forEach((n, i) => tone(bus, at + i * .081, note(n), note(n), .38, .18, "triangle", 1600));
     }
   }
   return {
@@ -220,6 +386,12 @@ export function pirateSound(enabled) {
     active(on) {
       active = on;
       if (master) master.gain.setTargetAtTime(on ? .6 : 0, context.currentTime, .045);
+    },
+    combat(level) {
+      if (danger === level) return;
+      const rise = level > danger;
+      danger = level;
+      if (pursuit) pursuit.gain.setTargetAtTime(level, context.currentTime, rise ? .23 : .78);
     },
     track(name) {
       if (track === name) return;

@@ -36,6 +36,9 @@ export const BOSS_ACTS = [
 const AMMO_LIMIT = 64;
 const AMMO_BOX = 9;
 const MEDICINE = 23;
+const FLOOR_SOUNDS = ["stone", "wood", "damp", "stone", "flagstone"];
+const STEP_SPACING = .95;
+const ENEMY_STEP_SPACING = .82;
 
 export function shieldRaised(enemy) {
   return enemy.kind === "sentinel" && !enemy.attack && enemy.wait <= .35;
@@ -165,10 +168,10 @@ export function createRun(seed) {
   const player = { x: 3.65, y: MID_Y + .5, angle: 0, pitch: 0, hp: 100, max: 100, ammo: 20, weapon: "pistol",
     arsenal: new Set(["pistol", "blade"]), chambers: { pistol: ARMORY.pistol.capacity, scatter: 0, musket: 0 },
     relics: 0, reloadScale: 1, reloadLeft: 0, reloadSpan: 0, cooldown: 0, dashReset: DASH_COOLDOWN,
-    hurt: 0, recoil: 0, bob: 0, moving: 0, kills: 0, perks: [], dash: 0, dashCooldown: 0, dashX: 0, dashY: 0 };
+    hurt: 0, recoil: 0, bob: 0, moving: 0, stride: 0, kills: 0, perks: [], dash: 0, dashCooldown: 0, dashX: 0, dashY: 0 };
   const arena = { entrance: ARENA_X - 1, left: ARENA_X, active: false, cleared: false, stage: 0, next: 0 };
   const world = { seed, rand, tiles, floor, player, arena, discovery: new Uint8Array(tiles.length),
-    enemies: [], items: [], props: [], bolts: [], hazards: [], flashes: [], events: [], seals: [],
+    enemies: [], items: [], props: [], bolts: [], hazards: [], flashes: [], events: [], cues: [], seals: [], pressure: 0, nextAmbience: 2.4, nextImpact: 0,
     gate: { x: ARENA_X + 17.5, y: MID_Y + .5 }, flow: null, nextFlow: -1,
     start: { x: player.x, y: player.y }, time: 0, status: "play", hint: "", hintUntil: 0 };
   const carve = (x1, y1, x2, y2, style) => {
@@ -281,13 +284,28 @@ function prompt(world, text) {
   world.hintUntil = world.time + 3.7;
 }
 
+function cue(world, kind, source, color) {
+  world.cues.push({ kind, x: source?.x, y: source?.y, color });
+}
+
+function emit(world, kind, source, color) {
+  world.events.push(kind);
+  cue(world, kind, source, color);
+}
+
+function wake(world, enemy) {
+  if (enemy.awake) return;
+  enemy.awake = true;
+  cue(world, "enemy-alert", enemy, enemy.kind);
+}
+
 function damage(world, points) {
   const p = world.player;
   if (p.dash > 0 || p.hurt > .19 || p.hp <= 0) return;
   p.hp = Math.max(0, p.hp - points);
   p.hurt = .36;
-  world.events.push("hurt");
-  if (!p.hp) { world.status = "dead"; world.events.push("dead"); }
+  emit(world, "hurt");
+  if (!p.hp) { world.status = "dead"; emit(world, "dead"); }
 }
 
 function gather(world) {
@@ -314,7 +332,8 @@ function gather(world) {
       p.perks.push(item.boon.name);
       setBarrier(world, Math.floor(world.seals[item.wing].x), 0);
       prompt(world, (p.relics === 3 ? "Путь к Смотрителю открыт" : "Печать снята") + " · " + item.boon.name);
-      world.events.push("relic");
+      emit(world, "relic");
+      cue(world, "seal-open", world.seals[item.wing]);
       return false;
     } else {
       p.arsenal.add(item.kind);
@@ -322,7 +341,7 @@ function gather(world) {
       switchWeapon(world, item.kind);
       prompt(world, ARMORY[item.kind].name + " · " + (item.kind === "scatter" ? "2" : "4"));
     }
-    world.events.push("pickup");
+    emit(world, "pickup", null, item.kind);
     return false;
   });
 
@@ -330,7 +349,7 @@ function gather(world) {
     world.arena.active = true;
     setBarrier(world, world.arena.entrance, 8);
     world.bolts.length = 0;
-    world.events.push("arena");
+    emit(world, "arena");
     return;
   }
   if (world.arena.active && world.arena.stage < BOSS_ACTS.length - 1 && world.boss.hp === BOSS_ACTS[world.arena.stage].floor) {
@@ -348,18 +367,18 @@ function gather(world) {
       addEnemy(world, "corsair", arena.left + 14.8, MID_Y + 4.9);
     }
     prompt(world, BOSS_ACTS[arena.stage].name);
-    world.events.push(arena.stage === 1 ? "arena-rage" : "arena-fury");
+    emit(world, arena.stage === 1 ? "arena-rage" : "arena-fury");
   }
   if (world.arena.active && !world.arena.cleared && world.boss.hp <= 0) {
     world.arena.cleared = true;
     world.bolts.length = 0;
     world.hazards.length = 0;
     prompt(world, "Смотритель пал. Выход открыт!");
-    world.events.push("victory");
+    emit(world, "victory");
   }
   if (world.arena.cleared && Math.hypot(p.x - world.gate.x, p.y - world.gate.y) < .78) {
     world.status = "won";
-    world.events.push("win");
+    emit(world, "win");
   }
   const seal = world.seals[p.relics];
   if (seal && Math.hypot(p.x - seal.x, p.y - seal.y) < 1.3) prompt(world, "Печать закрыта. Найди осколок в этом крыле");
@@ -371,6 +390,7 @@ export function switchWeapon(world, kind) {
   world.player.weapon = kind;
   world.player.reloadLeft = 0;
   world.player.cooldown = Math.max(world.player.cooldown, .12);
+  cue(world, "equip", null, kind);
   return true;
 }
 
@@ -379,7 +399,7 @@ export function reloadWeapon(world) {
   const spec = ARMORY[p.weapon];
   if (world.status !== "play" || !spec.capacity || p.reloadLeft || !p.ammo || p.chambers[p.weapon] === spec.capacity) return false;
   p.reloadLeft = p.reloadSpan = spec.reload * p.reloadScale;
-  world.events.push("reload");
+  emit(world, "reload");
   return true;
 }
 
@@ -391,7 +411,7 @@ function reloadTick(world, dt) {
   const amount = Math.min(p.ammo, ARMORY[p.weapon].capacity - p.chambers[p.weapon]);
   p.ammo -= amount;
   p.chambers[p.weapon] += amount;
-  world.events.push("reload-ready");
+  emit(world, "reload-ready");
 }
 
 export function shoot(world) {
@@ -403,7 +423,7 @@ export function shoot(world) {
     if (p.chambers[weapon] === 0) {
       if (!reloadWeapon(world)) {
         p.cooldown = .44;
-        world.events.push("empty");
+        emit(world, "empty");
         prompt(world, "Патроны кончились · 3 — сабля");
       }
       return;
@@ -412,20 +432,23 @@ export function shoot(world) {
   }
   p.cooldown = spec.cadence;
   p.recoil = weapon === "scatter" || weapon === "musket" ? .29 : .195;
-  world.events.push(weapon);
+  emit(world, weapon);
+  let hit = false;
+  let impact;
   for (let shot = 0; shot < spec.pellets; shot++) {
     const tilt = spec.pellets === 1 ? 0 : (shot / (spec.pellets - 1) - .5) * spec.spread * 2.1;
     const a = p.angle + tilt;
     const cx = Math.cos(a);
     const cy = Math.sin(a);
     const wall = cast(world, p.x, p.y, cx, cy, spec.range).distance;
+    if (!tilt && wall < spec.range) impact = { x: p.x + cx * (wall - .025), y: p.y + cy * (wall - .025) };
     let best = wall;
     let target;
     for (const enemy of world.enemies) {
       if (enemy.hp <= 0 || (enemy === world.boss && !world.arena.active)) continue;
       const x = enemy.x - p.x;
       const y = enemy.y - p.y;
-      if (x * x + y * y < 42) enemy.awake = true;
+      if (x * x + y * y < 42) wake(world, enemy);
       const depth = x * cx + y * cy;
       const width = Math.abs(-x * cy + y * cx);
       const aimHeight = .5 + p.pitch * depth * .5;
@@ -436,24 +459,30 @@ export function shoot(world) {
       }
     }
     if (!target) continue;
+    hit = true;
     const front = Math.cos(Math.atan2(p.y - target.y, p.x - target.x) - target.facing);
     const parry = weapon !== "blade" && shieldRaised(target) && front > .37;
     if (target === world.boss && world.time < world.arena.next) continue;
     const floor = target === world.boss ? BOSS_ACTS[world.arena.stage].floor : 0;
+    const canCry = target.hurt < .07;
     target.hp = Math.max(floor, target.hp - spec.damage * (parry ? .23 : 1));
     target.hurt = .19;
     if (parry && target.guardPing < world.time) {
       target.guardPing = world.time + .24;
-      world.events.push("shield");
+      emit(world, "shield", target);
       prompt(world, "Щитоносец открыт после замаха");
     }
-    target.awake = true;
+    wake(world, target);
     world.flashes.push({ x: target.x, y: target.y, end: world.time + .19 });
-    if (target.hp > 0) continue;
+    if (target.hp > 0) {
+      if (!parry && canCry) cue(world, "enemy-hit", target, target.kind);
+      continue;
+    }
     target.down = world.time;
     p.kills++;
-    world.events.push("defeat");
+    emit(world, "defeat", target, target.kind);
   }
+  if (!hit && impact) cue(world, "wall-hit", impact, weapon);
 }
 
 function buildFlow(world) {
@@ -499,7 +528,7 @@ function volley(world, enemy, angles, speed, force) {
       dx: Math.cos(angle) * speed, dy: Math.sin(angle) * speed, hurt: force, end: world.time + 4,
     });
   }
-  world.events.push(boss ? "boss-bolt" : "bolt");
+  emit(world, boss ? "boss-bolt" : "bolt", enemy);
 }
 
 function captainAttack(world, boss, act, clear) {
@@ -514,11 +543,11 @@ function captainAttack(world, boss, act, clear) {
       if (cx < arena.left || tileAt(world, Math.floor(cx), Math.floor(cy))) continue;
       world.hazards.push({ x: cx, y: cy, radius: 1.44, strike: time + .85, end: time + 1.19 });
     }
-    world.events.push("powder-mark");
+    emit(world, "powder-mark", boss.mark);
   } else if (arena.stage === 2 && move % 2 === 0) {
     boss.charge = .68;
     boss.hitCharge = false;
-    world.events.push("boss-charge");
+    emit(world, "boss-charge", boss);
   } else if (arena.stage === 2) {
     const radial = Array.from({ length: 14 }, (_, i) => facing + (i + .5) * TAU / 14);
     volley(world, boss, radial, 6.4, act.damage);
@@ -537,7 +566,7 @@ function updateHazards(world) {
       if (Math.hypot(world.player.x - hazard.x, world.player.y - hazard.y) < hazard.radius) {
         damage(world, BOSS_ACTS[1].damage + 4);
       }
-      world.events.push("powder-burst");
+      emit(world, "powder-burst", hazard);
     }
     return true;
   });
@@ -556,8 +585,9 @@ function updateEnemy(world, enemy, dt) {
   enemy.recover = Math.max(0, enemy.recover - dt);
   if (distance > (boss ? 25 : 17)) return;
   const clear = visible(world, enemy.x, enemy.y, p, boss ? 22 : enemy.kind === "crab" ? 8.2 : 9);
-  enemy.awake ||= clear;
+  if (clear) wake(world, enemy);
   if (!enemy.awake) return;
+  if (clear && distance < 10) world.pressure++;
   if (boss && enemy.charge > 0) {
     enemy.charge = Math.max(0, enemy.charge - dt);
     moveBody(world, enemy, Math.cos(enemy.facing) * 9.0 * dt, Math.sin(enemy.facing) * 9.0 * dt, .28);
@@ -575,6 +605,7 @@ function updateEnemy(world, enemy, dt) {
     enemy.wait = act.cooldown;
     if (boss) captainAttack(world, enemy, act, clear);
     else if (!spec.ranged) {
+      cue(world, "enemy-strike", enemy, enemy.kind);
       if (clear && distance < spec.reach + .31) damage(world, spec.damage);
     } else if (clear) volley(world, enemy, [enemy.facing], 4.9, spec.damage);
     return;
@@ -584,6 +615,8 @@ function updateEnemy(world, enemy, dt) {
   if (clear && distance <= (charge ? 8.3 : spec.reach) && enemy.wait <= 0) {
     enemy.attackSpan = enemy.attack = act.wind;
     if (boss) enemy.mark = { x: p.x, y: p.y };
+    const powder = boss && world.arena.stage === 1 && enemy.pattern % 2 === 0;
+    cue(world, "enemy-windup", enemy, charge ? "charge" : powder ? "powder" : enemy.kind);
     return;
   }
   if (distance < (spec.ranged ? 3.1 : .55) && clear) return;
@@ -608,8 +641,29 @@ function updateEnemy(world, enemy, dt) {
     moveBody(world, enemy, dx / length * act.speed * dt, dy / length * act.speed * dt, .23);
     const stride = Math.hypot(enemy.x - x, enemy.y - y);
     enemy.moving = stride > .0001;
+    const previousStep = Math.floor(enemy.gait / ENEMY_STEP_SPACING);
     enemy.gait += stride;
+    if (distance < 9 && Math.floor(enemy.gait / ENEMY_STEP_SPACING) > previousStep) {
+      cue(world, "enemy-step", enemy, enemy.kind);
+    }
   }
+}
+
+function moveSounds(world, distance) {
+  const p = world.player;
+  if (p.dash > 0) p.stride = 0;
+  else {
+    p.stride += distance;
+    if (p.stride >= STEP_SPACING) {
+      p.stride -= STEP_SPACING;
+      const style = world.floor[ix(Math.floor(p.x), Math.floor(p.y))];
+      cue(world, "player-step", null, FLOOR_SOUNDS[style]);
+    }
+  }
+  if (world.time < world.nextAmbience || world.arena.active) return;
+  const wing = Math.floor(p.x / WING_SPAN);
+  cue(world, "ambience", null, wing === 0 ? "dock" : "underground");
+  world.nextAmbience = world.time + 6 + Math.sin(world.time * 1.6) * 2;
 }
 
 export function stepRun(world, input, dt) {
@@ -638,7 +692,7 @@ export function stepRun(world, input, dt) {
     p.dashY = magnitude > 0 ? vy / magnitude : b;
     p.dash = .21;
     p.dashCooldown = p.dashReset;
-    world.events.push("dash");
+    emit(world, "dash");
   }
   const beforeX = p.x;
   const beforeY = p.y;
@@ -647,7 +701,9 @@ export function stepRun(world, input, dt) {
     vy = p.dashY * 10.5;
   }
   moveBody(world, p, vx * dt, vy * dt, .23);
-  p.moving += (Number(Math.hypot(p.x - beforeX, p.y - beforeY) > .0001) - p.moving) * Math.min(1, dt * 13);
+  const travelled = Math.hypot(p.x - beforeX, p.y - beforeY);
+  p.moving += (Number(travelled > .0001) - p.moving) * Math.min(1, dt * 13);
+  moveSounds(world, travelled);
   p.bob += dt * (p.dash > 0 ? 16 : 10) * p.moving;
   reveal(world);
   const wasInArena = world.arena.active;
@@ -656,12 +712,19 @@ export function stepRun(world, input, dt) {
   if (world.status !== "play" || (!wasInArena && world.arena.active)) return;
 
   if (world.time > world.nextFlow) { world.flow = buildFlow(world); world.nextFlow = world.time + .22; }
+  world.pressure = 0;
   for (const enemy of world.enemies) updateEnemy(world, enemy, dt);
   world.bolts = world.bolts.filter(bolt => {
     if (bolt.end <= world.time) return false;
     bolt.x += bolt.dx * dt;
     bolt.y += bolt.dy * dt;
-    if (tileAt(world, Math.floor(bolt.x), Math.floor(bolt.y))) return false;
+    if (tileAt(world, Math.floor(bolt.x), Math.floor(bolt.y))) {
+      if (world.time >= world.nextImpact && Math.hypot(p.x - bolt.x, p.y - bolt.y) < 8) {
+        world.nextImpact = world.time + .12;
+        cue(world, "bolt-impact", bolt);
+      }
+      return false;
+    }
     if (Math.hypot(p.x - bolt.x, p.y - bolt.y) < .31) { damage(world, bolt.hurt); return false; }
     return true;
   });

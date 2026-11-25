@@ -1,6 +1,6 @@
-import { ARMORY, BOSS_ACTS, createRun, location, stepRun, switchWeapon } from "./world.js?v=4";
-import { createRenderer, mapDraw } from "./render.js?v=4";
-import { pirateSound } from "./sound.js?v=4";
+import { ARMORY, BOSS_ACTS, cast, createRun, location, stepRun, switchWeapon } from "./world.js?v=5";
+import { createRenderer, mapDraw } from "./render.js?v=5";
+import { pirateSound } from "./sound.js?v=5";
 
 const $ = id => document.getElementById(id);
 const scene = $("scene");
@@ -81,6 +81,7 @@ function show(next) {
   $("map-toggle").hidden = next !== "play";
   $("pause-toggle").hidden = next !== "play";
   updateScore();
+  if (next !== "play") sound.combat(0);
   if (next !== "play" && document.pointerLockElement === scene) {
     lockedBefore = false;
     document.exitPointerLock?.();
@@ -263,13 +264,31 @@ function control(dt) {
   return input;
 }
 
+function playCue({ kind, x, y, color }) {
+  if (!soundOn) return;
+  if (x === undefined) {
+    sound.effect(kind, color);
+    return;
+  }
+  const p = run.player;
+  const dx = x - p.x;
+  const dy = y - p.y;
+  const distance = Math.hypot(dx, dy);
+  if (distance >= 16) return;
+  const muffled = distance > .1 && cast(run, p.x, p.y, dx / distance, dy / distance, distance).distance < distance - .23;
+  const pan = Math.sin(Math.atan2(dy, dx) - p.angle) * Math.min(.8, distance / 2);
+  const level = (1 - distance / 16) ** 1.4 * (muffled ? .44 : 1);
+  sound.effect(kind, color, { pan, level, muffled });
+}
+
 function frame(now) {
   const elapsed = Math.min((now - previous) / 1000, .05);
   previous = now;
   if (mode === "play") {
     stepRun(run, control(elapsed), elapsed);
+    for (const cue of run.cues.splice(0)) playCue(cue);
+    sound.combat(Math.min(1, run.pressure / 3));
     for (const event of run.events.splice(0)) {
-      sound.effect(event);
       if (event === "arena") beginScene("watcher");
       if (event === "victory") updateScore();
     }

@@ -1,4 +1,4 @@
-import { HEIGHT, WIDTH, cast, discovered, seeded, shieldRaised, tileAt } from "./world.js?v=4";
+import { HEIGHT, WIDTH, cast, discovered, seeded, shieldRaised, tileAt } from "./world.js?v=5";
 
 export const VIEW_W = 432;
 export const VIEW_H = 244;
