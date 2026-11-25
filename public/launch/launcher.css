@@ -225,3 +225,35 @@ main { max-width: 1010px; margin: 0 auto; }
   .game { transition: none; }
   .game:hover, .game:focus-visible { transform: none; }
 }
+
+
+.fortune {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  min-height: 308px;
+  display: grid;
+  align-items: center;
+  margin-bottom: 20px;
+  border: 1px solid #647968;
+  border-radius: 14px;
+  background: linear-gradient(90deg, #0d171bf7 4%, #122024ea 34%, #19282b3b 76%),
+    url("../pirates/fort.webp") center 46% / cover no-repeat;
+  box-shadow: 0 13px 35px #070a1192;
+  scroll-margin-top: 12px;
+}
+.fortune-copy { max-width: 520px; padding: 25px 27px; }
+.fortune-badges { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+.fortune-badges span { border-radius: 5px; padding: 3px 8px; font-size: .84rem; line-height: 1.4; font-weight: 800; }
+.fortune-main { color: #ccffe4; background: #213d37; border: 1px solid #57786a; }
+.fortune-new { color: #2a221a; background: #f4c683; border: 1px solid #ffdda9; }
+.fortune h2 { font: 700 clamp(2.15rem,5.7vw,4.05rem)/1.04 var(--display); letter-spacing: -.034em; margin: 8px 0; color: #fff2d2; }
+.fortune-copy > p:not(.fortune-badges) { color: #d0dfd7; font-size: .96rem; max-width: 455px; margin: 0 0 12px; }
+.fortune-play { color: #211a13; background: #f4c683; }
+.fortune-play:hover { background: #ffdab0; }
+.fortune-copy small { color: #bccec1; display: block; margin-top: 8px; font-size: .81rem; }
+@media (max-width: 620px) {
+  .fortune { min-height: 335px; background-image: linear-gradient(0deg,#0f191cf7 3%,#142229c9 74%,#14222946), url("../pirates/fort.webp"); background-position: 64% 38%; }
+  .fortune-copy { padding: 75px 15px 16px; }
+  .fortune-copy > p:not(.fortune-badges) { font-size: .91rem; }
+}

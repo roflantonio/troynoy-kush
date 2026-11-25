@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#100d17">
-  <meta name="description" content="Botan Cock Games. Три онлайн-игры для компании и главный проект студии «Серёга против книг 5».">
+  <meta name="description" content="Botan Cock Games. Браузерные игры Botan Cock Games и основной проект «Проклятие фортуны».">
   <title>Botan Cock Games</title>
   <link rel="icon" href="./launch/joker.jpg" type="image/jpeg">
-  <link rel="stylesheet" href="./launch/launcher.css">
+  <link rel="stylesheet" href="./launch/launcher.css?v=2">
   <script type="module" src="./launch/launcher.js"></script>
 </head>
 <body>
@@ -17,7 +17,7 @@
       <a class="wordmark" href="./"><img src="./launch/joker.jpg" width="49" height="49" alt=""><span>Botan Cock Games</span></a>
       <nav aria-label="Разделы сайта">
         <a href="#games">Игры</a>
-        <a href="#featured">Главный проект</a>
+        <a href="#fortune">Основной проект</a>
       </nav>
       <button type="button" class="music" id="music" aria-pressed="false"><span aria-hidden="true">♫</span> <span>Музыка</span></button>
       <audio id="soundtrack" loop preload="none" src="./run/turbo-pobeg.mp3"></audio>
@@ -27,6 +27,16 @@
       <section class="hero" id="games" aria-labelledby="games-title">
         <h1 id="games-title">BOTAN COCK <em>GAMES</em></h1>
         <p>Собери друзей и выбери, во что сыграть.</p>
+      </section>
+
+      <section class="fortune" id="fortune" aria-labelledby="fortune-title">
+        <div class="fortune-copy">
+          <p class="fortune-badges"><span class="fortune-main">Основной проект</span><span class="fortune-new">Новинка</span></p>
+          <h2 id="fortune-title">Проклятие фортуны</h2>
+          <p>Пиратский шутер-рогалик от первого лица. Спустись в Соляной форт: в каждом походе меняются проходы, добыча и усиления.</p>
+          <a class="feature-play fortune-play" href="./pirates/">Играть в «Проклятие фортуны»</a>
+          <small>Сделано с использованием ИИ</small>
+        </div>
       </section>
 
       <div class="games" aria-label="Браузерные игры">
@@ -61,7 +71,7 @@
       <section class="featured" id="featured" aria-labelledby="featured-title">
         <div class="feature-image"><img src="./launch/serega.jpg" width="1181" height="457" alt="Серёга против книг 5" loading="lazy"></div>
         <div class="feature-body">
-          <p class="featured-eyebrow">Главный проект <span>AAA</span></p>
+          <p class="featured-eyebrow">Проект студии <span>AAA</span></p>
           <h2 id="featured-title">Серёга против книг 5</h2>
           <p class="feature-copy">История обычного ботана, который попал в необычные обстоятельства.</p>
           <div class="feature-notes" id="serega-beta-notes">

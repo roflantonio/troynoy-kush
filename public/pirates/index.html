@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#111a1c">
+  <meta name="description" content="Проклятие фортуны — пиратский шутер-рогалик. Пройди Соляной форт и собери осколки компаса.">
+  <title>Проклятие фортуны</title>
+  <link rel="stylesheet" href="./pirates.css">
+  <script type="module" src="./game.js?v=1"></script>
+</head>
+<body>
+  <main class="cabinet" id="cabinet" data-mode="menu">
+    <div class="view">
+      <canvas id="scene" width="432" height="244" tabindex="0" aria-label="Игровой экран первого лица"></canvas>
+      <div id="crosshair" class="crosshair" hidden aria-hidden="true"></div>
+      <div id="signal" class="signal" hidden role="status"></div>
+      <div class="deck" id="deck" hidden>
+        <div class="deck-block health"><span>Здоровье</span><strong id="hp">100</strong></div>
+        <div class="deck-middle"><span id="weapon">Кремнёвый пистолет</span><span id="compass">Компас <b id="relics">0 / 3</b></span></div>
+        <div class="deck-block ammo"><span>Порох</span><strong id="ammo">28</strong></div>
+      </div>
+    </div>
+
+    <section id="menu" class="overlay title-screen" aria-labelledby="game-title">
+      <div class="title-content">
+        <p class="chapter">Соляной форт</p>
+        <h1 id="game-title">Проклятие<br><em>фортуны</em></h1>
+        <p class="mission">Найди три осколка компаса, одолей Смотрителя и вырвись из затонувшего форта.</p>
+        <div class="menu-buttons">
+          <button id="start" class="button primary" type="button" disabled>Начать поход</button>
+          <button id="guide" class="button plain" type="button">Управление</button>
+          <a class="button plain return" href="../">Вернуться в лаунчер</a>
+        </div>
+      </div>
+    </section>
+    <section id="pause" class="overlay modal-screen" hidden aria-labelledby="pause-title">
+      <div class="sheet">
+        <h2 id="pause-title">Пауза</h2>
+        <div class="menu-buttons">
+          <button id="continue" class="button primary" type="button">Продолжить</button>
+          <button id="pause-guide" class="button plain" type="button">Управление</button>
+          <button id="menu-return" class="button plain" type="button">В меню игры</button>
+        </div>
+      </div>
+    </section>
+    <section id="result" class="overlay modal-screen" hidden aria-labelledby="result-title">
+      <div class="sheet">
+        <p class="chapter">Соляной форт</p>
+        <h2 id="result-title"></h2>
+        <p class="summary" id="summary"></p>
+        <div class="menu-buttons">
+          <button id="retry" class="button primary" type="button">Новый поход</button>
+          <button id="result-menu" class="button plain" type="button">В меню игры</button>
+        </div>
+      </div>
+    </section>
+    <section id="chart" class="overlay modal-screen" hidden aria-label="Карта Соляного форта">
+      <div class="sheet chart-box">
+        <h2>Карта форта</h2>
+        <canvas id="map" width="350" height="270" aria-label="Карта Соляного форта"></canvas>
+        <p class="map-legend"><span>◆ Осколок</span><span>▣ Врата</span><span>✦ Ты</span></p>
+        <button id="chart-close" class="button plain" type="button">Закрыть карту</button>
+      </div>
+    </section>
+
+    <div class="toolbar">
+      <button id="audio" type="button" aria-pressed="true" class="utility"><span aria-hidden="true">♪</span> Звук</button>
+      <button id="map-toggle" type="button" class="utility" hidden>Карта</button>
+      <button id="pause-toggle" type="button" class="utility" hidden>Пауза</button>
+    </div>
+    <div id="touch" class="touch" hidden aria-label="Экранное управление">
+      <div class="touch-group">
+        <button class="utility touch-key" data-key="left" aria-label="Повернуть влево">‹</button>
+        <button class="utility touch-key" data-key="back" aria-label="Назад">⌄</button>
+        <button class="utility touch-key" data-key="forward" aria-label="Вперёд">⌃</button>
+        <button class="utility touch-key" data-key="right" aria-label="Повернуть вправо">›</button>
+      </div>
+      <div class="touch-group">
+        <button class="utility" id="touch-weapon" type="button">Оружие</button>
+        <button class="button primary touch-key" data-key="fire" type="button">Огонь</button>
+      </div>
+    </div>
+  </main>
+
+  <dialog id="help">
+    <div class="help-head"><h2>Управление</h2><button id="help-close" type="button" class="utility" aria-label="Закрыть управление">×</button></div>
+    <dl>
+      <div><dt>WASD</dt><dd>Движение и шаг вбок</dd></div>
+      <div><dt>Мышь / стрелки</dt><dd>Обзор. Клик по экрану захватывает мышь</dd></div>
+      <div><dt>ЛКМ / пробел</dt><dd>Атака</dd></div>
+      <div><dt>1 / 2 / 3</dt><dd>Пистолет, мушкетон и кортик</dd></div>
+      <div><dt>Shift</dt><dd>Бег</dd></div>
+      <div><dt>M / Esc</dt><dd>Карта и пауза</dd></div>
+    </dl>
+    <p>На телефоне используй экранные кнопки. Каждый новый поход меняет проходы, добычу и усиления.</p>
+  </dialog>
+</body>
+</html>
