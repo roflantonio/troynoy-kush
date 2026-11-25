@@ -1,4 +1,4 @@
-import { HEIGHT, WIDTH, cast, discovered, seeded, shieldRaised, tileAt } from "./world.js?v=3";
+import { HEIGHT, WIDTH, cast, discovered, seeded, shieldRaised, tileAt } from "./world.js?v=4";
 
 export const VIEW_W = 432;
 export const VIEW_H = 244;
@@ -88,16 +88,40 @@ function shaded(pixel, light, sea = 5) {
   return rgb(r, g, b);
 }
 
-function crabSprite(flare) {
+const STANCES = ["idle", "breathe", "step-a", "pass-a", "step-b", "pass-b", "wind", "strike", "hurt", "fall", "down"];
+const STRIDE = { "step-a": -3, "pass-a": -1, "step-b": 3, "pass-b": 1 };
+
+function crabSprite(pose) {
   const [image, c] = pixelCanvas(52, 34);
-  const shell = flare ? "#f6ba64" : "#be653b";
-  poly(c, "#191e2a", [[3,29],[0,21],[4,14],[8,12],[12,17],[18,11],[24,9],[29,8],[37,12],
-    [40,17],[44,12],[49,14],[52,22],[49,29],[39,29],[34,32],[15,32],[10,29]]);
+  const shell = pose === "hurt" ? "#f6ba64" : "#be653b";
+  const stride = STRIDE[pose] || 0;
+  if (pose === "fall" || pose === "down") {
+    c.translate(0, pose === "fall" ? 6 : 16);
+    c.scale(1, pose === "fall" ? .8 : .5);
+  }
+  for (const [x, sign] of [[13, -1], [39, 1]]) {
+    for (let leg = 0; leg < 3; leg++) {
+      const stretch = leg % 2 ? -stride : stride;
+      const endX = x + sign * (6 + leg * 2) + stretch;
+      const endY = 33 - leg * 2 - (stretch > 1 ? 2 : 0);
+      poly(c, "#472d30", [[x, 21 + leg], [endX, endY - 4], [endX, endY], [x + 3, 26]]);
+      rect(c, "#986044", endX, endY - 1, 3, 2);
+    }
+  }
+  if (pose === "breathe" || Math.abs(stride) === 1) c.translate(0, -1);
+  poly(c, "#191e2a", [[7,27],[9,21],[13,17],[18,11],[24,9],[29,8],[37,12],
+    [40,17],[46,22],[44,29],[39,29],[34,32],[15,32],[10,29]]);
   poly(c, shell, [[8,25],[15,15],[23,11],[30,10],[39,16],[44,25],[35,30],[16,29]]);
   poly(c, "#773d33", [[14,24],[21,20],[26,23],[30,21],[39,24],[35,29],[17,28]]);
   poly(c, "#fad08b", [[18,15],[25,11],[33,12],[38,15],[29,15],[22,17]]);
-  poly(c, shell, [[4,16],[8,14],[13,21],[9,25],[4,24],[2,21]]);
-  poly(c, shell, [[44,15],[49,16],[51,22],[48,27],[41,24],[42,20]]);
+  for (const [hand, dir] of [[8, -1], [44, 1]]) {
+    c.save();
+    c.translate(hand, 21 + (pose === "wind" ? -8 : pose === "strike" ? -4 : dir * stride));
+    c.scale(dir, 1);
+    poly(c, "#612e2d", [[-4,3],[-5,-3],[0,-6],[6,-7],[8,-4],[4,0],[8,1],[7,4],[1,6]]);
+    poly(c, shell, [[-4,2],[-2,-3],[2,-5],[7,-6],[6,-4],[2,0],[7,1],[6,3],[1,5]]);
+    c.restore();
+  }
   rect(c, "#eddec2", 18, 20, 5, 4);
   rect(c, "#eddec2", 30, 20, 5, 4);
   rect(c, "#713631", 20, 21, 2, 3);
@@ -105,25 +129,40 @@ function crabSprite(flare) {
   return image;
 }
 
-function sailor(kind, flare, guard = false) {
+function sailor(kind, pose, guard = false) {
   const [image, c] = pixelCanvas(48, 58);
   const leader = kind === "captain";
+  const flare = pose === "hurt" || pose === "strike";
+  const stride = STRIDE[pose] || 0;
+  const raised = pose === "wind" || pose === "charge";
+  if (pose === "fall" || pose === "down") {
+    c.translate(pose === "fall" ? -6 : -10, pose === "fall" ? 11 : 31);
+    c.transform(1, .19, .29, pose === "fall" ? .72 : .38, 0, 0);
+  }
+  for (const [base, sign] of [[16,-1],[33,1]]) {
+    const motion = sign * stride;
+    const endX = base + motion;
+    const endY = 57 - Math.max(0, motion);
+    poly(c, "#2d2834", [[base-4,46],[base+4,46],[endX+4,endY],[endX-5,endY]]);
+    rect(c, "#695044", endX - 5, endY - 2, 10, 3);
+    rect(c, "#25222d", endX - 6, endY + 1, 12, 1);
+  }
+  c.translate(pose === "hurt" ? 2 : pose === "strike" ? -1 : 0, pose === "breathe" || Math.abs(stride) === 1 ? 1 : 0);
   const shooter = kind === "corsair";
   const sentinel = kind === "sentinel";
   const coat = leader ? "#983e38" : shooter ? "#84472d" : sentinel ? "#556653" : "#23767b";
   const shade = leader ? "#542d31" : shooter ? "#58362b" : sentinel ? "#363b33" : "#194049";
   const rim = leader ? "#ffc885" : shooter ? "#e4a567" : sentinel ? "#b8ae72" : "#5cc1b0";
   const bone = flare ? "#fff3ae" : "#e5dcb1";
-  poly(c, "#0c171c", [[5,56],[7,38],[4,27],[12,18],[13,11],[19,9],[25,8],[31,9],[36,17],[38,24],[43,28],[44,48],[40,56]]);
-  poly(c, coat, [[12,24],[21,21],[32,22],[40,26],[43,47],[38,56],[31,53],[24,56],[20,51],[13,56],[7,51]]);
+  poly(c, "#0c171c", [[6,49],[7,38],[4,27],[12,18],[13,11],[19,9],[25,8],[31,9],[36,17],[38,24],[43,28],[44,47],[40,51]]);
+  poly(c, coat, [[12,24],[21,21],[32,22],[40,26],[43,44],[38+stride,51],[31,48],[24,51],[20,46],[13-stride,51],[7,47]]);
   poly(c, shade, [[11,23],[16,23],[19,34],[15,52],[7,51],[9,38]]);
   poly(c, shade, [[31,25],[40,26],[42,47],[37,50],[32,40]]);
   poly(c, rim, [[12,22],[22,23],[18,31],[12,37],[13,28]]);
   poly(c, rim, [[27,22],[34,23],[34,34],[26,29]]);
   rect(c, "#34444a", 15, 40, 23, 5);
   rect(c, "#d7ae73", 24, 40, 6, 5);
-  rect(c, "#513d48", 12, 53, 9, 5);
-  rect(c, "#513d48", 29, 53, 9, 5);
+
   for (const y of [32,35,46]) rect(c, rim, 26, y, 2, 2);
   poly(c, bone, [[15,13],[18,10],[30,10],[34,14],[33,21],[29,24],[20,24],[16,20]]);
   rect(c, "#3f3c3e", 17, 15, 6, 4);
@@ -140,22 +179,36 @@ function sailor(kind, flare, guard = false) {
     poly(c, "#fc7d64", [[30,7],[35,1],[42,1],[38,5],[34,9]]);
     rect(c, "#f8b87d", 24, 6, 4, 4);
   }
+  const reach = pose === "strike" || pose === "charge";
   if (shooter || leader) {
-    poly(c, "#cbb07c", [[7,35],[7,31],[12,28],[15,34],[12,41],[7,42]]);
-    poly(c, "#574654", [[6,33],[12,32],[15,35],[19,35],[19,40],[10,41],[6,40]]);
-    rect(c, flare ? "#ffce74" : "#d0a16b", 6, 35, 6, 2);
+    const x = reach ? 2 : 7;
+    const y = raised ? 22 : reach ? 28 : 33 + stride;
+    poly(c, shade, [[10,24],[16,26],[x+9,y+4],[x+1,y+8],[x-2,y+5]]);
+    rect(c, "#cbb07c", x, y, 6, 5);
+    poly(c, "#574654", [[x-1,y],[x+4,y-3],[x+10,y-1],[x+15,y-1],[x+15,y+4],[x+3,y+5],[x-1,y+4]]);
+    rect(c, raised ? "#e48cf0" : "#c9a473", x, y, 6, 2);
+    if (reach) poly(c, leader ? "#e3a3ff" : "#ffca75", [[x,y-2],[x-2,y-6],[x-1,y-2],[x-3,y+1],[x-1,y+4],[x+2,y+2]]);
+    if (leader && raised) poly(c, "#b980cc", [[36,25],[41,19],[39,11],[45,16],[46,23],[40,30]]);
   } else {
-    poly(c, bone, [[6,32],[11,32],[13,41],[10,45],[5,42]]);
-    poly(c, bone, [[36,30],[41,30],[45,42],[39,44],[35,37]]);
+    const l = raised ? 19 : reach ? 26 : 34 + stride;
+    const r = raised ? 18 : reach ? 23 : 33 - stride;
+    poly(c, shade, [[10,24],[15,28],[7,l+6],[2,l+4],[5,30]]);
+    poly(c, shade, [[35,24],[42,28],[46,r+5],[39,r+7],[34,34]]);
+    poly(c, bone, [[3,l],[7,l-2],[11,l+3],[8,l+7],[2,l+5]]);
+    poly(c, bone, [[40,r-2],[45,r-1],[47,r+5],[42,r+7],[38,r+2]]);
   }
   if (sentinel) {
     const x = guard ? 19 : 33;
-    const y = guard ? 30 : 38;
+    const y = guard ? 30 : 33 + stride;
     poly(c, "#252c32", [[x-8,y-4],[x-5,y-9],[x+6,y-9],[x+10,y-4],[x+8,y+14],[x+2,y+20],[x-6,y+14]]);
     poly(c, "#b69359", [[x-6,y-4],[x-3,y-7],[x+5,y-7],[x+8,y-4],[x+6,y+13],[x+1,y+17],[x-4,y+13]]);
     poly(c, "#60543b", [[x-4,y-2],[x+6,y-2],[x+4,y+11],[x+1,y+14],[x-3,y+11]]);
     rect(c, flare ? "#ffeeaa" : "#8aaba4", x-1, y+3, 5, 5);
     rect(c, "#d5ba7c", x-1, y-4, 2, 17);
+    if (raised || reach) {
+      poly(c, "#bcc1ae", [[5,22],[4,8],[7,4],[10,9],[9,19],[12,27],[8,29]]);
+      rect(c, "#c58c52", 4, 26, 10, 3);
+    }
   }
   return image;
 }
@@ -275,32 +328,42 @@ function arm(kind) {
 
 function spriteBook() {
   const sprites = {};
-  for (const kind of ["drowned", "corsair", "captain", "sentinel"]) {
-    sprites[kind] = sailor(kind, false);
-    sprites[kind + "-lit"] = sailor(kind, true);
+  for (const kind of ["drowned", "corsair", "captain", "sentinel", "crab"]) {
+    for (const pose of STANCES) {
+      sprites[kind + "-" + pose] = kind === "crab" ? crabSprite(pose) : sailor(kind, pose);
+      if (kind === "sentinel") sprites[kind + "-shield-" + pose] = sailor(kind, pose, true);
+    }
   }
-  sprites.crab = crabSprite(false);
-  sprites["crab-lit"] = crabSprite(true);
-  sprites["sentinel-shield"] = sailor("sentinel", false, true);
-  sprites["sentinel-shield-lit"] = sailor("sentinel", true, true);
-  for (const kind of ["torch","barrel","heal","ammo","relic","scatter","musket","gate","closed","bolt","boss-bolt","spark","body"]) {
+  sprites["captain-charge"] = sailor("captain", "charge");
+  for (const kind of ["torch","barrel","heal","ammo","relic","scatter","musket","gate","closed","bolt","boss-bolt","spark"]) {
     sprites[kind] = prop(kind);
     if (kind === "torch" || kind === "gate") sprites[kind + "-lit"] = prop(kind, 2);
   }
   return sprites;
 }
 
-function sceneSprites(world) {
-  const flick = Math.floor(world.time * 8) % 3 === 1;
+function enemyArt(enemy, time) {
+  let pose = "idle";
+  if (enemy.hp <= 0) pose = time - enemy.down < .22 ? "fall" : "down";
+  else if (enemy.charge) pose = "charge";
+  else if (enemy.hurt > .07) pose = "hurt";
+  else if (enemy.recover > .03) pose = "strike";
+  else if (enemy.attack) pose = enemy.attack > enemy.attackSpan * .35 ? "wind" : "strike";
+  else if (enemy.moving) pose = STANCES[2 + Math.floor(enemy.gait * 5.4) % 4];
+  else if (Math.floor(time * 2.4 + enemy.phase) % 2) pose = "breathe";
+  return enemy.kind + (shieldRaised(enemy) && enemy.hp > 0 ? "-shield-" : "-") + pose;
+}
+
+function sceneSprites(world, time) {
+  const flick = Math.floor(time * 8) % 3 === 1;
   const shocked = world.arena.cleared;
   const gate = shocked ? (flick ? "gate-lit" : "gate") : "closed";
   return [
     ...world.props.map(p => ({ ...p, art: p.kind === "torch" && flick ? "torch-lit" : p.kind, h: p.kind === "torch" ? .63 : .52, lift: 0 })),
     ...world.items.map(p => ({ ...p, art: p.kind, h: .39, lift: p.kind === "relic" ? .13 + Math.sin(world.time * 4) * .035 : 0 })),
     ...world.enemies.map(e => ({
-      x: e.x, y: e.y, art: e.hp <= 0 ? "body" : e.kind + (shieldRaised(e) ? "-shield" : "") + (e.hurt || e.attack ? "-lit" : ""),
-      h: e.hp <= 0 ? .28 : e.kind === "captain" ? 1.15 : e.kind === "crab" ? .44 : .93,
-      lift: e.hp > 0 && e.awake ? .016 * Math.sin(world.time * 9 + e.phase) : 0,
+      x: e.x, y: e.y, art: enemyArt(e, time),
+      h: e.kind === "captain" ? 1.16 : e.kind === "crab" ? .44 : .93, lift: 0,
     })),
     ...world.bolts.map(b => ({ ...b, art: b.kind, h: b.kind === "boss-bolt" ? .30 : .20, lift: .43 })),
     ...world.flashes.map(b => ({ ...b, art: "spark", h: .25, lift: .59 })),
@@ -332,6 +395,20 @@ export function createRenderer(canvas) {
     const horizon = Math.floor(VIEW_H * (1 + p.pitch) / 2 + Math.sin(p.bob) * p.moving * 2.6);
     const rowLimit = Math.max(horizon + 1, VIEW_H - horizon);
     const sampleFloor = (fx, fy) => Math.floor(fy) * WIDTH + Math.floor(fx);
+    const powder = new Map();
+    for (const hazard of world.hazards) {
+      const minX = Math.floor(hazard.x - hazard.radius);
+      const maxX = Math.floor(hazard.x + hazard.radius);
+      const minY = Math.floor(hazard.y - hazard.radius);
+      const maxY = Math.floor(hazard.y + hazard.radius);
+      for (let y = minY; y <= maxY; y++) for (let x = minX; x <= maxX; x++) {
+        const tile = y * WIDTH + x;
+        if (world.floor[tile] !== 4) continue;
+        const bucket = powder.get(tile) ?? [];
+        bucket.push(hazard);
+        powder.set(tile, bucket);
+      }
+    }
 
     pixels.fill(rgb(43, 51, 57));
     for (let row = 1; row <= rowLimit; row++) {
@@ -347,8 +424,19 @@ export function createRenderer(canvas) {
         const tx = Math.floor(fx * T) & (T - 1);
         const ty = Math.floor(fy * T) & (T - 1);
         if (floorY >= 0 && floorY < VIEW_H) {
-          const tile = world.floor[sampleFloor(fx, fy)];
-          pixels[floorY * VIEW_W + x] = palette[tile === 1 ? 7 : tile === 2 ? 3 : tile === 4 ? 9 : 5][light][ty * T + tx];
+          const index = sampleFloor(fx, fy);
+          const tile = world.floor[index];
+          let color = palette[tile === 1 ? 7 : tile === 2 ? 3 : tile === 4 ? 9 : 5][light][ty * T + tx];
+          const circles = powder.size && tile === 4 ? powder.get(index) : null;
+          if (circles) for (const hazard of circles) {
+            const radius = hazard.radius;
+            const d = (hazard.x - fx) ** 2 + (hazard.y - fy) ** 2;
+            if (d >= radius * radius) continue;
+            if (hazard.burst) color = d > radius * .80 ? rgb(243, 152, 96) : rgb(166, 58, 52);
+            else if (d >= (radius - .11) ** 2) color = rgb(228, 110, 68);
+            else if ((tx + ty) % 6 < 2) color = rgb(150, 65, 48);
+          }
+          pixels[floorY * VIEW_W + x] = color;
         }
         if (roofY >= 0 && roofY < VIEW_H) pixels[roofY * VIEW_W + x] = palette[6][Math.max(0, light - 4)][ty * T + tx];
       }
@@ -372,7 +460,7 @@ export function createRenderer(canvas) {
     }
     ctx.putImageData(id, 0, 0);
 
-    const view = sceneSprites(world).map(s => ({ ...s,
+    const view = sceneSprites(world, camera.time ?? world.time).map(s => ({ ...s,
       z: (s.x - p.x) * ux + (s.y - p.y) * uy,
       q: -(s.x - p.x) * uy + (s.y - p.y) * ux,
     })).filter(s => s.z > .15 && s.z < 23).sort((a, b) => b.z - a.z);
@@ -406,12 +494,20 @@ export function createRenderer(canvas) {
     const flash = muzzle && p.recoil > (p.weapon === "pistol" ? .14 : .235);
     const slash = p.weapon === "blade" ? Math.sin(p.recoil * Math.PI / .195) : 0;
     const handX = VIEW_W / 2 - 79 + Math.sin(p.bob * .61) * p.moving * 6 - slash * 57;
-    const handY = VIEW_H - 93 + Math.abs(Math.sin(p.bob)) * p.moving * 4 + p.recoil * 40 + p.dash * 26;
+    const reload = p.reloadLeft ? Math.sin(Math.PI * p.reloadLeft / p.reloadSpan) : 0;
+    const handY = VIEW_H - 93 + Math.abs(Math.sin(p.bob)) * p.moving * 4 + p.recoil * 40 + p.dash * 26 + reload * 57;
     if (flash) {
       const cx = handX + muzzle[0];
       const cy = handY + muzzle[1];
       poly(ctx, "#ffd47c", [[cx-26,cy-10],[cx-10,cy-12],[cx-9,cy-30],[cx,cy-18],[cx+12,cy-29],[cx+12,cy-12],[cx+28,cy-7],[cx+13,cy+5],[cx,cy+14],[cx-13,cy+5]]);
       poly(ctx, "#fff5bf", [[cx-13,cy-5],[cx-2,cy-19],[cx+8,cy-10],[cx+16,cy-4],[cx,cy+4]]);
+    }
+    if (reload > .20) {
+      const hand = reload * 19;
+      poly(ctx, "#835f47", [[123,244],[130,226+hand],[146,211+hand],[158,211+hand],[160,219+hand],[148,230+hand],[146,244]]);
+      poly(ctx, "#dba474", [[134,226+hand],[147,213+hand],[156,213+hand],[155,219+hand],[145,225+hand],[140,232+hand]]);
+      rect(ctx, "#e2bc70", 150, 207 + hand, 15, 4);
+      rect(ctx, "#9d4e40", 159, 207 + hand, 6, 4);
     }
     ctx.drawImage(image, Math.round(handX), Math.round(handY));
     if (p.hurt) rect(ctx, "rgba(179,46,35," + Math.min(.31, p.hurt * .8) + ")", 0, 0, VIEW_W, VIEW_H);

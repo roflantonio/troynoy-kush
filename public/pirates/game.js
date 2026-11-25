@@ -1,6 +1,6 @@
-import { ARMORY, DASH_COOLDOWN, createRun, location, stepRun, switchWeapon } from "./world.js?v=3";
-import { createRenderer, mapDraw } from "./render.js?v=3";
-import { pirateSound } from "./sound.js?v=3";
+import { ARMORY, BOSS_ACTS, createRun, location, stepRun, switchWeapon } from "./world.js?v=4";
+import { createRenderer, mapDraw } from "./render.js?v=4";
+import { pirateSound } from "./sound.js?v=4";
 
 const $ = id => document.getElementById(id);
 const scene = $("scene");
@@ -8,6 +8,7 @@ const paint = createRenderer(scene);
 const touch = matchMedia("(any-pointer: coarse)").matches;
 const keys = new Set();
 const held = new Set();
+const titleChoices = [...document.querySelectorAll(".title-choice")];
 const screens = ["menu", "pause", "result", "chart", "cinematic"];
 const storageKey = "fortune-sound";
 let soundOn = true;
@@ -19,9 +20,11 @@ let previous = performance.now();
 let look = 0;
 let tilt = 0;
 let dashPressed = false;
+let reloadPressed = false;
 let cinematic = null;
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
 let firing = false;
+let firePressed = false;
 let lockedBefore = false;
 let drag = null;
 
@@ -29,9 +32,11 @@ function clearInput() {
   keys.clear();
   held.clear();
   firing = false;
+  firePressed = false;
   look = 0;
   tilt = 0;
   dashPressed = false;
+  reloadPressed = false;
   drag = null;
 }
 
@@ -90,41 +95,81 @@ function show(next) {
   }
 }
 
+const speakers = {
+  pirate: { name: "Моряк", pace: 32 },
+  watcher: { name: "Смотритель", pace: 43 },
+};
+
 const scenes = {
   arrival: {
-    title: "Форт проклятых", length: 8400,
-    lines: ["В полночь отлив открыл дорогу к форту. Ты сошёл на берег за компасом утонувшего капитана.",
-      "Три крыла, три осколка. Забери их и найди выход, пока море не вернулось."],
+    title: "Форт проклятых",
+    lines: [
+      { speaker: "pirate", shot: "dark", text: "В ушах шумит. Воды полный рот… Я ещё жив?" },
+      { speaker: "pirate", shot: "fort", text: "Форт проклятых. Течение выбросило меня прямо к воротам." },
+      { speaker: "pirate", shot: "fort", text: "Мой корабль разбит. Найду три осколка, открою дальние врата и выберусь отсюда." },
+    ],
   },
   watcher: {
-    title: "Смотритель", length: 6600,
-    lines: ["Решётка падает за спиной. Из мрака выходят зелёные огни.",
-      "«Море забрало мою команду. А теперь я заберу твой компас»."],
+    title: "Зал Смотрителя",
+    lines: [
+      { speaker: "pirate", shot: "arena", text: "Решётка захлопнулась. Ты держишь здесь выход?" },
+      { speaker: "watcher", shot: "arena", text: "Море забрало мою команду. Теперь ты займёшь её место." },
+      { speaker: "pirate", shot: "arena", text: "Море уже пыталось. Теперь открой ворота." },
+    ],
   },
 };
 
+function setLine(index, now) {
+  const line = cinematic.act.lines[index];
+  Object.assign(cinematic, { index, letters: Array.from(line.text), shown: 0, nextLetter: now + (line.shot === "dark" ? 580 : 200) });
+  $("cinematic").dataset.shot = line.shot;
+  $("cinematic").dataset.speaker = line.speaker;
+  text("speaker-name", speakers[line.speaker].name);
+  text("cinematic-line", "");
+  text("accessible-line", speakers[line.speaker].name + ". " + line.text);
+  text("scene-next", "Показать текст");
+}
+
 function beginScene(kind) {
   const act = scenes[kind];
-  cinematic = { kind, act, started: performance.now() };
+  const now = performance.now();
+  cinematic = { kind, act, started: now };
   $("cinematic").dataset.act = kind;
   text("cinematic-title", act.title);
-  text("cinematic-line", act.lines[0]);
+  setLine(0, now);
   show("cinematic");
-  $("skip-scene").focus({ preventScroll: true });
+  $("scene-next").focus({ preventScroll: true });
+}
+
+function dialogueLabel() {
+  if (cinematic.index < cinematic.act.lines.length - 1) return "Далее";
+  return cinematic.kind === "arrival" ? "Войти в форт" : "В бой";
+}
+
+function advanceScene() {
+  if (cinematic.shown < cinematic.letters.length) {
+    cinematic.shown = cinematic.letters.length;
+    text("cinematic-line", cinematic.letters.join(""));
+    text("scene-next", dialogueLabel());
+  } else if (cinematic.index + 1 < cinematic.act.lines.length) {
+    setLine(cinematic.index + 1, performance.now());
+  } else leaveScene(true);
 }
 
 function film(now) {
-  const { kind, act, started } = cinematic;
-  const elapsed = now - started;
-  if (elapsed >= act.length) {
-    leaveScene(false);
-    return;
+  const { kind, act, index, started, letters } = cinematic;
+  if (now >= cinematic.nextLetter && cinematic.shown < letters.length) {
+    const glyph = letters[cinematic.shown++];
+    text("cinematic-line", letters.slice(0, cinematic.shown).join(""));
+    const speaker = act.lines[index].speaker;
+    if (/\p{L}/u.test(glyph) && cinematic.shown % 2) sound.voice(speaker);
+    cinematic.nextLetter = now + speakers[speaker].pace + (/[.!?…]/u.test(glyph) ? 155 : /[,«»]/u.test(glyph) ? 65 : 0);
+    if (cinematic.shown === letters.length) text("scene-next", dialogueLabel());
   }
-  text("cinematic-line", act.lines[Number(elapsed > act.length * .48)]);
   if (kind === "watcher") {
-    const pan = reducedMotion.matches ? 0 : elapsed / act.length;
+    const pan = reducedMotion.matches ? 0 : Math.min(1, (now - started) / 8000);
     paint(run, { x: run.arena.left + 2.9 + pan * 4.4, y: run.boss.y + (1 - pan) * 1.75,
-      angle: -.23 + pan * .22, pitch: .028, bob: 0, moving: 0 });
+      angle: -.23 + pan * .22, pitch: .028, bob: 0, moving: 0, time: run.time + (now - started) / 1000 });
   }
 }
 
@@ -143,7 +188,7 @@ function lock() {
 function start() {
   const seed = crypto.getRandomValues(new Uint32Array(1))[0];
   run = createRun(seed);
-  run.hint = "В каждом крыле ищи осколок · Tab — карта";
+  run.hint = "Tab · карта    R · перезарядка    3 · сабля";
   run.hintUntil = 5;
   updateHud();
   beginScene("arrival");
@@ -167,14 +212,31 @@ function updateHud() {
   health.max = player.max;
   health.value = player.hp;
   $("compass").dataset.filled = String(player.relics);
-  text("ammo", player.weapon === "blade" ? "—" : player.ammo);
-  text("weapon", ARMORY[player.weapon].name);
+  const weapon = ARMORY[player.weapon];
+  const ready = player.chambers[player.weapon];
+  $("weapon-hud").dataset.weapon = player.weapon;
+  $("rounds").hidden = !weapon.capacity;
+  if (weapon.capacity) {
+    text("ammo", ready);
+    text("ammo-reserve", player.ammo);
+    const rounds = $("rounds");
+    rounds.dataset.capacity = weapon.capacity;
+    rounds.dataset.loaded = ready;
+    const meter = $("reload-meter");
+    meter.hidden = !player.reloadLeft;
+    meter.value = player.reloadLeft ? 1 - player.reloadLeft / player.reloadSpan : 0;
+    $("reload-label").hidden = !player.reloadLeft;
+  }
+  text("weapon", weapon.name);
   text("relics", player.relics + " / 3");
   const dash = $("dash-meter");
-  dash.value = DASH_COOLDOWN - player.dashCooldown;
+  dash.max = player.dashReset;
+  dash.value = player.dashReset - player.dashCooldown;
   dash.parentElement.dataset.ready = String(player.dashCooldown === 0);
   $("boss-meter").max = run.boss.max;
   $("boss-meter").value = run.boss.hp;
+  $("boss-hud").dataset.stage = run.arena.stage + 1;
+  text("boss-phase", BOSS_ACTS[run.arena.stage].name);
   $("boss-hud").hidden = mode !== "play" || !run.arena.active || run.arena.cleared;
   const signal = mode === "play" && run.hint && run.hintUntil >= run.time;
   $("signal").hidden = !signal;
@@ -189,13 +251,15 @@ function control(dt) {
   const left = value("ArrowLeft", "left");
   const input = {
     forward: Number(up) - Number(down), strafe: Number(keys.has("KeyD")) - Number(keys.has("KeyA")),
-    turn: Number(right) - Number(left), look, fire: firing || value("Space", "fire"),
+    turn: Number(right) - Number(left), look, fire: firePressed || firing || value("Space", "fire"),
     tilt: tilt + (Number(keys.has("PageUp")) - Number(keys.has("PageDown"))) * dt * 1.5,
-    dash: dashPressed,
+    dash: dashPressed, reload: reloadPressed,
   };
   look = 0;
   tilt = 0;
   dashPressed = false;
+  reloadPressed = false;
+  firePressed = false;
   return input;
 }
 
@@ -217,12 +281,25 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 
-const moves = new Set(["KeyW","KeyA","KeyS","KeyD","ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Space","PageUp","PageDown","ShiftLeft","ShiftRight"]);
+const moves = new Set(["KeyW","KeyA","KeyS","KeyD","ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Space","PageUp","PageDown","KeyR","ShiftLeft","ShiftRight"]);
 document.addEventListener("keydown", event => {
   if ($("help").open) return;
+  if (mode === "menu" && ["ArrowUp", "ArrowDown"].includes(event.code)) {
+    event.preventDefault();
+    const current = titleChoices.indexOf(document.activeElement);
+    const offset = event.code === "ArrowUp" ? -1 : 1;
+    const target = current === -1 ? 0 : (current + offset + titleChoices.length) % titleChoices.length;
+    titleChoices[target].focus();
+    return;
+  }
   if (mode === "cinematic" && event.code === "Escape" && !event.repeat) {
     event.preventDefault();
     leaveScene(false);
+    return;
+  }
+  if (mode === "cinematic" && event.code === "Space" && !event.repeat) {
+    event.preventDefault();
+    advanceScene();
     return;
   }
   if ((event.code === "Tab" || event.code === "KeyM") && ["play","chart"].includes(mode)) {
@@ -248,6 +325,8 @@ document.addEventListener("keydown", event => {
   if (!moves.has(event.code)) return;
   event.preventDefault();
   if (!event.repeat && (event.code === "ShiftLeft" || event.code === "ShiftRight")) dashPressed = true;
+  if (!event.repeat && event.code === "KeyR") reloadPressed = true;
+  if (!event.repeat && event.code === "Space") firePressed = true;
   keys.add(event.code);
 });
 document.addEventListener("keyup", event => keys.delete(event.code));
@@ -270,6 +349,7 @@ scene.addEventListener("pointerdown", event => {
   drag = { id: event.pointerId, x: event.clientX, y: event.clientY };
   if (event.pointerType !== "touch") {
     firing = true;
+    firePressed = true;
     lock();
   }
 });
@@ -296,7 +376,11 @@ for (const button of document.querySelectorAll(".touch-key")) {
     if (mode !== "play") return;
     button.setPointerCapture?.(event.pointerId);
     if (action === "dash") dashPressed = true;
-    else held.add(action);
+    else if (action === "reload") reloadPressed = true;
+    else {
+      if (action === "fire") firePressed = true;
+      held.add(action);
+    }
   });
   for (const type of ["pointerup","pointercancel","lostpointercapture"]) button.addEventListener(type, () => held.delete(action));
 }
@@ -307,6 +391,7 @@ $("touch-weapon").addEventListener("click", () => {
 $("start").addEventListener("click", start);
 $("retry").addEventListener("click", start);
 $("skip-scene").addEventListener("click", () => leaveScene(true));
+$("scene-next").addEventListener("click", advanceScene);
 $("continue").addEventListener("click", () => { show("play"); lock(); });
 $("menu-return").addEventListener("click", () => show("menu"));
 $("result-menu").addEventListener("click", () => show("menu"));

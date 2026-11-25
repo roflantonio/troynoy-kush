@@ -11,24 +11,31 @@ const WING_NAMES = ["Затопленная пристань", "Пороховы
 export const TAU = Math.PI * 2;
 
 export const ARMORY = {
-  pistol: { name: "Кремнёвый пистолет", damage: 24, reload: .37, spread: .022, pellets: 1, range: 17 },
-  scatter: { name: "Мушкетон", damage: 14, reload: .71, spread: .17, pellets: 5, range: 9 },
-  blade: { name: "Абордажная сабля", damage: 34, reload: .36, spread: .18, pellets: 1, range: 1.8 },
-  musket: { name: "Длинный мушкет", damage: 65, reload: .94, spread: 0, pellets: 1, range: 26 },
+  pistol: { name: "Кремнёвый пистолет", damage: 22, cadence: .33, capacity: 4, reload: 1.24, pellets: 1, range: 17 },
+  scatter: { name: "Мушкетон", damage: 11, cadence: .53, capacity: 2, reload: 1.77, spread: .17, pellets: 5, range: 9 },
+  blade: { name: "Абордажная сабля", damage: 31, cadence: .43, pellets: 1, range: 1.75 },
+  musket: { name: "Длинный мушкет", damage: 61, cadence: .56, capacity: 1, reload: 1.48, pellets: 1, range: 26 },
 };
-const CURSES = [
-  { name: "Огниво", desc: "быстрее перезарядка", apply: p => { p.reload *= .77; } },
-  { name: "Мёртвый порох", desc: "выше урон и запас пороха", apply: p => { p.power += .28; p.ammo = Math.min(99, p.ammo + 8); } },
-  { name: "Печать живучести", desc: "больше здоровья", apply: p => { p.max += 24; p.hp = Math.min(p.max, p.hp + 42); } },
-  { name: "Пиявка", desc: "победы восстанавливают здоровье", apply: p => { p.leech = 6; } },
+const BOONS = [
+  { name: "Янтарная искра · рывок заряжается на 0,08 с быстрее", apply: p => { p.dashReset -= .08; } },
+  { name: "Шов под парусом · +8 к максимуму здоровья", apply: p => { p.max += 8; p.hp += 8; } },
+  { name: "Сухое огниво · перезарядка на 8% быстрее", apply: p => { p.reloadScale = .92; } },
 ];
 const ENEMIES = {
-  drowned: { hp: 38, speed: 1.30, reach: .74, wind: .45, cooldown: .88, damage: 9 },
-  crab: { hp: 24, speed: 1.91, reach: .66, wind: .29, cooldown: .72, damage: 7 },
-  sentinel: { hp: 52, speed: .89, reach: .92, wind: .60, cooldown: 1.28, damage: 12 },
-  corsair: { hp: 46, speed: 1.03, reach: 6.2, wind: .65, cooldown: 1.62, damage: 10, ranged: true },
-  captain: { hp: 460, speed: 1.32, reach: 13.2, wind: .80, cooldown: 1.16, damage: 18, ranged: true },
+  drowned: { hp: 44, speed: 1.55, reach: .82, wind: .34, cooldown: .61, damage: 14 },
+  crab: { hp: 29, speed: 2.13, reach: .72, wind: .25, cooldown: .54, damage: 11 },
+  sentinel: { hp: 58, speed: 1.12, reach: 1.02, wind: .48, cooldown: .90, damage: 19 },
+  corsair: { hp: 44, speed: 1.22, reach: 7.6, wind: .55, cooldown: 1.05, damage: 16, ranged: true },
+  captain: { hp: 600, speed: 1.48, reach: 14.2, ranged: true },
 };
+export const BOSS_ACTS = [
+  { name: "Картечь", floor: 400, wind: .78, cooldown: .98, speed: 1.48, damage: 20 },
+  { name: "Проклятая команда", floor: 200, wind: .69, cooldown: .83, speed: 1.76, damage: 22 },
+  { name: "Последний абордаж", floor: 0, wind: .59, cooldown: .77, speed: 2.18, damage: 27 },
+];
+const AMMO_LIMIT = 64;
+const AMMO_BOX = 9;
+const MEDICINE = 23;
 
 export function shieldRaised(enemy) {
   return enemy.kind === "sentinel" && !enemy.attack && enemy.wait <= .35;
@@ -97,7 +104,7 @@ function topology(rooms, rand) {
 function addEnemy(world, kind, x, y) {
   const spec = ENEMIES[kind];
   world.enemies.push({ kind, x, y, hp: spec.hp, max: spec.hp, awake: false, attack: 0, wait: .35,
-    hurt: 0, down: 0, phase: world.rand() * TAU, facing: 0, guardPing: 0 });
+    hurt: 0, down: 0, attackSpan: 0, recover: 0, gait: 0, moving: false, phase: world.rand() * TAU, facing: 0, guardPing: 0 });
 }
 
 function buildWing(world, wing, carve) {
@@ -124,24 +131,24 @@ function buildWing(world, wing, carve) {
     world.props.push({ kind: "torch", x: room.x - room.w + .45, y: room.y - room.h + .45 });
     if (room.id === startRoom) {
       addEnemy(world, "drowned", room.x + 2.8, room.y + .7);
-      if (wing === 0) pickup("scatter", room, 1.45, -.65);
-      if (wing === 1) pickup("musket", room, 1.45, -.65);
-      pickup("heal", room, -.65, .5);
+      if (wing > 0) addEnemy(world, "crab", room.x + 1.2, room.y - 2.1);
       continue;
     }
-    const primary = enemyTypes[(order.indexOf(room) + wing) % enemyTypes.length];
+    const rank = order.indexOf(room);
+    const primary = enemyTypes[(rank + wing) % enemyTypes.length];
     addEnemy(world, primary, room.x + 2.25, room.y + .95);
-    if (room !== order[0] || wing > 0) {
-      addEnemy(world, primary === "crab" ? "drowned" : "crab", room.x - 1.7, room.y + 1.8);
+    addEnemy(world, rank % 2 ? "drowned" : "crab", room.x - 1.7, room.y + 1.8);
+    addEnemy(world, rank === 0 && wing === 0 ? "drowned" : "corsair", room.x + .8, room.y - 2.35);
+    if (rank >= 3 || wing > 0) {
+      addEnemy(world, rank % 3 === 0 ? "sentinel" : "crab", room.x - 2.1, room.y - 1.8);
     }
-    if (room === shrine || (wing > 0 && distance[room.id] > 3)) {
-      addEnemy(world, "corsair", room.x + .8, room.y - 2.35);
-    }
-    pickup("ammo", room, 1.55, -1.45);
-    if (room === shrine || room.id % 2 === 0) pickup("heal", room, -1.55, -.45);
+    if (room === shrine && wing > 0) addEnemy(world, "drowned", room.x + 2.45, room.y - 2.2);
+    if ([0, 2, 4, 6, 7].includes(rank)) pickup("ammo", room, 1.55, -1.45);
+    if (rank === 2 || room === shrine) pickup("heal", room, -1.55, -.45);
+    if (rank === 2 && wing < 2) pickup(wing === 0 ? "scatter" : "musket", room, .5, 2.55);
     if (rand() < .72) world.props.push({ kind: "barrel", x: room.x + room.w + .3, y: room.y - room.h + .5 });
   }
-  world.items.push({ kind: "relic", x: shrine.x + .5, y: shrine.y + .5, blessing: world.blessings[wing], wing,
+  world.items.push({ kind: "relic", x: shrine.x + .5, y: shrine.y + .5, boon: BOONS[wing], wing,
     guards: world.enemies.filter(e => Math.abs(e.x - shrine.x) < 4 && Math.abs(e.y - shrine.y) < 4) });
 
   const exit = rooms[endRoom];
@@ -155,12 +162,13 @@ export function createRun(seed) {
   const rand = seeded(seed);
   const tiles = new Uint8Array(WIDTH * HEIGHT).fill(1);
   const floor = new Uint8Array(tiles.length);
-  const player = { x: 3.65, y: MID_Y + .5, angle: 0, pitch: 0, hp: 100, max: 100, ammo: 34, weapon: "pistol",
-    arsenal: new Set(["pistol", "blade"]), relics: 0, power: 1, reload: 1, leech: 0, cooldown: 0,
+  const player = { x: 3.65, y: MID_Y + .5, angle: 0, pitch: 0, hp: 100, max: 100, ammo: 20, weapon: "pistol",
+    arsenal: new Set(["pistol", "blade"]), chambers: { pistol: ARMORY.pistol.capacity, scatter: 0, musket: 0 },
+    relics: 0, reloadScale: 1, reloadLeft: 0, reloadSpan: 0, cooldown: 0, dashReset: DASH_COOLDOWN,
     hurt: 0, recoil: 0, bob: 0, moving: 0, kills: 0, perks: [], dash: 0, dashCooldown: 0, dashX: 0, dashY: 0 };
-  const arena = { entrance: ARENA_X - 1, left: ARENA_X, active: false, cleared: false, enraged: false };
+  const arena = { entrance: ARENA_X - 1, left: ARENA_X, active: false, cleared: false, stage: 0, next: 0 };
   const world = { seed, rand, tiles, floor, player, arena, discovery: new Uint8Array(tiles.length),
-    enemies: [], items: [], props: [], bolts: [], flashes: [], events: [], seals: [], blessings: shuffled(CURSES, rand),
+    enemies: [], items: [], props: [], bolts: [], hazards: [], flashes: [], events: [], seals: [],
     gate: { x: ARENA_X + 17.5, y: MID_Y + .5 }, flow: null, nextFlow: -1,
     start: { x: player.x, y: player.y }, time: 0, status: "play", hint: "", hintUntil: 0 };
   const carve = (x1, y1, x2, y2, style) => {
@@ -177,12 +185,12 @@ export function createRun(seed) {
   }
   world.items.push(
     { kind: "ammo", x: ARENA_X + 2.5, y: MID_Y - 2.1 },
-    { kind: "heal", x: ARENA_X + 2.5, y: MID_Y + 2.9 },
     { kind: "heal", x: ARENA_X + 14.4, y: MID_Y - 5.3 },
   );
   addEnemy(world, "captain", ARENA_X + 11.5, MID_Y + .5);
   world.boss = world.enemies.at(-1);
   world.boss.pattern = 0;
+  world.boss.charge = 0;
 
   for (let y = 1; y < HEIGHT - 1; y++) for (let x = 1; x < WIDTH - 1; x++) {
     if (!tiles[ix(x, y)] || (tiles[ix(x - 1, y)] && tiles[ix(x + 1, y)] && tiles[ix(x, y - 1)] && tiles[ix(x, y + 1)])) continue;
@@ -287,29 +295,31 @@ function gather(world) {
   world.items = world.items.filter(item => {
     if (Math.hypot(p.x - item.x, p.y - item.y) > .59) return true;
     if (item.kind === "ammo") {
-      if (p.ammo >= 99) return true;
-      p.ammo = Math.min(99, p.ammo + 11);
-      prompt(world, "+11 пороха");
+      const gained = Math.min(AMMO_BOX, AMMO_LIMIT - p.ammo);
+      if (!gained) return true;
+      p.ammo += gained;
+      prompt(world, "+" + gained + " патронов");
     } else if (item.kind === "heal") {
-      if (p.hp >= p.max) return true;
-      p.hp = Math.min(p.max, p.hp + 32);
-      prompt(world, "+32 здоровья");
+      const gained = Math.min(MEDICINE, p.max - p.hp);
+      if (!gained) return true;
+      p.hp += gained;
+      prompt(world, "+" + gained + " здоровья");
     } else if (item.kind === "relic") {
       if (item.guards.some(enemy => enemy.hp > 0)) {
         prompt(world, "Осколок охраняют. Одолей стражу");
         return true;
       }
       p.relics++;
-      item.blessing.apply(p);
-      p.perks.push(item.blessing.name);
+      item.boon.apply(p);
+      p.perks.push(item.boon.name);
       setBarrier(world, Math.floor(world.seals[item.wing].x), 0);
-      prompt(world, (p.relics === 3 ? "Путь к Смотрителю открыт" : "Печать снята") + " · " + item.blessing.name);
+      prompt(world, (p.relics === 3 ? "Путь к Смотрителю открыт" : "Печать снята") + " · " + item.boon.name);
       world.events.push("relic");
       return false;
     } else {
       p.arsenal.add(item.kind);
+      p.chambers[item.kind] = ARMORY[item.kind].capacity;
       switchWeapon(world, item.kind);
-      p.ammo = Math.min(99, p.ammo + 11);
       prompt(world, ARMORY[item.kind].name + " · " + (item.kind === "scatter" ? "2" : "4"));
     }
     world.events.push("pickup");
@@ -323,15 +333,27 @@ function gather(world) {
     world.events.push("arena");
     return;
   }
-  if (world.arena.active && !world.arena.enraged && world.boss.hp > 0 && world.boss.hp <= world.boss.max / 2) {
-    world.arena.enraged = true;
-    for (const dy of [-4.9, 4.9]) addEnemy(world, "crab", world.arena.left + 9.3, MID_Y + dy);
-    prompt(world, "Смотритель призвал стражу!");
-    world.events.push("arena-rage");
+  if (world.arena.active && world.arena.stage < BOSS_ACTS.length - 1 && world.boss.hp === BOSS_ACTS[world.arena.stage].floor) {
+    const { arena, boss } = world;
+    arena.stage++;
+    arena.next = world.time + 1.15;
+    boss.pattern = 0;
+    boss.attack = 0;
+    boss.charge = 0;
+    boss.wait = .32;
+    world.bolts.length = 0;
+    world.hazards.length = 0;
+    if (arena.stage === 1) {
+      addEnemy(world, "crab", arena.left + 9.3, MID_Y - 4.9);
+      addEnemy(world, "corsair", arena.left + 14.8, MID_Y + 4.9);
+    }
+    prompt(world, BOSS_ACTS[arena.stage].name);
+    world.events.push(arena.stage === 1 ? "arena-rage" : "arena-fury");
   }
   if (world.arena.active && !world.arena.cleared && world.boss.hp <= 0) {
     world.arena.cleared = true;
     world.bolts.length = 0;
+    world.hazards.length = 0;
     prompt(world, "Смотритель пал. Выход открыт!");
     world.events.push("victory");
   }
@@ -347,22 +369,48 @@ export function switchWeapon(world, kind) {
   if (!world.player.arsenal.has(kind)) return false;
   if (world.player.weapon === kind) return false;
   world.player.weapon = kind;
+  world.player.reloadLeft = 0;
   world.player.cooldown = Math.max(world.player.cooldown, .12);
   return true;
 }
 
+export function reloadWeapon(world) {
+  const p = world.player;
+  const spec = ARMORY[p.weapon];
+  if (world.status !== "play" || !spec.capacity || p.reloadLeft || !p.ammo || p.chambers[p.weapon] === spec.capacity) return false;
+  p.reloadLeft = p.reloadSpan = spec.reload * p.reloadScale;
+  world.events.push("reload");
+  return true;
+}
+
+function reloadTick(world, dt) {
+  const p = world.player;
+  if (!p.reloadLeft) return;
+  p.reloadLeft = Math.max(0, p.reloadLeft - dt);
+  if (p.reloadLeft) return;
+  const amount = Math.min(p.ammo, ARMORY[p.weapon].capacity - p.chambers[p.weapon]);
+  p.ammo -= amount;
+  p.chambers[p.weapon] += amount;
+  world.events.push("reload-ready");
+}
+
 export function shoot(world) {
   const p = world.player;
-  if (world.status !== "play" || p.cooldown > 0) return;
+  if (world.status !== "play" || p.cooldown > 0 || p.reloadLeft > 0) return;
   const weapon = p.weapon;
   const spec = ARMORY[weapon];
-  p.cooldown = spec.reload * p.reload;
-  if (weapon !== "blade" && p.ammo <= 0) {
-    world.events.push("empty");
-    prompt(world, "Порох кончился · 3 — сабля");
-    return;
+  if (spec.capacity) {
+    if (p.chambers[weapon] === 0) {
+      if (!reloadWeapon(world)) {
+        p.cooldown = .44;
+        world.events.push("empty");
+        prompt(world, "Патроны кончились · 3 — сабля");
+      }
+      return;
+    }
+    p.chambers[weapon]--;
   }
-  if (weapon !== "blade") p.ammo--;
+  p.cooldown = spec.cadence;
   p.recoil = weapon === "scatter" || weapon === "musket" ? .29 : .195;
   world.events.push(weapon);
   for (let shot = 0; shot < spec.pellets; shot++) {
@@ -377,7 +425,7 @@ export function shoot(world) {
       if (enemy.hp <= 0 || (enemy === world.boss && !world.arena.active)) continue;
       const x = enemy.x - p.x;
       const y = enemy.y - p.y;
-      if (Math.hypot(x, y) < 6.2) enemy.awake = true;
+      if (x * x + y * y < 42) enemy.awake = true;
       const depth = x * cx + y * cy;
       const width = Math.abs(-x * cy + y * cx);
       const aimHeight = .5 + p.pitch * depth * .5;
@@ -390,7 +438,9 @@ export function shoot(world) {
     if (!target) continue;
     const front = Math.cos(Math.atan2(p.y - target.y, p.x - target.x) - target.facing);
     const parry = weapon !== "blade" && shieldRaised(target) && front > .37;
-    target.hp = Math.max(0, target.hp - spec.damage * p.power * (parry ? .29 : 1));
+    if (target === world.boss && world.time < world.arena.next) continue;
+    const floor = target === world.boss ? BOSS_ACTS[world.arena.stage].floor : 0;
+    target.hp = Math.max(floor, target.hp - spec.damage * (parry ? .23 : 1));
     target.hurt = .19;
     if (parry && target.guardPing < world.time) {
       target.guardPing = world.time + .24;
@@ -402,10 +452,6 @@ export function shoot(world) {
     if (target.hp > 0) continue;
     target.down = world.time;
     p.kills++;
-    p.hp = Math.min(p.max, p.hp + p.leech);
-    if (world.rand() < .46 && weapon !== "blade") {
-      world.items.push({ kind: p.hp < 48 && world.rand() < .42 ? "heal" : "ammo", x: target.x, y: target.y });
-    }
     world.events.push("defeat");
   }
 }
@@ -445,44 +491,99 @@ function enemyTarget(world, enemy, clear) {
     ? point : { x: x + .5, y: y + .5 };
 }
 
+function volley(world, enemy, angles, speed, force) {
+  const boss = enemy === world.boss;
+  for (const angle of angles) {
+    world.bolts.push({
+      kind: boss ? "boss-bolt" : "bolt", x: enemy.x, y: enemy.y,
+      dx: Math.cos(angle) * speed, dy: Math.sin(angle) * speed, hurt: force, end: world.time + 4,
+    });
+  }
+  world.events.push(boss ? "boss-bolt" : "bolt");
+}
+
+function captainAttack(world, boss, act, clear) {
+  const { arena, time } = world;
+  const move = boss.pattern++;
+  const facing = boss.facing;
+  if (arena.stage === 1 && move % 2 === 0) {
+    const { x, y } = boss.mark;
+    for (const drift of [-2.3, 0, 2.3]) {
+      const cx = x - Math.sin(facing) * drift;
+      const cy = y + Math.cos(facing) * drift;
+      if (cx < arena.left || tileAt(world, Math.floor(cx), Math.floor(cy))) continue;
+      world.hazards.push({ x: cx, y: cy, radius: 1.44, strike: time + .85, end: time + 1.19 });
+    }
+    world.events.push("powder-mark");
+  } else if (arena.stage === 2 && move % 2 === 0) {
+    boss.charge = .68;
+    boss.hitCharge = false;
+    world.events.push("boss-charge");
+  } else if (arena.stage === 2) {
+    const radial = Array.from({ length: 14 }, (_, i) => facing + (i + .5) * TAU / 14);
+    volley(world, boss, radial, 6.4, act.damage);
+  } else if (clear) {
+    const quick = move % 2 !== 0;
+    const angles = quick ? [-.105, 0, .105] : [-.55, -.37, -.18, 0, .18, .37, .55];
+    volley(world, boss, angles.map(turn => facing + turn), quick ? 8.0 : 5.1, act.damage);
+  }
+}
+
+function updateHazards(world) {
+  world.hazards = world.hazards.filter(hazard => {
+    if (hazard.end <= world.time) return false;
+    if (!hazard.burst && hazard.strike <= world.time) {
+      hazard.burst = true;
+      if (Math.hypot(world.player.x - hazard.x, world.player.y - hazard.y) < hazard.radius) {
+        damage(world, BOSS_ACTS[1].damage + 4);
+      }
+      world.events.push("powder-burst");
+    }
+    return true;
+  });
+}
+
 function updateEnemy(world, enemy, dt) {
+  enemy.moving = false;
   if (!enemy.hp) return;
   const p = world.player;
   const spec = ENEMIES[enemy.kind];
-  const distance = Math.hypot(p.x - enemy.x, p.y - enemy.y);
   const boss = enemy === world.boss;
-  if (boss && !world.arena.active) return;
-  if (world.arena.cleared && boss) return;
-  const clear = visible(world, enemy.x, enemy.y, p, boss ? 22 : enemy.kind === "crab" ? 7.9 : 8.6);
-  enemy.awake ||= clear;
-  if (clear && enemy.attack <= 0) enemy.facing = Math.atan2(p.y - enemy.y, p.x - enemy.x);
+  if (boss && (!world.arena.active || world.time < world.arena.next)) return;
+  const act = boss ? BOSS_ACTS[world.arena.stage] : spec;
+  const distance = Math.hypot(p.x - enemy.x, p.y - enemy.y);
   enemy.hurt = Math.max(0, enemy.hurt - dt);
-  if (!enemy.awake || distance > 18) return;
-
-  if (enemy.attack > 0) {
-    enemy.attack -= dt;
-    if (enemy.attack > 0) return;
-    enemy.attack = 0;
-    enemy.wait = boss && enemy.hp < enemy.max / 2 ? .77 : spec.cooldown;
-    if (!spec.ranged) {
-      if (clear && distance < spec.reach + .31) damage(world, spec.damage);
-    } else if (clear) {
-      const ang = enemy.facing;
-      const fan = boss && enemy.pattern++ % 2 === 0;
-      const spread = boss ? (fan ? [-.36, -.18, 0, .18, .36] : [-.065, 0, .065]) : [0];
-      const pace = boss ? (fan ? 4.7 : 7.2) : 4.0;
-      for (const drift of spread) {
-        const a = ang + drift;
-        world.bolts.push({ kind: boss ? "boss-bolt" : "bolt", x: enemy.x, y: enemy.y,
-          dx: Math.cos(a) * pace, dy: Math.sin(a) * pace, hurt: spec.damage, end: world.time + 4.0 });
-      }
-      world.events.push(boss ? "boss-bolt" : "bolt");
+  enemy.recover = Math.max(0, enemy.recover - dt);
+  if (distance > (boss ? 25 : 17)) return;
+  const clear = visible(world, enemy.x, enemy.y, p, boss ? 22 : enemy.kind === "crab" ? 8.2 : 9);
+  enemy.awake ||= clear;
+  if (!enemy.awake) return;
+  if (boss && enemy.charge > 0) {
+    enemy.charge = Math.max(0, enemy.charge - dt);
+    moveBody(world, enemy, Math.cos(enemy.facing) * 9.0 * dt, Math.sin(enemy.facing) * 9.0 * dt, .28);
+    if (!enemy.hitCharge && Math.hypot(p.x - enemy.x, p.y - enemy.y) < 1.1 && visible(world, enemy.x, enemy.y, p, 1.15)) {
+      enemy.hitCharge = true;
+      damage(world, act.damage + 5);
     }
     return;
   }
+  if (clear && enemy.attack <= 0) enemy.facing = Math.atan2(p.y - enemy.y, p.x - enemy.x);
+  if (enemy.attack > 0) {
+    enemy.attack = Math.max(0, enemy.attack - dt);
+    if (enemy.attack > 0) return;
+    enemy.recover = .23;
+    enemy.wait = act.cooldown;
+    if (boss) captainAttack(world, enemy, act, clear);
+    else if (!spec.ranged) {
+      if (clear && distance < spec.reach + .31) damage(world, spec.damage);
+    } else if (clear) volley(world, enemy, [enemy.facing], 4.9, spec.damage);
+    return;
+  }
   enemy.wait = Math.max(0, enemy.wait - dt);
-  if (clear && distance <= spec.reach && enemy.wait <= 0) {
-    enemy.attack = boss && world.arena.enraged ? .57 : spec.wind;
+  const charge = boss && world.arena.stage === 2 && enemy.pattern % 2 === 0;
+  if (clear && distance <= (charge ? 8.3 : spec.reach) && enemy.wait <= 0) {
+    enemy.attackSpan = enemy.attack = act.wind;
+    if (boss) enemy.mark = { x: p.x, y: p.y };
     return;
   }
   if (distance < (spec.ranged ? 3.1 : .55) && clear) return;
@@ -502,7 +603,13 @@ function updateEnemy(world, enemy, dt) {
     if (near < .57 && near > .02) { dx += .31 * ax / near; dy += .31 * ay / near; }
   }
   const length = Math.max(.001, Math.hypot(dx, dy));
-  if (distance > .48) moveBody(world, enemy, dx / length * spec.speed * dt, dy / length * spec.speed * dt, .23);
+  if (distance > .48) {
+    const x = enemy.x, y = enemy.y;
+    moveBody(world, enemy, dx / length * act.speed * dt, dy / length * act.speed * dt, .23);
+    const stride = Math.hypot(enemy.x - x, enemy.y - y);
+    enemy.moving = stride > .0001;
+    enemy.gait += stride;
+  }
 }
 
 export function stepRun(world, input, dt) {
@@ -510,6 +617,8 @@ export function stepRun(world, input, dt) {
   dt = clamp(dt, 0, .05);
   const p = world.player;
   world.time += dt;
+  reloadTick(world, dt);
+  if (input.reload) reloadWeapon(world);
   p.cooldown = Math.max(0, p.cooldown - dt);
   p.recoil = Math.max(0, p.recoil - dt);
   p.hurt = Math.max(0, p.hurt - dt);
@@ -528,7 +637,7 @@ export function stepRun(world, input, dt) {
     p.dashX = magnitude > 0 ? vx / magnitude : a;
     p.dashY = magnitude > 0 ? vy / magnitude : b;
     p.dash = .21;
-    p.dashCooldown = DASH_COOLDOWN;
+    p.dashCooldown = p.dashReset;
     world.events.push("dash");
   }
   const beforeX = p.x;
@@ -556,6 +665,7 @@ export function stepRun(world, input, dt) {
     if (Math.hypot(p.x - bolt.x, p.y - bolt.y) < .31) { damage(world, bolt.hurt); return false; }
     return true;
   });
+  updateHazards(world);
   p.dash = Math.max(0, p.dash - dt);
   world.flashes = world.flashes.filter(flash => flash.end > world.time);
 }

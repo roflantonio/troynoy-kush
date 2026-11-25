@@ -6,8 +6,9 @@
   <meta name="theme-color" content="#111a1c">
   <meta name="description" content="Проклятие фортуны — пиратский шутер-рогалик. Пройди Форт проклятых и собери осколки компаса.">
   <title>Проклятие фортуны</title>
-  <link rel="stylesheet" href="./pirates.css?v=3">
-  <script type="module" src="./game.js?v=3"></script>
+  <link rel="preload" as="image" href="./awakening.webp">
+  <link rel="stylesheet" href="./pirates.css?v=4">
+  <script type="module" src="./game.js?v=4"></script>
 </head>
 <body>
   <main class="cabinet" id="cabinet" data-mode="menu">
@@ -15,35 +16,53 @@
       <canvas id="scene" width="432" height="244" tabindex="0" aria-label="Игровой экран первого лица"></canvas>
       <div id="crosshair" class="crosshair" hidden aria-hidden="true"></div>
       <div id="signal" class="signal" hidden role="status"></div>
-      <div class="boss-hud" id="boss-hud" hidden>
-        <span>Смотритель</span>
-        <progress id="boss-meter" max="460" value="460" aria-label="Здоровье Смотрителя"></progress>
+      <div class="boss-hud" id="boss-hud" data-stage="1" hidden>
+        <span class="boss-name">Смотритель</span>
+        <span class="boss-phase" id="boss-phase">Картечь</span>
+        <progress id="boss-meter" max="600" value="600" aria-label="Здоровье Смотрителя"></progress>
+        <div class="boss-seals" aria-hidden="true"><i></i><i></i><i></i></div>
       </div>
-      <div class="deck" id="deck" hidden>
-        <div class="deck-block health">
-          <div><span>Здоровье</span><strong id="hp">100</strong></div>
+      <div class="instruments" id="deck" hidden>
+        <div id="compass" class="compass instrument" data-filled="0">
+          <span class="compass-dial emblem compass-mark" aria-hidden="true"></span>
+          <div><span class="instrument-label">Компас</span>
+            <div class="compass-gems" aria-hidden="true"><i></i><i></i><i></i></div>
+            <span class="sr-only" id="relics">0 / 3</span>
+          </div>
+        </div>
+        <div class="vital instrument">
+          <div class="vital-face">
+            <span class="emblem heart-mark" aria-hidden="true"></span>
+            <div><span class="instrument-label">Здоровье</span><strong id="hp">100</strong></div>
+          </div>
           <progress id="health-meter" max="100" value="100" aria-label="Здоровье"></progress>
-          <div class="dash-status" data-ready="true"><span>Рывок</span><progress id="dash-meter" max="1.35" value="1.35" aria-label="Готовность рывка"></progress></div>
+          <div class="dash-status" data-ready="true"><span class="emblem dash-mark" aria-hidden="true"></span><span>Рывок</span><progress id="dash-meter" max="1.35" value="1.35" aria-label="Готовность рывка"></progress></div>
         </div>
-        <div class="deck-middle"><span id="weapon">Кремнёвый пистолет</span>
-          <span id="compass" data-filled="0"><span class="compass-gems" aria-hidden="true"><i></i><i></i><i></i></span> Компас <b id="relics">0 / 3</b></span>
+        <div class="weapon-hud instrument" id="weapon-hud" data-weapon="pistol">
+          <div class="armory-label"><span class="emblem weapon-mark" aria-hidden="true"></span><span id="weapon">Кремнёвый пистолет</span></div>
+          <div class="rounds" id="rounds" data-loaded="4" data-capacity="4">
+            <div class="chambers" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+            <div class="ammo-count"><strong id="ammo">4</strong><span class="ammo-reserve"> / <b id="ammo-reserve">20</b></span></div>
+            <progress id="reload-meter" max="1" value="0" aria-label="Перезарядка" hidden></progress>
+            <span class="reload-label" id="reload-label" hidden>Перезарядка</span>
+          </div>
         </div>
-        <div class="deck-block ammo"><div><span>Порох</span><strong id="ammo">34</strong></div></div>
       </div>
     </div>
 
     <section id="menu" class="overlay title-screen" aria-labelledby="game-title">
       <div class="sea-haze" aria-hidden="true"></div>
       <div class="cinders" aria-hidden="true"></div>
+      <div class="title-frame" aria-hidden="true"></div>
       <div class="title-content">
-        <p class="chapter">Форт проклятых</p>
+        <div class="title-crest" aria-hidden="true"><span class="emblem compass-mark"></span></div>
         <h1 id="game-title">Проклятие<br><em>фортуны</em></h1>
-        <p class="mission">Найди три осколка компаса, одолей Смотрителя и вырвись из затонувшего форта.</p>
-        <div class="menu-buttons">
-          <button id="start" class="button primary" type="button" disabled>Начать поход</button>
-          <button id="guide" class="button plain" type="button">Управление</button>
-          <a class="button plain return" href="../">Вернуться в лаунчер</a>
-        </div>
+        <p class="chapter">Форт проклятых</p>
+        <nav class="title-choices" aria-label="Главное меню">
+          <button id="start" class="title-choice" type="button" disabled>Начать поход</button>
+          <button id="guide" class="title-choice" type="button">Управление</button>
+          <a class="title-choice title-return" href="../">Вернуться в лаунчер</a>
+        </nav>
       </div>
     </section>
     <section id="pause" class="overlay modal-screen" hidden aria-labelledby="pause-title">
@@ -81,16 +100,20 @@
     </section>
 
     <section id="cinematic" class="overlay cinematic" aria-labelledby="cinematic-title" hidden>
-      <div class="scene-caption">
-        <h2 id="cinematic-title"></h2>
-        <p id="cinematic-line" aria-live="polite"></p>
+      <h2 id="cinematic-title" class="scene-title"></h2>
+      <div class="portrait" aria-hidden="true"></div>
+      <div class="dialogue">
+        <span class="speaker-name" id="speaker-name"></span>
+        <p id="cinematic-line" aria-hidden="true"></p>
+        <p class="sr-only" id="accessible-line" aria-live="polite"></p>
+        <button class="button primary scene-next" type="button" id="scene-next"></button>
       </div>
       <button class="utility" type="button" id="skip-scene">Пропустить <kbd>Esc</kbd></button>
     </section>
 
     <div class="toolbar">
-      <button id="audio" type="button" aria-pressed="true" class="utility"><span aria-hidden="true">♪</span> Звук</button>
-      <button id="map-toggle" type="button" class="utility" hidden>Карта <kbd aria-hidden="true">Tab</kbd></button>
+      <button id="audio" type="button" aria-pressed="true" class="utility"><span class="emblem bell-mark" aria-hidden="true"></span> Звук</button>
+      <button id="map-toggle" type="button" class="utility" hidden><span class="emblem chart-mark" aria-hidden="true"></span> Карта <kbd aria-hidden="true">Tab</kbd></button>
       <button id="pause-toggle" type="button" class="utility" hidden>Пауза</button>
     </div>
     <div id="touch" class="touch" hidden aria-label="Экранное управление">
@@ -101,7 +124,8 @@
         <button class="utility touch-key" data-key="right" aria-label="Повернуть вправо">›</button>
       </div>
       <div class="touch-group">
-        <button class="utility" id="touch-weapon" type="button">Оружие</button>
+        <button class="utility" id="touch-weapon" type="button" aria-label="Сменить оружие" title="Оружие"><span class="emblem weapon-mark" aria-hidden="true"></span></button>
+        <button class="utility touch-key" data-key="reload" type="button" aria-label="Перезарядка" title="Перезарядка"><span class="emblem cartridge-mark" aria-hidden="true"></span></button>
         <button class="utility touch-key" data-key="dash" type="button" aria-label="Рывок" title="Рывок">⇢</button>
         <button class="button primary touch-key" data-key="fire" type="button">Огонь</button>
       </div>
@@ -115,6 +139,7 @@
       <div><dt>Мышь / стрелки</dt><dd>Клик по экрану захватывает мышь. Стрелки поворачивают, Page Up и Page Down двигают взгляд вверх и вниз</dd></div>
       <div><dt>ЛКМ / пробел</dt><dd>Атака</dd></div>
       <div><dt>1 / 2 / 3 / 4</dt><dd>Пистолет, мушкетон, сабля и длинный мушкет</dd></div>
+      <div><dt>R</dt><dd>Перезарядка. При удержании огня пустое оружие перезаряжается автоматически</dd></div>
       <div><dt>Shift</dt><dd>Рывок по ходу движения. Помогает увернуться от удара или снаряда</dd></div>
       <div><dt>Tab / M</dt><dd>Открыть или закрыть карту</dd></div>
       <div><dt>Esc</dt><dd>Пауза</dd></div>
