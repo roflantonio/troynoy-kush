@@ -1,4 +1,4 @@
-import { HEIGHT, WIDTH, cast, seeded, tileAt } from "./world.js";
+import { HEIGHT, WIDTH, cast, discovered, seeded, shieldRaised, tileAt } from "./world.js?v=3";
 
 export const VIEW_W = 432;
 export const VIEW_H = 244;
@@ -41,6 +41,14 @@ function wallPixels(kind) {
       const shade = 13 * Math.sin(Math.floor(x / 8) * 7) + knots;
       color = seam ? [31, 31, 30] : [89 + shade, 62 + shade, 43 + shade];
       if (kind === 2 && ((y > 4 && y < 8) || (y > 24 && y < 28))) color = [42, 66, 68];
+    } else if (kind === 9) {
+      const grout = x % 16 < 1 || y % 16 < 1;
+      const inlay = (y === 3 && x > 1 && x < 14) || (x === 13 && y > 2 && y < 13);
+      color = grout ? [32, 33, 35] : inlay ? [113, 87, 53] : [60, 69, 73];
+    } else if (kind === 8) {
+      const iron = x % 8 < 3 || y % 16 < 3;
+      color = iron ? [105, 87, 67] : [37, 30, 33];
+      if (x % 8 === 1 && y % 16 === 1) color = [173, 140, 91];
     } else if (kind === 4) {
       color = [68, 74, 76];
       if (x > 6 && x < 24 && y < 26) {
@@ -80,13 +88,31 @@ function shaded(pixel, light, sea = 5) {
   return rgb(r, g, b);
 }
 
-function sailor(kind, flare) {
+function crabSprite(flare) {
+  const [image, c] = pixelCanvas(52, 34);
+  const shell = flare ? "#f6ba64" : "#be653b";
+  poly(c, "#191e2a", [[3,29],[0,21],[4,14],[8,12],[12,17],[18,11],[24,9],[29,8],[37,12],
+    [40,17],[44,12],[49,14],[52,22],[49,29],[39,29],[34,32],[15,32],[10,29]]);
+  poly(c, shell, [[8,25],[15,15],[23,11],[30,10],[39,16],[44,25],[35,30],[16,29]]);
+  poly(c, "#773d33", [[14,24],[21,20],[26,23],[30,21],[39,24],[35,29],[17,28]]);
+  poly(c, "#fad08b", [[18,15],[25,11],[33,12],[38,15],[29,15],[22,17]]);
+  poly(c, shell, [[4,16],[8,14],[13,21],[9,25],[4,24],[2,21]]);
+  poly(c, shell, [[44,15],[49,16],[51,22],[48,27],[41,24],[42,20]]);
+  rect(c, "#eddec2", 18, 20, 5, 4);
+  rect(c, "#eddec2", 30, 20, 5, 4);
+  rect(c, "#713631", 20, 21, 2, 3);
+  rect(c, "#713631", 31, 21, 2, 3);
+  return image;
+}
+
+function sailor(kind, flare, guard = false) {
   const [image, c] = pixelCanvas(48, 58);
   const leader = kind === "captain";
   const shooter = kind === "corsair";
-  const coat = leader ? "#983e38" : shooter ? "#84472d" : "#23767b";
-  const shade = leader ? "#542d31" : shooter ? "#58362b" : "#194049";
-  const rim = leader ? "#ffc885" : shooter ? "#e4a567" : "#5cc1b0";
+  const sentinel = kind === "sentinel";
+  const coat = leader ? "#983e38" : shooter ? "#84472d" : sentinel ? "#556653" : "#23767b";
+  const shade = leader ? "#542d31" : shooter ? "#58362b" : sentinel ? "#363b33" : "#194049";
+  const rim = leader ? "#ffc885" : shooter ? "#e4a567" : sentinel ? "#b8ae72" : "#5cc1b0";
   const bone = flare ? "#fff3ae" : "#e5dcb1";
   poly(c, "#0c171c", [[5,56],[7,38],[4,27],[12,18],[13,11],[19,9],[25,8],[31,9],[36,17],[38,24],[43,28],[44,48],[40,56]]);
   poly(c, coat, [[12,24],[21,21],[32,22],[40,26],[43,47],[38,56],[31,53],[24,56],[20,51],[13,56],[7,51]]);
@@ -121,6 +147,15 @@ function sailor(kind, flare) {
   } else {
     poly(c, bone, [[6,32],[11,32],[13,41],[10,45],[5,42]]);
     poly(c, bone, [[36,30],[41,30],[45,42],[39,44],[35,37]]);
+  }
+  if (sentinel) {
+    const x = guard ? 19 : 33;
+    const y = guard ? 30 : 38;
+    poly(c, "#252c32", [[x-8,y-4],[x-5,y-9],[x+6,y-9],[x+10,y-4],[x+8,y+14],[x+2,y+20],[x-6,y+14]]);
+    poly(c, "#b69359", [[x-6,y-4],[x-3,y-7],[x+5,y-7],[x+8,y-4],[x+6,y+13],[x+1,y+17],[x-4,y+13]]);
+    poly(c, "#60543b", [[x-4,y-2],[x+6,y-2],[x+4,y+11],[x+1,y+14],[x-3,y+11]]);
+    rect(c, flare ? "#ffeeaa" : "#8aaba4", x-1, y+3, 5, 5);
+    rect(c, "#d5ba7c", x-1, y-4, 2, 17);
   }
   return image;
 }
@@ -158,6 +193,10 @@ function prop(kind, phase = 0) {
     poly(c, "#6e4439", [[3,25],[7,22],[22,16],[27,16],[27,19],[15,25],[8,30],[4,30]]);
     poly(c, "#cba987", [[10,22],[20,17],[28,15],[30,16],[28,19],[16,24]]);
     rect(c, "#f3bb75", 8, 24, 8, 3);
+  } else if (kind === "musket") {
+    poly(c, "#633c2b", [[1,27],[4,23],[15,20],[30,12],[31,15],[16,23],[7,30],[2,31]]);
+    poly(c, "#adc4b7", [[8,23],[16,18],[30,11],[31,13],[16,21]]);
+    rect(c, "#f6c475", 14, 19, 4, 3);
   } else if (kind === "gate" || kind === "closed") {
     const color = kind === "gate" ? "#7ce6c6" : "#e0aa69";
     poly(c, "#18262b", [[3,34],[3,14],[6,8],[11,4],[21,4],[26,8],[29,14],[29,34]]);
@@ -171,6 +210,10 @@ function prop(kind, phase = 0) {
       for (const x of [10,15,20]) rect(c, "#786751", x, 13, 2, 18);
       rect(c, color, 14, 22, 4, 5);
     }
+  } else if (kind === "boss-bolt") {
+    poly(c, "#7739ba", [[16,0],[21,11],[31,16],[22,22],[16,35],[11,23],[1,17],[11,11]]);
+    poly(c, "#dda5fa", [[16,5],[19,13],[25,17],[19,22],[16,28],[13,21],[8,17],[13,13]]);
+    rect(c, "#fff3d7", 14, 14, 5, 6);
   } else if (kind === "bolt" || kind === "spark") {
     poly(c, "#fa6544", [[4,18],[11,11],[15,2],[20,10],[27,17],[22,22],[16,31],[10,22]]);
     poly(c, "#ffb969", [[9,18],[15,9],[19,13],[23,17],[17,24],[12,21]]);
@@ -182,40 +225,65 @@ function prop(kind, phase = 0) {
   return image;
 }
 
+// Separate profiles, grip positions and muzzle anchors keep each weapon legible in silhouette.
 function arm(kind) {
-  const [image, c] = pixelCanvas(136, 77);
+  const [image, c] = pixelCanvas(160, 94);
+  let muzzle;
   if (kind === "blade") {
-    poly(c, "#23222c", [[71,77],[75,61],[80,52],[69,44],[76,37],[91,49],[94,34],[97,10],[104,0],[108,7],[110,42],[102,55],[107,67],[112,77]]);
-    poly(c, "#a0a7a1", [[90,48],[93,32],[98,9],[104,3],[106,11],[107,42],[101,52]]);
-    poly(c, "#e4ece0", [[100,10],[104,5],[105,12],[104,42],[100,48]]);
-    poly(c, "#ac714e", [[74,42],[81,38],[106,53],[103,60],[96,57],[94,54],[87,52]]);
-    poly(c, "#855449", [[70,77],[74,61],[84,53],[97,56],[104,64],[108,77]]);
-    poly(c, "#cf996f", [[73,67],[85,55],[95,57],[100,62],[83,62],[77,73]]);
+    poly(c, "#263234", [[111,94],[101,72],[105,65],[114,65],[114,61],[103,56],[101,48],[112,49],[124,58],[133,46],[140,29],[144,6],[151,13],[153,29],[149,45],[139,60],[136,74],[141,94]]);
+    poly(c, "#a7b5a4", [[125,59],[134,46],[142,28],[145,9],[150,16],[151,29],[147,44],[137,59],[134,65]]);
+    poly(c, "#ecf4d6", [[147,14],[149,20],[149,32],[145,44],[138,56],[132,61],[143,42]]);
+    poly(c, "#b5894d", [[104,50],[115,50],[127,60],[138,64],[137,69],[130,72],[115,61],[108,58]]);
+    poly(c, "#855449", [[110,94],[104,76],[110,66],[121,65],[132,72],[137,82],[140,94]]);
+    poly(c, "#cf996f", [[109,75],[113,68],[121,67],[131,73],[131,78],[118,73],[111,81]]);
+  } else if (kind === "scatter") {
+    muzzle = [72, 27];
+    poly(c, "#1a2022", [[32,94],[38,77],[48,63],[52,48],[43,37],[42,26],[52,15],[92,15],[103,25],[102,39],[91,48],[92,66],[111,75],[115,94]]);
+    poly(c, "#73523b", [[45,94],[45,77],[57,63],[59,43],[83,42],[85,62],[103,78],[104,94]]);
+    poly(c, "#a07747", [[50,41],[45,33],[46,25],[55,19],[90,19],[99,27],[98,36],[91,44],[83,48],[63,48]]);
+    poly(c, "#e1d4a0", [[47,28],[54,21],[91,21],[97,28],[93,36],[87,39],[56,39],[49,34]]);
+    poly(c, "#252a2a", [[53,28],[58,24],[88,24],[93,28],[89,34],[55,34]]);
+    rect(c, "#f3c984", 56, 44, 32, 3);
+    poly(c, "#9f6650", [[35,94],[42,80],[51,77],[55,69],[63,70],[73,80],[82,69],[92,65],[100,68],[108,80],[111,94]]);
+    poly(c, "#dda879", [[42,84],[53,78],[59,72],[68,77],[67,83],[52,86],[45,92]]);
+    poly(c, "#d69a6b", [[80,77],[87,70],[93,68],[101,72],[103,79],[96,77],[94,82],[84,83]]);
+  } else if (kind === "musket") {
+    muzzle = [81, 5];
+    poly(c, "#232629", [[68,94],[54,80],[59,68],[64,59],[71,30],[75,15],[76,2],[86,2],[87,15],[85,28],[84,45],[89,63],[96,74],[113,83],[118,94]]);
+    poly(c, "#824e34", [[64,76],[70,61],[75,37],[81,25],[83,39],[80,50],[85,63],[94,75],[111,86],[114,94],[96,94],[83,85]]);
+    poly(c, "#657e83", [[67,62],[74,34],[77,14],[78,6],[85,6],[84,19],[81,41],[77,58],[73,67]]);
+    poly(c, "#a6bcc0", [[72,57],[77,32],[80,11],[84,8],[81,30],[77,54]]);
+    rect(c, "#d1bc92", 77, 3, 9, 4);
+    rect(c, "#20292c", 79, 4, 5, 2);
+    poly(c, "#d8a660", [[70,50],[73,48],[80,49],[79,53],[72,53]]);
+    poly(c, "#b28160", [[38,94],[46,79],[57,74],[63,65],[71,62],[78,66],[76,71],[68,75],[77,75],[77,79],[68,83],[65,94]]);
+    poly(c, "#e2aa79", [[50,81],[57,77],[63,72],[69,66],[75,66],[71,70],[62,79],[53,85]]);
+    poly(c, "#a8704e", [[95,94],[87,87],[88,81],[98,81],[112,88],[117,94]]);
   } else {
-    const big = kind === "scatter";
-    poly(c, "#191c26", [[38,77],[45,62],[51,55],[56,45],[56,33],[60,18],[64,15],[67,2],[85,2],[89,14],[91,34],[94,48],[105,61],[108,77]]);
-    poly(c, "#513531", [[49,77],[50,60],[57,47],[60,28],[68,11],[83,11],[87,24],[89,49],[101,68],[101,77]]);
-    poly(c, "#8a5840", [[58,69],[56,56],[62,44],[66,25],[70,15],[80,15],[86,37],[87,56],[97,74]]);
-    poly(c, big ? "#806e57" : "#465f66", [[61,42],[62,22],[64,11],[66,7],[69,3],[83,3],[88,11],[90,23],[88,42],[81,50],[68,50]]);
-    poly(c, big ? "#b7a285" : "#88a9ab", [[66,42],[68,24],[71,10],[74,6],[79,6],[81,12],[83,25],[83,43],[79,49],[71,49]]);
-    rect(c, "#27383b", 71, 4, 9, 4);
-    rect(c, "#eeeecc", 73, big ? 15 : 12, 5, 2);
-    rect(c, "#d0af7b", 67, 37, 17, 4);
-    poly(c, "#875745", [[43,77],[49,66],[59,63],[63,57],[68,58],[72,64],[80,59],[89,61],[97,64],[102,77]]);
-    poly(c, "#d39a73", [[46,77],[50,68],[59,66],[66,61],[69,66],[75,67],[78,64],[87,63],[97,68],[98,77]]);
-    rect(c, "#edb58b", 53, 70, 11, 5);
-    rect(c, "#edb58b", 79, 65, 12, 4);
+    muzzle = [76, 34];
+    poly(c, "#1d252b", [[61,94],[58,80],[61,69],[65,59],[62,51],[66,37],[70,31],[83,30],[89,38],[87,50],[90,59],[93,71],[109,87],[112,94]]);
+    poly(c, "#825239", [[64,88],[64,75],[70,62],[68,51],[72,44],[82,44],[85,57],[87,68],[100,85],[99,94],[78,94]]);
+    poly(c, "#627c80", [[64,52],[66,42],[68,37],[71,33],[83,33],[87,39],[86,47],[80,54],[70,57]]);
+    poly(c, "#b2ccbd", [[68,45],[70,38],[72,34],[81,34],[84,39],[81,46],[73,49]]);
+    rect(c, "#27383b", 72, 34, 8, 4);
+    poly(c, "#b58a55", [[82,57],[91,47],[94,49],[92,58],[85,63]]);
+    poly(c, "#927362", [[76,94],[67,81],[70,71],[77,66],[87,66],[93,73],[102,79],[112,85],[114,94]]);
+    poly(c, "#d49b72", [[71,78],[78,69],[86,69],[92,76],[85,75],[79,79],[77,87]]);
   }
-  return image;
+  return { image, muzzle };
 }
 
 function spriteBook() {
   const sprites = {};
-  for (const kind of ["drowned", "corsair", "captain"]) {
+  for (const kind of ["drowned", "corsair", "captain", "sentinel"]) {
     sprites[kind] = sailor(kind, false);
     sprites[kind + "-lit"] = sailor(kind, true);
   }
-  for (const kind of ["torch","barrel","heal","ammo","relic","scatter","gate","closed","bolt","spark","body"]) {
+  sprites.crab = crabSprite(false);
+  sprites["crab-lit"] = crabSprite(true);
+  sprites["sentinel-shield"] = sailor("sentinel", false, true);
+  sprites["sentinel-shield-lit"] = sailor("sentinel", true, true);
+  for (const kind of ["torch","barrel","heal","ammo","relic","scatter","musket","gate","closed","bolt","boss-bolt","spark","body"]) {
     sprites[kind] = prop(kind);
     if (kind === "torch" || kind === "gate") sprites[kind + "-lit"] = prop(kind, 2);
   }
@@ -224,17 +292,17 @@ function spriteBook() {
 
 function sceneSprites(world) {
   const flick = Math.floor(world.time * 8) % 3 === 1;
-  const shocked = world.player.relics === 3 && !world.enemies.some(e => e.kind === "captain" && e.hp > 0);
+  const shocked = world.arena.cleared;
   const gate = shocked ? (flick ? "gate-lit" : "gate") : "closed";
   return [
     ...world.props.map(p => ({ ...p, art: p.kind === "torch" && flick ? "torch-lit" : p.kind, h: p.kind === "torch" ? .63 : .52, lift: 0 })),
     ...world.items.map(p => ({ ...p, art: p.kind, h: .39, lift: p.kind === "relic" ? .13 + Math.sin(world.time * 4) * .035 : 0 })),
     ...world.enemies.map(e => ({
-      x: e.x, y: e.y, art: e.hp <= 0 ? "body" : e.kind + (e.hurt || e.attack ? "-lit" : ""),
-      h: e.hp <= 0 ? .28 : e.kind === "captain" ? 1.15 : .93,
+      x: e.x, y: e.y, art: e.hp <= 0 ? "body" : e.kind + (shieldRaised(e) ? "-shield" : "") + (e.hurt || e.attack ? "-lit" : ""),
+      h: e.hp <= 0 ? .28 : e.kind === "captain" ? 1.15 : e.kind === "crab" ? .44 : .93,
       lift: e.hp > 0 && e.awake ? .016 * Math.sin(world.time * 9 + e.phase) : 0,
     })),
-    ...world.bolts.map(b => ({ ...b, art: "bolt", h: .20, lift: .45 })),
+    ...world.bolts.map(b => ({ ...b, art: b.kind, h: b.kind === "boss-bolt" ? .30 : .20, lift: .43 })),
     ...world.flashes.map(b => ({ ...b, art: "spark", h: .25, lift: .59 })),
     { ...world.gate, art: gate, h: 1.02, lift: 0 },
   ];
@@ -245,23 +313,23 @@ export function createRenderer(canvas) {
   const id = ctx.createImageData(VIEW_W, VIEW_H);
   const pixels = new Uint32Array(id.data.buffer);
   const depth = new Float32Array(VIEW_W);
-  const palette = Array.from({ length: 8 }, (_, kind) => {
+  const palette = Array.from({ length: 10 }, (_, kind) => {
     const base = wallPixels(kind);
     return Array.from({ length: 16 }, (_, i) => Uint32Array.from(base, c => shaded(c, .21 + i * .059)));
   });
   const sprites = spriteBook();
-  const arms = Object.fromEntries(["pistol","scatter","blade"].map(kind => [kind, arm(kind)]));
+  const arms = Object.fromEntries(["pistol","scatter","blade","musket"].map(kind => [kind, arm(kind)]));
   const vignette = ctx.createRadialGradient(VIEW_W / 2, VIEW_H * .44, 44, VIEW_W / 2, VIEW_H * .44, VIEW_W * .66);
   vignette.addColorStop(0, "#05090b00");
   vignette.addColorStop(.78, "#020a1070");
   vignette.addColorStop(1, "#020810de");
   ctx.imageSmoothingEnabled = false;
 
-  return world => {
-    const p = world.player;
+  return (world, camera = world.player) => {
+    const p = camera;
     const ux = Math.cos(p.angle), uy = Math.sin(p.angle);
     const vx = -uy * SCALE, vy = ux * SCALE;
-    const horizon = Math.floor(VIEW_H / 2 + Math.sin(p.bob) * p.moving * 2.6);
+    const horizon = Math.floor(VIEW_H * (1 + p.pitch) / 2 + Math.sin(p.bob) * p.moving * 2.6);
     const rowLimit = Math.max(horizon + 1, VIEW_H - horizon);
     const sampleFloor = (fx, fy) => Math.floor(fy) * WIDTH + Math.floor(fx);
 
@@ -278,11 +346,11 @@ export function createRenderer(canvas) {
       for (let x = 0; x < VIEW_W; x++, fx += dx, fy += dy) {
         const tx = Math.floor(fx * T) & (T - 1);
         const ty = Math.floor(fy * T) & (T - 1);
-        if (floorY < VIEW_H) {
+        if (floorY >= 0 && floorY < VIEW_H) {
           const tile = world.floor[sampleFloor(fx, fy)];
-          pixels[floorY * VIEW_W + x] = palette[tile === 1 ? 7 : tile === 2 ? 3 : 5][light][ty * T + tx];
+          pixels[floorY * VIEW_W + x] = palette[tile === 1 ? 7 : tile === 2 ? 3 : tile === 4 ? 9 : 5][light][ty * T + tx];
         }
-        if (roofY >= 0) pixels[roofY * VIEW_W + x] = palette[6][Math.max(0, light - 4)][ty * T + tx];
+        if (roofY >= 0 && roofY < VIEW_H) pixels[roofY * VIEW_W + x] = palette[6][Math.max(0, light - 4)][ty * T + tx];
       }
     }
 
@@ -333,44 +401,73 @@ export function createRenderer(canvas) {
     }
     ctx.globalAlpha = 1;
     rect(ctx, vignette, 0, 0, VIEW_W, VIEW_H);
-    const flash = p.weapon !== "blade" && p.recoil > (p.weapon === "scatter" ? .235 : .14);
-    const rise = p.recoil * 46;
-    const handX = VIEW_W / 2 - 67 + Math.sin(p.bob * .61) * p.moving * 6;
-    const handY = VIEW_H - 73 + Math.abs(Math.sin(p.bob)) * p.moving * 4 + rise;
+    if (camera !== world.player) return;
+    const { image, muzzle } = arms[p.weapon];
+    const flash = muzzle && p.recoil > (p.weapon === "pistol" ? .14 : .235);
+    const slash = p.weapon === "blade" ? Math.sin(p.recoil * Math.PI / .195) : 0;
+    const handX = VIEW_W / 2 - 79 + Math.sin(p.bob * .61) * p.moving * 6 - slash * 57;
+    const handY = VIEW_H - 93 + Math.abs(Math.sin(p.bob)) * p.moving * 4 + p.recoil * 40 + p.dash * 26;
     if (flash) {
-      const cx = handX + 75;
-      const cy = handY + 3;
+      const cx = handX + muzzle[0];
+      const cy = handY + muzzle[1];
       poly(ctx, "#ffd47c", [[cx-26,cy-10],[cx-10,cy-12],[cx-9,cy-30],[cx,cy-18],[cx+12,cy-29],[cx+12,cy-12],[cx+28,cy-7],[cx+13,cy+5],[cx,cy+14],[cx-13,cy+5]]);
       poly(ctx, "#fff5bf", [[cx-13,cy-5],[cx-2,cy-19],[cx+8,cy-10],[cx+16,cy-4],[cx,cy+4]]);
     }
-    ctx.drawImage(arms[p.weapon], Math.round(handX), Math.round(handY));
+    ctx.drawImage(image, Math.round(handX), Math.round(handY));
     if (p.hurt) rect(ctx, "rgba(179,46,35," + Math.min(.31, p.hurt * .8) + ")", 0, 0, VIEW_W, VIEW_H);
+    if (p.dash) rect(ctx, "rgba(95,181,175," + (p.dash * .36) + ")", 0, 0, VIEW_W, VIEW_H);
   };
 }
 
 export function mapDraw(canvas, world) {
   const ctx = canvas.getContext("2d");
-  const scale = Math.floor(Math.min(canvas.width / WIDTH, canvas.height / HEIGHT));
+  const scale = Math.floor(Math.min((canvas.width - 28) / WIDTH, (canvas.height - 28) / HEIGHT));
   const left = Math.floor((canvas.width - WIDTH * scale) / 2);
   const top = Math.floor((canvas.height - HEIGHT * scale) / 2);
+  const shade = ctx.createRadialGradient(canvas.width * .5, canvas.height * .42, 10, canvas.width * .5, canvas.height * .5, canvas.width * .61);
+  shade.addColorStop(0, "#efdbad");
+  shade.addColorStop(.80, "#d4b078");
+  shade.addColorStop(1, "#a77c4c");
+  rect(ctx, shade, 0, 0, canvas.width, canvas.height);
+  const rand = seeded(20572);
+  for (let i = 0; i < 1900; i++) rect(ctx, i % 2 ? "#71472327" : "#fff7cc50",
+    rand() * canvas.width, rand() * canvas.height, 1 + rand() * 4, 1);
+
   const cell = (color, x, y, inset = 0) => rect(ctx, color, left + x * scale + inset, top + y * scale + inset, scale - inset * 2, scale - inset * 2);
-  rect(ctx, "#101f23", 0, 0, canvas.width, canvas.height);
-  for (let y = 0; y < HEIGHT; y++) for (let x = 0; x < WIDTH; x++) {
-    if (!tileAt(world, x, y)) cell("#355257", x, y, 0);
+  const ink = (x, y) => !tileAt(world, x, y) && discovered(world, x, y);
+  ctx.strokeStyle = "#794e2a8c";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(8.5, 8.5, canvas.width - 17, canvas.height - 17);
+  for (let y = 1; y < HEIGHT - 1; y++) for (let x = 1; x < WIDTH - 1; x++) {
+    if (!ink(x, y)) continue;
+    cell(world.floor[y * WIDTH + x] === 4 ? "#a079645e" : "#9e74504b", x, y);
+    const px = left + x * scale, py = top + y * scale;
+    if (!ink(x - 1, y)) rect(ctx, "#624025", px, py, 1, scale);
+    if (!ink(x + 1, y)) rect(ctx, "#624025", px + scale - 1, py, 1, scale);
+    if (!ink(x, y - 1)) rect(ctx, "#624025", px, py, scale, 1);
+    if (!ink(x, y + 1)) rect(ctx, "#624025", px, py + scale - 1, scale, 1);
+  }
+  const seals = world.seals.filter(seal => seal.wing >= world.player.relics
+    && [[-1, -.5], [1, -.5], [-1, .5], [1, .5]].some(([dx, dy]) => discovered(world, seal.x + dx, seal.y + dy)));
+  for (const point of seals) {
+    rect(ctx, "#8e4534", left + point.x * scale - 1, top + point.y * scale - scale, 3, scale * 2);
   }
   for (const item of world.items) {
-    const color = item.kind === "relic" ? "#9cf4d4" : item.kind === "ammo" ? "#d1a579" : "#7d9f89";
-    cell(color, Math.floor(item.x), Math.floor(item.y), item.kind === "relic" ? 1 : 2);
+    if (!discovered(world, item.x, item.y)) continue;
+    const x = left + item.x * scale, y = top + item.y * scale;
+    if (item.kind === "relic") poly(ctx, "#1d685b", [[x, y - 5], [x + 4, y], [x, y + 5], [x - 4, y]]);
+    else rect(ctx, item.kind === "heal" ? "#9c4032" : "#8d5e21", x - 1, y - 1, 3, 3);
   }
-  cell("#f0ca8b", Math.floor(world.gate.x), Math.floor(world.gate.y), 1);
+  if (discovered(world, world.gate.x, world.gate.y)) {
+    cell(world.arena.cleared ? "#216957" : "#8e4534", Math.floor(world.gate.x), Math.floor(world.gate.y), 0);
+  }
   const p = world.player;
-  const x = left + p.x * scale;
-  const y = top + p.y * scale;
-  rect(ctx, "#fff1bf", x - 2, y - 2, 5, 5);
-  ctx.strokeStyle = "#fff1bf";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(x, y);
-  ctx.lineTo(x + Math.cos(p.angle) * scale * 1.7, y + Math.sin(p.angle) * scale * 1.7);
-  ctx.stroke();
+  const x = left + p.x * scale, y = top + p.y * scale;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(p.angle);
+  poly(ctx, "#e5cf9d", [[12, 0], [-6, -6], [-3, 0], [-6, 6]]);
+  poly(ctx, "#3c2723", [[9, 0], [-4, -4], [-1, 0], [-4, 4]]);
+  ctx.restore();
+  return x / canvas.width;
 }
