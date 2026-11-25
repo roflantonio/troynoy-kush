@@ -1,4 +1,4 @@
-import { HEIGHT, WIDTH, cast, discovered, seeded, shieldRaised, tileAt } from "./world.js?v=5";
+import { HEIGHT, SECRET_PANEL, WIDTH, cast, discovered, seeded, shieldRaised, tileAt } from "./world.js?v=6";
 
 export const VIEW_W = 432;
 export const VIEW_H = 244;
@@ -41,6 +41,13 @@ function wallPixels(kind) {
       const shade = 13 * Math.sin(Math.floor(x / 8) * 7) + knots;
       color = seam ? [31, 31, 30] : [89 + shade, 62 + shade, 43 + shade];
       if (kind === 2 && ((y > 4 && y < 8) || (y > 24 && y < 28))) color = [42, 66, 68];
+    } else if (kind === SECRET_PANEL) {
+      const grain = 5 * Math.sin(x * 2 + y / 4);
+      color = x % 6 === 0 ? [29, 29, 34] : [64 + grain, 53 + grain, 48 + grain];
+      if (y === 3 || y === 28) color = [102, 78, 53];
+      const rose = Math.abs(x - 15.5) + Math.abs(y - 15.5);
+      if (rose >= 5 && rose < 7) color = [190, 136, 76];
+      if (rose < 4 && (x === 15 || y === 15)) color = [153, 108, 66];
     } else if (kind === 9) {
       const grout = x % 16 < 1 || y % 16 < 1;
       const inlay = (y === 3 && x > 1 && x < 14) || (x === 13 && y > 2 && y < 13);
@@ -236,6 +243,14 @@ function prop(kind, phase = 0) {
     poly(c, "#369d94", [[17,21],[22,17],[17,27],[12,23]]);
     rect(c, "#cfffe3", 21, 8, 2, 4);
     rect(c, "#cfffe3", 20, 9, 4, 2);
+  } else if (kind === "upgrade") {
+    poly(c, "#28222c", [[7,24],[5,15],[9,8],[16,5],[23,8],[27,15],[25,24],[19,30],[12,30]]);
+    poly(c, "#ab764b", [[9,24],[7,15],[10,10],[16,7],[22,10],[25,15],[23,24],[18,28],[13,28]]);
+    poly(c, "#f3c88b", [[10,12],[15,8],[20,10],[19,13],[15,12],[11,15]]);
+    poly(c, "#434c61", [[12,23],[10,17],[13,13],[19,13],[22,17],[20,23],[16,25]]);
+    poly(c, "#a8dcfd", [[16,12],[21,18],[16,24],[11,18]]);
+    rect(c, "#fff3c9", 23, 8, 2, 4);
+    rect(c, "#fff3c9", 22, 9, 4, 2);
   } else if (kind === "heal" || kind === "ammo") {
     rect(c, "#171d27", 5, 19, 23, 13);
     rect(c, kind === "heal" ? "#8f483b" : "#6a6849", 6, 19, 20, 11);
@@ -335,7 +350,7 @@ function spriteBook() {
     }
   }
   sprites["captain-charge"] = sailor("captain", "charge");
-  for (const kind of ["torch","barrel","heal","ammo","relic","scatter","musket","gate","closed","bolt","boss-bolt","spark"]) {
+  for (const kind of ["torch","barrel","heal","ammo","relic","upgrade","scatter","musket","gate","closed","bolt","boss-bolt","spark"]) {
     sprites[kind] = prop(kind);
     if (kind === "torch" || kind === "gate") sprites[kind + "-lit"] = prop(kind, 2);
   }
@@ -360,7 +375,8 @@ function sceneSprites(world, time) {
   const gate = shocked ? (flick ? "gate-lit" : "gate") : "closed";
   return [
     ...world.props.map(p => ({ ...p, art: p.kind === "torch" && flick ? "torch-lit" : p.kind, h: p.kind === "torch" ? .63 : .52, lift: 0 })),
-    ...world.items.map(p => ({ ...p, art: p.kind, h: .39, lift: p.kind === "relic" ? .13 + Math.sin(world.time * 4) * .035 : 0 })),
+    ...world.items.map(p => ({ ...p, art: p.kind, h: .39,
+      lift: p.kind === "relic" || p.kind === "upgrade" ? .13 + Math.sin(world.time * 4) * .035 : 0 })),
     ...world.enemies.map(e => ({
       x: e.x, y: e.y, art: enemyArt(e, time),
       h: e.kind === "captain" ? 1.16 : e.kind === "crab" ? .44 : .93, lift: 0,
@@ -376,7 +392,7 @@ export function createRenderer(canvas) {
   const id = ctx.createImageData(VIEW_W, VIEW_H);
   const pixels = new Uint32Array(id.data.buffer);
   const depth = new Float32Array(VIEW_W);
-  const palette = Array.from({ length: 10 }, (_, kind) => {
+  const palette = Array.from({ length: SECRET_PANEL + 1 }, (_, kind) => {
     const base = wallPixels(kind);
     return Array.from({ length: 16 }, (_, i) => Uint32Array.from(base, c => shaded(c, .21 + i * .059)));
   });
@@ -548,10 +564,18 @@ export function mapDraw(canvas, world) {
   for (const point of seals) {
     rect(ctx, "#8e4534", left + point.x * scale - 1, top + point.y * scale - scale, 3, scale * 2);
   }
+  for (const secret of world.secrets) {
+    if (!secret.open || !discovered(world, secret.x, secret.y)) continue;
+    const x = left + secret.x * scale;
+    const y = top + secret.y * scale;
+    poly(ctx, "#354e78", [[x, y - 5], [x + 2, y - 2], [x + 5, y], [x + 2, y + 2],
+      [x, y + 5], [x - 2, y + 2], [x - 5, y], [x - 2, y - 2]]);
+  }
   for (const item of world.items) {
     if (!discovered(world, item.x, item.y)) continue;
     const x = left + item.x * scale, y = top + item.y * scale;
     if (item.kind === "relic") poly(ctx, "#1d685b", [[x, y - 5], [x + 4, y], [x, y + 5], [x - 4, y]]);
+    else if (item.kind === "upgrade") rect(ctx, "#234d81", x - 1, y - 1, 3, 3);
     else rect(ctx, item.kind === "heal" ? "#9c4032" : "#8d5e21", x - 1, y - 1, 3, 3);
   }
   if (discovered(world, world.gate.x, world.gate.y)) {

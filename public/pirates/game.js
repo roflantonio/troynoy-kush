@@ -1,6 +1,6 @@
-import { ARMORY, BOSS_ACTS, cast, createRun, location, stepRun, switchWeapon } from "./world.js?v=5";
-import { createRenderer, mapDraw } from "./render.js?v=5";
-import { pirateSound } from "./sound.js?v=5";
+import { ARMORY, BOSS_ACTS, cast, compassObjective, createRun, location, secretAhead, stepRun, switchWeapon, weaponCapacity } from "./world.js?v=6";
+import { createRenderer, mapDraw } from "./render.js?v=6";
+import { pirateSound } from "./sound.js?v=6";
 
 const $ = id => document.getElementById(id);
 const scene = $("scene");
@@ -8,6 +8,7 @@ const paint = createRenderer(scene);
 const touch = matchMedia("(any-pointer: coarse)").matches;
 const keys = new Set();
 const held = new Set();
+const roundMarks = [...document.querySelectorAll(".chambers i")];
 const titleChoices = [...document.querySelectorAll(".title-choice")];
 const screens = ["menu", "pause", "result", "chart", "cinematic"];
 const storageKey = "fortune-sound";
@@ -21,6 +22,7 @@ let look = 0;
 let tilt = 0;
 let dashPressed = false;
 let reloadPressed = false;
+let interactPressed = false;
 let cinematic = null;
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
 let firing = false;
@@ -37,6 +39,7 @@ function clearInput() {
   tilt = 0;
   dashPressed = false;
   reloadPressed = false;
+  interactPressed = false;
   drag = null;
 }
 
@@ -77,6 +80,8 @@ function show(next) {
   $("boss-hud").hidden = next !== "play" || !run.arena.active || run.arena.cleared;
   $("crosshair").hidden = next !== "play";
   $("signal").hidden = next !== "play" || run.hintUntil < run.time || !run.hint;
+  $("interaction").hidden = next !== "play" || !secretAhead(run);
+  $("audio").hidden = !["menu", "pause"].includes(next);
   $("touch").hidden = !touch || next !== "play";
   $("map-toggle").hidden = next !== "play";
   $("pause-toggle").hidden = next !== "play";
@@ -89,6 +94,7 @@ function show(next) {
   if (next === "play") scene.focus({ preventScroll: true });
   if (next === "chart") {
     text("chart-location", location(run));
+    text("chart-secrets", "Тайные ходы " + run.secrets.filter(secret => secret.open).length + " / " + run.secrets.length);
     const position = mapDraw($("map"), run);
     const paper = $("chart-scroll");
     paper.scrollLeft = paper.scrollWidth * position - paper.clientWidth / 2;
@@ -186,10 +192,16 @@ function lock() {
   try { scene.requestPointerLock()?.catch(() => {}); } catch { /* Arrows still turn the view. */ }
 }
 
+function resumePlay() {
+  show("play");
+  lock();
+}
+
 function start() {
   const seed = crypto.getRandomValues(new Uint32Array(1))[0];
   run = createRun(seed);
-  run.hint = "Tab · карта    R · перезарядка    3 · сабля";
+  sound.bossPhase(0);
+  run.hint = touch ? "Синяя стрелка укажет путь к осколку" : "Синяя стрелка — к осколку. E — тайные ходы";
   run.hintUntil = 5;
   updateHud();
   beginScene("arrival");
@@ -202,7 +214,9 @@ function finish() {
   const seconds = String(Math.floor(run.time) % 60).padStart(2, "0");
   text("result-title", win ? "Конец демо" : "Поход окончен");
   $("win-note").hidden = !win;
-  text("summary", "Осколки " + run.player.relics + " / 3 · Победы " + run.player.kills + " · " + minute + ":" + seconds);
+  const secrets = run.secrets.filter(secret => secret.open).length;
+  text("summary", "Осколки " + run.player.relics + " / 3 · Тайники " + secrets + " / " + run.secrets.length
+    + " · Победы " + run.player.kills + " · " + minute + ":" + seconds);
   show("result");
 }
 
@@ -213,16 +227,22 @@ function updateHud() {
   health.max = player.max;
   health.value = player.hp;
   $("compass").dataset.filled = String(player.relics);
+  const { point, label } = compassObjective(run);
+  const bearing = Math.atan2(point.y - player.y, point.x - player.x) - player.angle;
+  $("compass-needle").style.rotate = bearing + "rad";
+  text("compass-target", label);
   const weapon = ARMORY[player.weapon];
+  const capacity = weaponCapacity(player);
   const ready = player.chambers[player.weapon];
   $("weapon-hud").dataset.weapon = player.weapon;
-  $("rounds").hidden = !weapon.capacity;
-  if (weapon.capacity) {
+  $("rounds").hidden = !capacity;
+  if (capacity) {
     text("ammo", ready);
     text("ammo-reserve", player.ammo);
-    const rounds = $("rounds");
-    rounds.dataset.capacity = weapon.capacity;
-    rounds.dataset.loaded = ready;
+    for (const [index, mark] of roundMarks.entries()) {
+      mark.hidden = index >= capacity;
+      mark.dataset.loaded = String(index < ready);
+    }
     const meter = $("reload-meter");
     meter.hidden = !player.reloadLeft;
     meter.value = player.reloadLeft ? 1 - player.reloadLeft / player.reloadSpan : 0;
@@ -242,6 +262,7 @@ function updateHud() {
   const signal = mode === "play" && run.hint && run.hintUntil >= run.time;
   $("signal").hidden = !signal;
   if (signal) text("signal", run.hint);
+  $("interaction").hidden = mode !== "play" || !secretAhead(run);
 }
 
 function control(dt) {
@@ -254,12 +275,13 @@ function control(dt) {
     forward: Number(up) - Number(down), strafe: Number(keys.has("KeyD")) - Number(keys.has("KeyA")),
     turn: Number(right) - Number(left), look, fire: firePressed || firing || value("Space", "fire"),
     tilt: tilt + (Number(keys.has("PageUp")) - Number(keys.has("PageDown"))) * dt * 1.5,
-    dash: dashPressed, reload: reloadPressed,
+    dash: dashPressed, reload: reloadPressed, interact: interactPressed,
   };
   look = 0;
   tilt = 0;
   dashPressed = false;
   reloadPressed = false;
+  interactPressed = false;
   firePressed = false;
   return input;
 }
@@ -288,6 +310,7 @@ function frame(now) {
     stepRun(run, control(elapsed), elapsed);
     for (const cue of run.cues.splice(0)) playCue(cue);
     sound.combat(Math.min(1, run.pressure / 3));
+    sound.bossPhase(run.arena.stage);
     for (const event of run.events.splice(0)) {
       if (event === "arena") beginScene("watcher");
       if (event === "victory") updateScore();
@@ -300,7 +323,7 @@ function frame(now) {
 }
 requestAnimationFrame(frame);
 
-const moves = new Set(["KeyW","KeyA","KeyS","KeyD","ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Space","PageUp","PageDown","KeyR","ShiftLeft","ShiftRight"]);
+const moves = new Set(["KeyW","KeyA","KeyS","KeyD","ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Space","PageUp","PageDown","KeyR","KeyE","ShiftLeft","ShiftRight"]);
 document.addEventListener("keydown", event => {
   if ($("help").open) return;
   if (mode === "menu" && ["ArrowUp", "ArrowDown"].includes(event.code)) {
@@ -323,12 +346,16 @@ document.addEventListener("keydown", event => {
   }
   if ((event.code === "Tab" || event.code === "KeyM") && ["play","chart"].includes(mode)) {
     event.preventDefault();
-    if (!event.repeat) show(mode === "play" ? "chart" : "play");
+    if (!event.repeat) {
+      if (mode === "chart") resumePlay();
+      else show("chart");
+    }
     return;
   }
   if (!event.repeat && event.code === "Escape" && ["play","chart","pause"].includes(mode)) {
     event.preventDefault();
-    show(mode === "play" ? "pause" : "play");
+    if (mode === "play") show("pause");
+    else resumePlay();
     return;
   }
   if (event.target.matches?.("button,a,input")) return;
@@ -345,6 +372,7 @@ document.addEventListener("keydown", event => {
   event.preventDefault();
   if (!event.repeat && (event.code === "ShiftLeft" || event.code === "ShiftRight")) dashPressed = true;
   if (!event.repeat && event.code === "KeyR") reloadPressed = true;
+  if (!event.repeat && event.code === "KeyE") interactPressed = true;
   if (!event.repeat && event.code === "Space") firePressed = true;
   keys.add(event.code);
 });
@@ -411,12 +439,20 @@ $("start").addEventListener("click", start);
 $("retry").addEventListener("click", start);
 $("skip-scene").addEventListener("click", () => leaveScene(true));
 $("scene-next").addEventListener("click", advanceScene);
-$("continue").addEventListener("click", () => { show("play"); lock(); });
+$("continue").addEventListener("click", resumePlay);
 $("menu-return").addEventListener("click", () => show("menu"));
 $("result-menu").addEventListener("click", () => show("menu"));
 $("pause-toggle").addEventListener("click", () => show("pause"));
 $("map-toggle").addEventListener("click", () => show("chart"));
-$("chart-close").addEventListener("click", () => { show("play"); lock(); });
+$("chart-close").addEventListener("click", resumePlay);
+$("interact-hint").hidden = touch;
+$("touch-interact").hidden = !touch;
+$("touch-interact").addEventListener("click", () => {
+  if (mode === "play") {
+    interactPressed = true;
+    scene.focus({ preventScroll: true });
+  }
+});
 for (const id of ["guide","pause-guide"]) $(id).addEventListener("click", () => $("help").showModal());
 $("help-close").addEventListener("click", () => $("help").close());
 show("menu");

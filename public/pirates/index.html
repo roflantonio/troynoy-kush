@@ -7,15 +7,19 @@
   <meta name="description" content="Проклятие фортуны — пиратский шутер-рогалик. Пройди Форт проклятых и собери осколки компаса.">
   <title>Проклятие фортуны</title>
   <link rel="preload" as="image" href="./awakening.webp">
-  <link rel="stylesheet" href="./pirates.css?v=4">
-  <script type="module" src="./game.js?v=5"></script>
+  <link rel="stylesheet" href="./pirates.css?v=6">
+  <script type="module" src="./game.js?v=6"></script>
 </head>
 <body>
   <main class="cabinet" id="cabinet" data-mode="menu">
     <div class="view">
       <canvas id="scene" width="432" height="244" tabindex="0" aria-label="Игровой экран первого лица"></canvas>
       <div id="crosshair" class="crosshair" hidden aria-hidden="true"></div>
-      <div id="signal" class="signal" hidden role="status"></div>
+      <p id="signal" class="field-hint signal" hidden role="status"></p>
+      <div id="interaction" class="interaction" hidden>
+        <p id="interact-hint" class="field-hint">E · Открыть тайный ход</p>
+        <button id="touch-interact" class="field-hint" type="button" hidden>Открыть тайный ход</button>
+      </div>
       <div class="boss-hud" id="boss-hud" data-stage="1" hidden>
         <span class="boss-name">Смотритель</span>
         <span class="boss-phase" id="boss-phase">Картечь</span>
@@ -24,8 +28,8 @@
       </div>
       <div class="instruments" id="deck" hidden>
         <div id="compass" class="compass instrument" data-filled="0">
-          <span class="compass-dial emblem compass-mark" aria-hidden="true"></span>
-          <div><span class="instrument-label">Компас</span>
+          <span class="compass-dial" aria-hidden="true"><i id="compass-needle"></i></span>
+          <div><span class="instrument-label" id="compass-target">Осколок</span>
             <div class="compass-gems" aria-hidden="true"><i></i><i></i><i></i></div>
             <span class="sr-only" id="relics">0 / 3</span>
           </div>
@@ -40,8 +44,8 @@
         </div>
         <div class="weapon-hud instrument" id="weapon-hud" data-weapon="pistol">
           <div class="armory-label"><span class="emblem weapon-mark" aria-hidden="true"></span><span id="weapon">Кремнёвый пистолет</span></div>
-          <div class="rounds" id="rounds" data-loaded="4" data-capacity="4">
-            <div class="chambers" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+          <div class="rounds" id="rounds">
+            <div class="chambers" aria-hidden="true"><i></i><i></i><i></i><i></i><i hidden></i></div>
             <div class="ammo-count"><strong id="ammo">4</strong><span class="ammo-reserve"> / <b id="ammo-reserve">20</b></span></div>
             <progress id="reload-meter" max="1" value="0" aria-label="Перезарядка" hidden></progress>
             <span class="reload-label" id="reload-label" hidden>Перезарядка</span>
@@ -94,7 +98,8 @@
         <div class="chart-scroll" id="chart-scroll" tabindex="0" aria-label="Исследованные участки форта">
           <canvas id="map" width="988" height="290" aria-label="Открытые проходы Форта проклятых"></canvas>
         </div>
-        <p class="map-legend"><span>◆ Осколок</span><span>▮ Печать</span><span>▣ Выход</span><span>➤ Ты</span></p>
+        <p class="map-legend"><span>◆ Осколок</span><span>▮ Печать</span><span>▣ Выход</span><span class="secret-legend">✦ Тайный ход</span><span>➤ Ты</span></p>
+        <p class="chart-secrets" id="chart-secrets">Тайные ходы 0 / 3</p>
         <button id="chart-close" class="button plain" type="button">Закрыть карту</button>
       </div>
     </section>
@@ -113,8 +118,8 @@
 
     <div class="toolbar">
       <button id="audio" type="button" aria-pressed="true" class="utility"><span class="emblem bell-mark" aria-hidden="true"></span> Звук</button>
-      <button id="map-toggle" type="button" class="utility" hidden><span class="emblem chart-mark" aria-hidden="true"></span> Карта <kbd aria-hidden="true">Tab</kbd></button>
-      <button id="pause-toggle" type="button" class="utility" hidden>Пауза</button>
+      <button id="map-toggle" type="button" class="utility game-tool" aria-label="Карта (Tab)" title="Карта" hidden><span class="emblem chart-mark" aria-hidden="true"></span><kbd aria-hidden="true">Tab</kbd></button>
+      <button id="pause-toggle" type="button" class="utility game-tool" aria-label="Пауза (Esc)" title="Пауза" hidden><span class="pause-mark" aria-hidden="true"></span><kbd aria-hidden="true">Esc</kbd></button>
     </div>
     <div id="touch" class="touch" hidden aria-label="Экранное управление">
       <div class="touch-group">
@@ -141,6 +146,7 @@
       <div><dt>1 / 2 / 3 / 4</dt><dd>Пистолет, мушкетон, сабля и длинный мушкет</dd></div>
       <div><dt>R</dt><dd>Перезарядка. При удержании огня пустое оружие перезаряжается автоматически</dd></div>
       <div><dt>Shift</dt><dd>Рывок по ходу движения. Помогает увернуться от удара или снаряда</dd></div>
+      <div><dt>E</dt><dd>Открыть тайный ход. Подойди к стене с медным знаком и наведи прицел</dd></div>
       <div><dt>Tab / M</dt><dd>Открыть или закрыть карту</dd></div>
       <div><dt>Esc</dt><dd>Пауза</dd></div>
     </dl>

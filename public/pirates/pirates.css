@@ -18,7 +18,11 @@ h1,h2,p,dl,dd{margin:0}
 .crosshair{position:absolute;top:50%;left:50%;width:10px;height:10px;transform:translate(-50%,-50%);pointer-events:none;color:#e5dfbf;filter:drop-shadow(0 1px #151c1d)}
 .crosshair::before,.crosshair::after{content:"";position:absolute;top:4px;left:0;width:10px;height:2px;background:currentColor}
 .crosshair::after{transform:rotate(90deg)}
-.signal{position:absolute;left:50%;top:12%;transform:translateX(-50%);max-width:90%;padding:7px 12px;border:1px solid #7d9d89;background:#162125ee;border-radius:5px;text-align:center;font-size:.9rem;color:#e8e2bc}
+.field-hint{border:0;background:none;color:#fff;text-align:center;font:400 clamp(.94rem,2.15vw,1.55rem)/1.22 var(--inscription);paint-order:stroke fill;-webkit-text-stroke:2px #000;text-shadow:0 1px 1px #000,0 2px 5px #000}
+.signal,.interaction{position:absolute;left:50%;transform:translateX(-50%);width:max-content;max-width:86%;pointer-events:none}
+.signal{top:21%;z-index:1}
+.interaction{top:56%;z-index:1}
+#touch-interact{min-height:44px;padding:4px 12px;pointer-events:auto;touch-action:manipulation}
 .overlay{position:absolute;inset:0;z-index:2}
 .title-screen{isolation:isolate;display:grid;align-items:center;background:#0b1419;overflow:hidden}
 .title-screen::before,.title-screen::after,.sea-haze,.cinders{content:"";position:absolute;inset:0;pointer-events:none}
@@ -63,6 +67,9 @@ h1,h2,p,dl,dd{margin:0}
 .return{color:#c5d4cb}
 .toolbar{position:absolute;z-index:5;display:flex;gap:7px;top:13px;right:14px}
 .utility{min-height:36px;padding:6px 9px;font-size:.83rem;font-weight:750}
+.game-tool{display:inline-flex;align-items:center;gap:5px}
+.game-tool kbd{margin-left:0}
+.pause-mark{display:inline-block;width:13px;height:14px;border-inline:4px solid #d9b17e;border-radius:1px}
 .touch{position:absolute;inset:auto 0 63px;padding:0 12px;z-index:3;display:flex;align-items:flex-end;justify-content:space-between;gap:6px;touch-action:none;pointer-events:none;user-select:none}
 .touch-group{display:flex;gap:5px;pointer-events:auto}
 .touch-group .utility,.touch-group .button{touch-action:none;min-height:45px;min-width:42px;background:#162125c9}
@@ -82,6 +89,8 @@ h1,h2,p,dl,dd{margin:0}
 .map-legend{display:flex;justify-content:center;gap:14px;flex-wrap:wrap;margin:8px 0 11px;font-size:.82rem;color:#583821}
 .map-legend span:first-child{color:#18564a}
 .map-legend span:nth-child(2){color:#78322b}
+.secret-legend{color:#354e78}
+.chart-secrets{margin:0 0 10px;color:#63452c;font:400 1rem var(--inscription)}
 .chart-box .button{color:#f9e6b9;background:#47301e;border-color:#5f3a24}
 .chart-box .button:hover{background:#5c3b24}
 .win-note{color:#ffe7b3;margin-bottom:8px}
@@ -105,7 +114,9 @@ dialog::backdrop{background:#070d12d9}
 .instrument{position:absolute;background:linear-gradient(145deg,#273737ec,#111c24f7 68%);border:1px solid #98734b;box-shadow:inset 0 0 0 3px #10181fc9,0 5px 22px #04080bb3;color:#eedbc0}
 .instrument-label{display:block;color:#ccb696;font:400 clamp(.66rem,1.45vw,.83rem)/1.15 var(--inscription);letter-spacing:.055em}
 .compass{top:var(--hud-edge);left:var(--hud-edge);display:flex;align-items:center;gap:9px;padding:5px 13px 5px 5px;border-radius:28px 10px 10px 28px}
-.compass-dial{--emblem:clamp(28px,5.1vw,47px)}
+.compass-dial{position:relative;display:grid;place-items:center;flex:none;width:clamp(28px,5.1vw,47px);aspect-ratio:1;border:1px solid #98754c;border-radius:50%;background:repeating-conic-gradient(#9e794a 0deg 3deg,#1e2a2b 3deg 45deg);box-shadow:0 0 0 2px #372b20,inset 0 0 8px #080d13}
+.compass-dial::before{content:"";position:absolute;inset:13%;border:1px solid #785d3e;border-radius:50%;background:radial-gradient(#304244,#192627)}
+#compass-needle{z-index:1;width:31%;height:70%;clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);background:linear-gradient(180deg,#9bdeff 0 7%,#459fdb 38%,#61c4fb 50%,#ead2a5 51%,#8a613d 100%)}
 .compass-gems{display:flex;gap:6px;margin:6px 0 2px}
 .compass-gems i,.boss-seals i{width:7px;height:7px;border:1px solid #93714e;background:#443c33;transform:rotate(45deg)}
 #compass:is([data-filled="1"],[data-filled="2"],[data-filled="3"]) i:first-child,
@@ -130,11 +141,7 @@ dialog::backdrop{background:#070d12d9}
 .rounds{margin-top:2px;display:grid;gap:3px;grid-template-columns:1fr auto;align-items:end}
 .chambers{display:flex;gap:2px;padding-bottom:1px}
 .chambers i{width:10px;height:22px;background:url("./instruments.png") 66.6667% center/70px 20px no-repeat;opacity:.25}
-.rounds[data-capacity="1"] i:nth-child(n+2),.rounds[data-capacity="2"] i:nth-child(n+3){display:none}
-.rounds:is([data-loaded="1"],[data-loaded="2"],[data-loaded="3"],[data-loaded="4"]) i:first-child,
-.rounds:is([data-loaded="2"],[data-loaded="3"],[data-loaded="4"]) i:nth-child(2),
-.rounds:is([data-loaded="3"],[data-loaded="4"]) i:nth-child(3),
-.rounds[data-loaded="4"] i:nth-child(4){opacity:1}
+.chambers i[data-loaded="true"]{opacity:1}
 .ammo-count{white-space:nowrap;color:#a59885}
 .ammo-reserve{font-size:.73rem}
 #reload-meter,.reload-label{grid-column:1/-1}
@@ -148,7 +155,6 @@ dialog::backdrop{background:#070d12d9}
 .boss-hud[data-stage="1"] i:first-child,.boss-hud[data-stage="2"] i:nth-child(2),.boss-hud[data-stage="3"] i:nth-child(3){background:#f4c189;box-shadow:0 0 8px #d59070}
 .boss-hud[data-stage="2"] progress{--fill:#d58cca}
 .boss-hud[data-stage="3"] progress{--fill:#f46d62}
-.signal{top:22%;width:max-content;border-radius:2px;border-color:#9f8055;color:#fae1ae}
 kbd{font:inherit;font-size:.78em;border:1px solid currentColor;border-radius:2px;padding:0 3px;margin-left:3px;opacity:.76}
 .cinematic{overflow:hidden;display:grid;align-content:end;isolation:isolate;background:#04060a}
 .cinematic[data-shot="fort"]::before{content:"";position:absolute;z-index:-2;inset:-4%;background:linear-gradient(0deg,#091217 3%,transparent 69%),url("./awakening.webp") center/cover;animation:eyes-open 2s ease-out both}
@@ -177,7 +183,7 @@ kbd{font:inherit;font-size:.78em;border:1px solid currentColor;border-radius:2px
   .compass-gems i{width:5px;height:5px}
   .boss-hud{padding:3px 5px 4px}
   .boss-seals{margin-top:4px}
-  .signal{padding:4px 7px;font-size:.69rem}
+  .signal{max-width:72%}
   .portrait{width:min(60vw,286px);bottom:29svh;left:2vw}
   .cinematic[data-speaker="watcher"] .portrait{right:2vw}
   .dialogue{min-height:168px}

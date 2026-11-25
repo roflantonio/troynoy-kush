@@ -18,18 +18,19 @@ const depths = [
   [[45,52,55,60],[72,69,64]], [[43,50,55,59],[67]], [[41,48,55,62],[65,62]], [[40,47,56,57],[]],
 ];
 const oath = [
-  [[40,47,52,55],[64,67]], [[41,48,53,57],[65]], [[38,45,50,53],[62,65]], [[40,47,50,59],[71]],
-  [[36,43,48,55],[67,64]], [[38,45,53,57],[69]], [[40,47,53,55],[65,67]], [[35,42,47,57],[]],
-  [[40,47,52,59],[64,71]], [[43,50,55,58],[70]], [[41,48,53,57],[65,69]], [[38,45,50,55],[67,62]],
-  [[35,42,50,57],[62]], [[36,43,48,52],[64,67]], [[41,48,53,55],[65]], [[40,47,52,55],[]],
-  [[40,47,52,53],[65,64]], [[38,45,50,53],[62,65]], [[36,43,48,55],[67]], [[37,44,49,56],[68,73]],
-  [[40,47,52,59],[71,67]], [[41,48,53,57],[69]], [[35,42,47,56],[68,71]], [[40,47,52,55],[64]],
+  [[40,47,53,58],[64,65,58]], [[40,47,52,53],[64,59]], [[38,45,50,56],[62,63,56]], [[41,48,53,59],[65,59]],
+  [[40,47,52,58],[64,58,59]], [[43,50,56,59],[67,68]], [[41,48,53,59],[65,60,59]], [[39,46,51,58],[63]],
+  [[40,47,53,58],[71,65,64]], [[41,48,53,60],[72,67]], [[37,44,52,55],[64,67,61]], [[38,45,50,56],[62,56]],
+  [[40,47,52,59],[64,71,65]], [[42,49,54,60],[66,60]], [[41,48,53,59],[65,71,65]], [[35,42,47,53],[59,65]],
+  [[40,47,53,58],[76,77,70]], [[38,45,52,56],[74,68]], [[36,43,48,54],[72,66,67]], [[37,44,49,55],[73,67]],
+  [[40,47,52,58],[76,71,70]], [[41,48,53,59],[77,71]], [[35,42,48,53],[71,65,60]], [[40,47,53,58],[64,58]],
 ];
+const WATCHER_TICK = 60 / 144 / 4;
 
 const tracks = {
   dock: { bars: shore, duration: 4.4, air: .49, cutoff: 1240, lead: .114 },
   fort: { bars: depths, duration: 4.0 },
-  watcher: { bars: oath, duration: 3.5, air: .67, cutoff: 790, lead: .099 },
+  watcher: { bars: oath, duration: 32 * WATCHER_TICK },
 };
 
 const fortKicks = [
@@ -67,6 +68,7 @@ export function pirateSound(enabled) {
   let syllable = 0;
   let track = "dock";
   let danger = 0;
+  let watcherPhase = 0;
   let active = enabled;
 
   function tone(bus, at, from, to, span, strength, type = "triangle", cutoff = 5400) {
@@ -153,12 +155,53 @@ export function pirateSound(enabled) {
     }
   }
 
+  function watcherBar(bus, at, chord, motif, index) {
+    const tickTime = tick => at + tick * WATCHER_TICK;
+    const root = chord[0];
+    const final = watcherPhase === 2;
+    const accent = index % 4;
+    const bass = [root - 12, root - 11, chord[1] - 12];
+    const phrase = accent % 2 ? [0, 3, 6, 8, 10, 13, 15, 16, 20, 22, 25, 28, 30]
+      : [0, 2, 4, 7, 9, 12, 14, 16, 18, 21, 24, 27, 29, 31];
+    for (const [i, tick] of phrase.entries()) {
+      const pitch = note(bass[(i + accent) % 7 === 3 ? 1 : i % 7 === 6 ? 2 : 0]);
+      tone(bus, tickTime(tick), pitch, pitch, .15, .235, "sawtooth", final ? 660 : 490);
+      if (tick % 4 === 0) tone(bus, tickTime(tick), pitch, pitch, .20, .10, "sine");
+    }
+    const kicks = accent === 3 ? [0, 3, 7, 10, 12, 15, 16, 19, 23, 26, 28, 30]
+      : [0, 2, 6, 8, 11, 15, 16, 18, 22, 24, 27, 30];
+    for (const tick of kicks) tone(bus, tickTime(tick), 132, 38, .22, tick % 4 === 0 ? .31 : .18, "sine");
+    for (const tick of [4, 12, 20, 28]) {
+      noise(bus, tickTime(tick), .22, 1860, .21);
+      tone(bus, tickTime(tick), 201, 66, .20, .203, "triangle", 800);
+    }
+    const extra = final ? [1, 5, 13, 17, 21, 25, 29, 31] : watcherPhase ? [5, 13, 21, 29] : [];
+    for (const tick of extra) tone(bus, tickTime(tick), 157, 49, .15, .193, "triangle", 680);
+    for (const offset of [0, 16]) {
+      for (const pitch of chord.slice(1)) swell(bus, tickTime(offset), pitch, 1.86, .075,
+        pitch === chord[2] ? "sawtooth" : "triangle", 680, .073);
+      if (accent % 2 || offset === 0) {
+        tone(bus, tickTime(offset), 390, 298, .49, .10, "triangle", 1350);
+        tone(bus, tickTime(offset + .15), 557, 483, .37, .065, "sine");
+      }
+    }
+    motif.forEach((pitch, i) => {
+      const onset = tickTime(6 + i * 7 + (accent % 2 ? 2 : 0));
+      swell(bus, onset, pitch - 12, .56, .145, "sawtooth", 1420, .041);
+      if (i === 0 || final) swell(bus, onset + .024, pitch, .47, .044, "triangle", 1520, .055);
+    });
+  }
+
   function playBar(part, at) {
     const index = bar++ % part.bars.length;
     const [chord, melody] = part.bars[index];
     const bus = music[track];
     if (track === "fort") {
       fortBar(bus, at, chord, melody, index);
+      return;
+    }
+    if (track === "watcher") {
+      watcherBar(bus, at, chord, melody, index);
       return;
     }
     const { duration, air, cutoff, lead } = part;
@@ -169,20 +212,8 @@ export function pirateSound(enabled) {
     melody.forEach((pitch, i) => {
       const onset = at + start + i * spacing;
       swell(bus, onset, pitch, 1.84 + i * .14, lead * (i ? .87 : 1), "triangle", cutoff, .075);
-      if (track === "dock" || index % 3 === 0) swell(bus, onset + .24, pitch, 1.45, lead * .21, "sine", cutoff, .18);
+      swell(bus, onset + .24, pitch, 1.45, lead * .21, "sine", cutoff, .18);
     });
-    if (track === "watcher") {
-      const rhythm = index % 4 === 3 ? [0, 3, 6, 9, 11, 12, 13] : [0, 2, 5, 7, 10, 12];
-      for (const tick of rhythm) {
-        tone(bus, at + tick * .25, tick % 3 ? 105 : 145, tick % 3 ? 38 : 51,
-          .28, tick % 3 ? .139 : .244, tick % 3 ? "sine" : "triangle", 555);
-      }
-      for (const offset of [.88, 2.62]) noise(bus, at + offset, .25, 1560, .136);
-      for (const offset of [0, .75, 1.5, 2.5, 3.0]) {
-        const root = note(chord[0] - 12);
-        tone(bus, at + offset, root, root, .29, .136, "triangle", 420);
-      }
-    }
   }
 
   function score() {
@@ -349,6 +380,12 @@ export function pirateSound(enabled) {
     } else if (kind === "arena-fury" || kind === "boss-charge") {
       tone(bus, at, 162, 34, .56, .31, "sawtooth", 540);
       noise(bus, at, .47, 760, .23);
+    } else if (kind === "secret-open") {
+      noise(bus, at, .53, 676, .32);
+      tone(bus, at, 119, 49, .56, .26, "triangle", 680);
+      tone(bus, at + .29, 920, 330, .24, .14, "triangle", 1360);
+    } else if (kind === "upgrade") {
+      [57, 64, 69, 73].forEach((pitch, i) => swell(bus, at + i * .066, pitch, .56, .18, "triangle", 1700, .031));
     } else if (kind === "seal-open") {
       noise(bus, at, .53, 1000, .29);
       tone(bus, at + .06, 115, 47, .52, .20, "triangle", 650);
@@ -393,6 +430,7 @@ export function pirateSound(enabled) {
       danger = level;
       if (pursuit) pursuit.gain.setTargetAtTime(level, context.currentTime, rise ? .23 : .78);
     },
+    bossPhase(stage) { watcherPhase = stage; },
     track(name) {
       if (track === name) return;
       track = name;
