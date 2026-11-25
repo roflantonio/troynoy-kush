@@ -7,8 +7,8 @@
   <meta name="description" content="Проклятие фортуны — пиратский шутер-рогалик. Пройди Форт проклятых и собери осколки компаса.">
   <title>Проклятие фортуны</title>
   <link rel="preload" as="image" href="./awakening.webp">
-  <link rel="stylesheet" href="./pirates.css?v=6">
-  <script type="module" src="./game.js?v=6"></script>
+  <link rel="stylesheet" href="./pirates.css?v=7">
+  <script type="module" src="./game.js?v=7"></script>
 </head>
 <body>
   <main class="cabinet" id="cabinet" data-mode="menu">
@@ -28,7 +28,7 @@
       </div>
       <div class="instruments" id="deck" hidden>
         <div id="compass" class="compass instrument" data-filled="0">
-          <span class="compass-dial" aria-hidden="true"><i id="compass-needle"></i></span>
+          <span class="compass-dial" aria-hidden="true"><span id="compass-needle"></span></span>
           <div><span class="instrument-label" id="compass-target">Осколок</span>
             <div class="compass-gems" aria-hidden="true"><i></i><i></i><i></i></div>
             <span class="sr-only" id="relics">0 / 3</span>
@@ -82,6 +82,7 @@
     <section id="result" class="overlay modal-screen" hidden aria-labelledby="result-title">
       <div class="sheet">
         <p class="chapter">Форт проклятых</p>
+        <img id="death-skull" src="./death-skull.webp" alt="" decoding="async" hidden>
         <h2 id="result-title"></h2>
         <p class="win-note" id="win-note" hidden>Смотритель пал. Форт проклятых пройден.</p>
         <p class="summary" id="summary"></p>

@@ -212,12 +212,17 @@ function finish() {
   const win = run.status === "won";
   const minute = Math.floor(run.time / 60);
   const seconds = String(Math.floor(run.time) % 60).padStart(2, "0");
-  text("result-title", win ? "Конец демо" : "Поход окончен");
+  $("result").dataset.outcome = win ? "won" : "dead";
+  $("death-skull").hidden = win;
+  text("result-title", win ? "Конец демо" : "ТЫ ПОГИБ");
+  text("retry", win ? "Новый поход" : "Меня не остановить");
+  text("result-menu", win ? "В меню игры" : "Мне нужен покой");
   $("win-note").hidden = !win;
   const secrets = run.secrets.filter(secret => secret.open).length;
   text("summary", "Осколки " + run.player.relics + " / 3 · Тайники " + secrets + " / " + run.secrets.length
     + " · Победы " + run.player.kills + " · " + minute + ":" + seconds);
   show("result");
+  $("retry").focus({ preventScroll: true });
 }
 
 function updateHud() {
