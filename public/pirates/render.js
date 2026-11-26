@@ -459,10 +459,10 @@ function prop(kind, phase = 0) {
 const HAND_W = 144;
 const HAND_H = 110;
 const VIEW_MODELS = {
-  pistol: { cell: [0, 0], wrist: [81, 99], muzzleY: 35, kick: 7, dip: 23, tilt: -.34 },
-  scatter: { cell: [1, 0], wrist: [87, 100], muzzleY: 18, kick: 13, dip: 30, tilt: -.23 },
-  musket: { cell: [0, 1], wrist: [87, 101], muzzleY: 11, kick: 10, dip: 32, tilt: -.17 },
-  blade: { cell: [1, 1], wrist: [90, 99] },
+  pistol: { cell: [0, 0], wrist: [84, 103], muzzleY: 41, kick: 7, dip: 23, tilt: -.34 },
+  scatter: { cell: [1, 0], wrist: [90, 106], muzzleY: 29, kick: 13, dip: 30, tilt: -.23 },
+  musket: { cell: [0, 1], wrist: [89, 106], muzzleY: 18, kick: 10, dip: 32, tilt: -.17 },
+  blade: { cell: [1, 1], wrist: [87, 102] },
 };
 
 function muzzleFlash(ctx, x, y, age, heavy) {
@@ -485,7 +485,7 @@ function muzzleFlash(ctx, x, y, age, heavy) {
 
 function createViewModel(ctx) {
   const atlas = new Image();
-  atlas.src = new URL("./viewmodels.png?v=10", import.meta.url).href;
+  atlas.src = new URL("./viewmodels.png?v=11", import.meta.url).href;
 
   return (p, time) => {
     if (!atlas.complete || !atlas.naturalWidth) return;
@@ -510,10 +510,10 @@ function createViewModel(ctx) {
     ctx.save();
     ctx.translate(x + wx, y + wy);
     ctx.rotate(turn);
-    ctx.drawImage(atlas, sx * HAND_W, sy * HAND_H, HAND_W, HAND_H, -wx, -wy, HAND_W, HAND_H);
     if (!blade && p.recoil > .015 && !p.reloadLeft) {
       muzzleFlash(ctx, HAND_W / 2 - wx, model.muzzleY - wy, recover * (1 - attack), p.weapon === "scatter");
     }
+    ctx.drawImage(atlas, sx * HAND_W, sy * HAND_H, HAND_W, HAND_H, -wx, -wy, HAND_W, HAND_H);
     ctx.restore();
   };
 }

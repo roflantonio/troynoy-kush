@@ -1,5 +1,5 @@
 import { ARMORY, cast, chooseSkill, compassObjective, createRun, location, nextLevel, secretAhead, stepRun, switchWeapon, weaponCapacity } from "./world.js?v=9";
-import { createRenderer, kingPortrait, mapDraw } from "./render.js?v=10";
+import { createRenderer, kingPortrait, mapDraw } from "./render.js?v=11";
 import { pirateSound } from "./sound.js?v=8";
 
 const $ = id => document.getElementById(id);
