@@ -1,4 +1,4 @@
-import { HEIGHT, SECRET_PANEL, WIDTH, cast, discovered, seeded, shieldRaised, tileAt } from "./world.js?v=6";
+import { ISLAND_TERRAIN, SECRET_PANEL, cast, discovered, seeded, shieldRaised, tileAt } from "./world.js?v=8";
 
 export const VIEW_W = 432;
 export const VIEW_H = 244;
@@ -34,7 +34,30 @@ function wallPixels(kind) {
   for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
     const variation = Math.floor(rand() * 21) - 10;
     let color;
-    if (kind === 2 || kind === 7) {
+    if (kind >= ISLAND_TERRAIN.jungle) {
+      const { jungle, basalt, root, sand, shrine } = ISLAND_TERRAIN;
+      const vein = Math.sin(x / 2 + y * .26) * 12;
+      if (kind === jungle) {
+        const leaf = (x * 7 + y * 9 + Math.floor(x / 6) * 11) % 23;
+        color = leaf < 8 ? [73 + vein, 103 + vein, 54] : [43 + vein, 73 + vein, 42];
+        if (leaf === 2 || leaf === 3) color = [117 + vein, 123 + vein, 54];
+      } else if (kind === root) {
+        const width = (x + Math.round(2 * Math.sin(y / 8))) % 9;
+        color = width < 2 ? [44, 52, 38] : y % 10 < 2 ? [92, 86, 45] : [74 + vein, 107 + vein, 53];
+      } else if (kind === sand) {
+        const pebble = (x * 17 + y * 7) % 37 < 2;
+        color = pebble ? [130, 120, 83] : [154 + vein * .4, 137 + vein * .4, 90];
+      } else {
+        const edge = y % 8 === 0 || (x + (y >= 16 ? 7 : 0)) % 16 === 0;
+        color = edge ? [42, 47, 39] : [103 + vein, 111 + vein, 83 + vein];
+        if (kind === basalt && (x * 3 + y * 11) % 19 < 4) color = [63, 93, 50];
+        if (kind === shrine) {
+          const mark = Math.abs(x - 15.5) + Math.abs(y - 15.5);
+          if ((mark > 7 && mark < 10) || (y > 9 && y < 12 && (x % 8 < 3))) color = [146, 118, 62];
+          if (mark < 4) color = [111, 142, 65];
+        }
+      }
+    } else if (kind === 2 || kind === 7) {
       const rail = x % 8;
       const seam = rail === 0 || (kind === 7 && y % 16 === 0);
       const knots = Math.sin(x * 2 + Math.cos(y / 6)) * 6;
@@ -86,6 +109,29 @@ function wallPixels(kind) {
     source[y * T + x] = rgb(...color.map(component => clamp(Math.floor(component + variation), 0, 255)));
   }
   return source;
+}
+
+const SKY_W = 1024;
+const SKY_H = 128;
+
+function islandSky() {
+  const sky = new Uint32Array(SKY_W * SKY_H);
+  const rand = seeded(4967);
+  for (let x = 0; x < SKY_W; x++) {
+    const crown = 95 + Math.sin(x * .031) * 5 + Math.sin(x * .087) * 3 + Math.sin(x * .23) * 2;
+    const sunrise = Math.max(0, 1 - Math.abs(x - 587) / 167);
+    for (let y = 0; y < SKY_H; y++) {
+      const grain = rand() * 5;
+      if (y > crown) sky[y * SKY_W + x] = rgb(28 + grain | 0, 61 + grain | 0, 54 + grain | 0);
+      else {
+        const mist = y * .40 + sunrise * 21;
+        const cloud = Math.max(0, Math.sin(x * .037 + y * .10) + Math.sin(x * .0061 - y * .078) - 1.03);
+        sky[y * SKY_W + x] = rgb(66 + mist + cloud * 38 + grain | 0,
+          105 + mist + cloud * 37 + grain | 0, 110 + mist * .63 + cloud * 24 | 0);
+      }
+    }
+  }
+  return sky;
 }
 
 function shaded(pixel, light, sea = 5) {
@@ -220,9 +266,124 @@ function sailor(kind, pose, guard = false) {
   return image;
 }
 
+const ISLAND_MOBS = ["macaque", "slinger", "viper", "mask", "gorilla", "king"];
+
+function islandFighter(kind, pose) {
+  const [image, c] = pixelCanvas(60, 64);
+  const stride = STRIDE[pose] || 0;
+  const wind = pose === "wind";
+  const strike = pose === "strike" || pose === "charge";
+  const flash = pose === "hurt";
+  if (pose === "fall" || pose === "down") {
+    c.translate(pose === "fall" ? 2 : -2, pose === "fall" ? 21 : 36);
+    c.transform(1, .13, .14, pose === "fall" ? .58 : .35, 0, 0);
+  } else if (pose === "breathe") c.translate(0, 1);
+  if (kind === "viper") {
+    const noseX = 41 + stride * 2 + (strike ? 10 : 0);
+    const noseY = (wind ? 18 : strike ? 37 : 30) + stride;
+    poly(c, "#22322b", [[6,56],[8,47],[22,43],[39,48],[32,41],[noseX-8,noseY+5],[noseX-9,noseY-5],
+      [noseX+4,noseY-4],[noseX+7,noseY+2],[noseX+2,noseY+8],[45,43],[48,51],[45,61],[12,63]]);
+    poly(c, flash ? "#b7db72" : "#638a49", [[9,51],[24,47],[37,52],[43,48],[36,43],
+      [noseX-5,noseY+2],[noseX-5,noseY-3],[noseX+2,noseY-3],[noseX+5,noseY+2],[noseX,noseY+6],[43,44],[46,53],[40,60],[13,60]]);
+    for (const x of [15,24,33,39]) rect(c, "#bba052", x, 51 + (x % 3), 4, 4);
+    rect(c, "#f6ad56", noseX - 1, noseY, 3, 2);
+    if (strike) rect(c, "#f5dfae", noseX + 1, noseY + 6, 2, 6);
+    return image;
+  }
+  if (kind === "mask") {
+    const drift = stride + (wind ? -4 : strike ? 3 : 0);
+    c.translate(drift, pose === "breathe" ? 2 : 0);
+    poly(c, "#24372b", [[30,2],[40,14],[52,8],[48,29],[55,42],[42,44],[30,59],[20,45],[5,45],[11,29],[7,10],[23,14]]);
+    poly(c, "#596d3f", [[29,5],[32,22],[40,17],[50,12],[43,33],[50,40],[36,40],[30,55],[24,40],[11,40],[17,30],[10,14],[23,21]]);
+    poly(c, flash ? "#e2c784" : "#ac7352", [[23,15],[37,15],[43,29],[40,40],[30,51],[19,40],[17,29]]);
+    poly(c, "#724439", [[29,17],[35,29],[37,39],[30,46],[25,39],[22,29]]);
+    rect(c, "#192f2b", 21, 27, 18, 6);
+    rect(c, wind || strike ? "#f6efa1" : "#addc7b", 22, 29, 5, 2);
+    rect(c, wind || strike ? "#f6efa1" : "#addc7b", 33, 29, 5, 2);
+    rect(c, "#d2ab76", 27, 38, 6, 2);
+    return image;
+  }
+
+  const king = kind === "king", heavy = king || kind === "gorilla", slinger = kind === "slinger";
+  const fur = flash ? "#c59271" : king ? "#7f443c" : heavy ? "#584444" : slinger ? "#805337" : "#935943";
+  const dark = king ? "#3c292e" : "#332b2a";
+  const gold = king ? "#e8b664" : "#ae8a55";
+  const shoulder = heavy ? 11 : 16;
+  const foot = (x, shift) => {
+    poly(c, dark, [[x-5,49],[x+4,49],[x+5+shift,60],[x-5+shift,62],[x-8+shift,59]]);
+    rect(c, fur, x - 6 + shift, 57, 8, 4);
+  };
+  foot(21, stride);
+  foot(39, -stride);
+  if (!heavy) {
+    poly(c, dark, [[25,44],[17,46],[6,44],[2,39],[5,27],[9,25],[12,32],[7,35],[9,40],[25,39]]);
+    poly(c, fur, [[6,30],[8,27],[9,32],[6,36],[9,41],[22,43],[23,45],[8,45],[4,40]]);
+  }
+  poly(c, dark, [[30,15],[49,23],[50,45],[42,55],[19,56],[11,45],[11,25]]);
+  poly(c, fur, [[shoulder,25],[30,20],[60-shoulder,25],[46,43],[41,54],[21,53],[13,41]]);
+  poly(c, king ? "#a76249" : "#ab7654", [[20,28],[39,27],[44,39],[37,47],[23,45],[17,36]]);
+  if (slinger || king) {
+    poly(c, king ? "#a24a43" : "#65734b", [[16,25],[22,22],[26,30],[43,46],[36,51],[22,38]]);
+    rect(c, gold, king ? 27 : 26, 44, 9, 5);
+  }
+  for (const [x, side] of [[shoulder, -1], [60 - shoulder, 1]]) {
+    const clenched = wind ? 21 : strike ? 33 : 45 + side * stride;
+    const endX = x + side * (strike ? 9 : heavy ? 5 : 4);
+    poly(c, dark, [[x-5,23],[x+4,25],[endX+5,clenched+6],[endX+3,clenched+10],[endX-5,clenched+7],[endX-6,clenched]]);
+    poly(c, fur, [[x-4,26],[x+2,26],[endX+4,clenched+5],[endX+2,clenched+8],[endX-4,clenched+6]]);
+    if (king) rect(c, gold, endX - 4, clenched + 1, 8, 3);
+  }
+  poly(c, dark, [[16,13],[21,10],[25,7],[37,7],[43,12],[48,13],[45,24],[39,28],[24,28],[18,24]]);
+  poly(c, fur, [[20,13],[28,8],[38,10],[43,15],[40,23],[36,26],[25,26],[21,21]]);
+  poly(c, heavy ? "#b78662" : "#c48f65", [[23,17],[37,17],[41,21],[38,28],[24,28],[19,23]]);
+  rect(c, "#271f24", 22, 15, 17, 5);
+  rect(c, king ? "#f0d57b" : "#e8af63", 24, 17, 3, 2);
+  rect(c, king ? "#f0d57b" : "#e8af63", 35, 17, 3, 2);
+  rect(c, "#623c33", 27, 22, 7, 3);
+  if (wind || strike) rect(c, "#f2dbb4", 25, 26, 11, 2);
+  if (king) {
+    poly(c, "#683d32", [[19,12],[16,3],[24,6],[29,0],[34,6],[44,3],[41,13]]);
+    poly(c, gold, [[19,10],[18,4],[24,7],[29,1],[34,8],[42,5],[40,11]]);
+    rect(c, "#a8d493", 28, 6, 4, 4);
+  } else if (slinger) {
+    rect(c, "#d69556", 20, 10, 23, 4);
+    const y = wind ? 15 : strike ? 25 : 39;
+    poly(c, "#d9af72", [[47,y],[51,y-8],[56,y-9],[57,y-5],[52,y+2],[48,y+7],[46,y+5]]);
+    rect(c, "#9b9990", 53, y - 9, 4, 4);
+  } else if (heavy) {
+    rect(c, "#7b735b", 22, 32, 17, 7);
+    rect(c, "#b5a069", 28, 33, 5, 4);
+  }
+  return image;
+}
+
+export const kingPortrait = () => islandFighter("king", "wind").toDataURL();
+
 function prop(kind, phase = 0) {
   const [image, c] = pixelCanvas(32, 36);
-  if (kind === "torch") {
+  if (kind === "palm" || kind === "fern") {
+    if (kind === "palm") {
+      poly(c, "#564330", [[14,35],[15,25],[14,16],[12,11],[16,9],[19,16],[19,26],[18,35]]);
+      for (const y of [17,22,27,32]) rect(c, "#896847", 15, y, 4, 1);
+    }
+    const y = kind === "palm" ? 9 : 27;
+    poly(c, "#2a4d38", [[16,y-3],[12,y-8],[4,y-7],[0,y-2],[8,y-3],[2,y+4],[12,y+2],[9,y+8],
+      [17,y+4],[25,y+8],[24,y+2],[32,y+3],[26,y-3],[31,y-4],[24,y-8],[18,y-6]]);
+    poly(c, "#6b914e", [[16,y],[23,y-7],[29,y-5],[22,y-4],[30,y+1],[23,y],[24,y+5],[16,y+2],
+      [10,y+4],[6,y+3],[12,y],[3,y-2],[9,y-5],[14,y-4]]);
+  } else if (kind === "idol") {
+    poly(c, "#374c42", [[6,35],[7,14],[12,5],[22,5],[27,15],[27,35]]);
+    poly(c, "#7b7d59", [[10,15],[13,7],[22,7],[25,16],[25,31],[10,31]]);
+    rect(c, "#3b5148", 11, 14, 13, 5);
+    rect(c, "#b9bd72", 13, 16, 3, 2);
+    rect(c, "#b9bd72", 20, 16, 3, 2);
+    rect(c, "#aa9060", 15, 25, 8, 2);
+  } else if (["stone-bolt", "curse-bolt", "king-bolt"].includes(kind)) {
+    const color = kind === "stone-bolt" ? "#bf9d75" : kind === "king-bolt" ? "#ddbd5d" : "#b1d782";
+    poly(c, "#354738", [[8,23],[7,14],[15,9],[21,11],[25,18],[20,25],[13,27]]);
+    poly(c, color, [[10,21],[11,15],[17,11],[22,15],[22,21],[17,24]]);
+    rect(c, "#fbebac", 14, 15, 5, 3);
+  } else if (kind === "torch") {
     rect(c, "#493b3d", 13, 16, 6, 19);
     rect(c, "#97725d", 14, 19, 2, 13);
     poly(c, "#7c503e", [[9,16],[24,16],[21,22],[11,22]]);
@@ -350,7 +511,9 @@ function spriteBook() {
     }
   }
   sprites["captain-charge"] = sailor("captain", "charge");
-  for (const kind of ["torch","barrel","heal","ammo","relic","upgrade","scatter","musket","gate","closed","bolt","boss-bolt","spark"]) {
+  sprites["king-charge"] = islandFighter("king", "charge");
+  for (const kind of ISLAND_MOBS) for (const pose of STANCES) sprites[kind + "-" + pose] = islandFighter(kind, pose);
+  for (const kind of ["torch","barrel","heal","ammo","relic","upgrade","scatter","musket","gate","closed","bolt","boss-bolt","spark","fern","palm","idol","stone-bolt","curse-bolt","king-bolt"]) {
     sprites[kind] = prop(kind);
     if (kind === "torch" || kind === "gate") sprites[kind + "-lit"] = prop(kind, 2);
   }
@@ -374,12 +537,13 @@ function sceneSprites(world, time) {
   const shocked = world.arena.cleared;
   const gate = shocked ? (flick ? "gate-lit" : "gate") : "closed";
   return [
-    ...world.props.map(p => ({ ...p, art: p.kind === "torch" && flick ? "torch-lit" : p.kind, h: p.kind === "torch" ? .63 : .52, lift: 0 })),
+    ...world.props.map(p => ({ ...p, art: p.kind === "torch" && flick ? "torch-lit" : p.kind, h: ({ torch: .63, palm: 1.66, idol: 1.04, fern: .51 })[p.kind] ?? .52, lift: 0 })),
     ...world.items.map(p => ({ ...p, art: p.kind, h: .39,
       lift: p.kind === "relic" || p.kind === "upgrade" ? .13 + Math.sin(world.time * 4) * .035 : 0 })),
     ...world.enemies.map(e => ({
       x: e.x, y: e.y, art: enemyArt(e, time),
-      h: e.kind === "captain" ? 1.16 : e.kind === "crab" ? .44 : .93, lift: 0,
+      h: ({ captain: 1.16, king: 1.4, crab: .44, viper: .49, gorilla: 1.14, mask: .64 })[e.kind] ?? .93,
+      lift: e.kind === "mask" && e.hp > 0 ? .24 + Math.sin(time * 5 + e.phase) * .044 : 0,
     })),
     ...world.bolts.map(b => ({ ...b, art: b.kind, h: b.kind === "boss-bolt" ? .30 : .20, lift: .43 })),
     ...world.flashes.map(b => ({ ...b, art: "spark", h: .25, lift: .59 })),
@@ -392,11 +556,12 @@ export function createRenderer(canvas) {
   const id = ctx.createImageData(VIEW_W, VIEW_H);
   const pixels = new Uint32Array(id.data.buffer);
   const depth = new Float32Array(VIEW_W);
-  const palette = Array.from({ length: SECRET_PANEL + 1 }, (_, kind) => {
+  const palette = Array.from({ length: ISLAND_TERRAIN.shrine + 1 }, (_, kind) => {
     const base = wallPixels(kind);
     return Array.from({ length: 16 }, (_, i) => Uint32Array.from(base, c => shaded(c, .21 + i * .059)));
   });
   const sprites = spriteBook();
+  const sky = islandSky();
   const arms = Object.fromEntries(["pistol","scatter","blade","musket"].map(kind => [kind, arm(kind)]));
   const vignette = ctx.createRadialGradient(VIEW_W / 2, VIEW_H * .44, 44, VIEW_W / 2, VIEW_H * .44, VIEW_W * .66);
   vignette.addColorStop(0, "#05090b00");
@@ -410,7 +575,12 @@ export function createRenderer(canvas) {
     const vx = -uy * SCALE, vy = ux * SCALE;
     const horizon = Math.floor(VIEW_H * (1 + p.pitch) / 2 + Math.sin(p.bob) * p.moving * 2.6);
     const rowLimit = Math.max(horizon + 1, VIEW_H - horizon);
-    const sampleFloor = (fx, fy) => Math.floor(fy) * WIDTH + Math.floor(fx);
+    const island = world.map.key === "island";
+    const width = world.width;
+    const skyAzimuth = Math.floor(p.angle / (Math.PI * 2) * SKY_W);
+    const sampleFloor = (fx, fy) => Math.floor(fy) * width + Math.floor(fx);
+    const floorPalette = [5, 7, 3, 5, island ? ISLAND_TERRAIN.shrine : 9,
+      ISLAND_TERRAIN.sand, ISLAND_TERRAIN.jungle, ISLAND_TERRAIN.basalt];
     const powder = new Map();
     for (const hazard of world.hazards) {
       const minX = Math.floor(hazard.x - hazard.radius);
@@ -418,7 +588,7 @@ export function createRenderer(canvas) {
       const minY = Math.floor(hazard.y - hazard.radius);
       const maxY = Math.floor(hazard.y + hazard.radius);
       for (let y = minY; y <= maxY; y++) for (let x = minX; x <= maxX; x++) {
-        const tile = y * WIDTH + x;
+        const tile = y * width + x;
         if (world.floor[tile] !== 4) continue;
         const bucket = powder.get(tile) ?? [];
         bucket.push(hazard);
@@ -426,7 +596,7 @@ export function createRenderer(canvas) {
       }
     }
 
-    pixels.fill(rgb(43, 51, 57));
+    pixels.fill(island ? rgb(105, 133, 106) : rgb(43, 51, 57));
     for (let row = 1; row <= rowLimit; row++) {
       const distance = VIEW_H * .49 / row;
       const dx = 2 * vx * distance / VIEW_W;
@@ -436,25 +606,34 @@ export function createRenderer(canvas) {
       const light = clamp(Math.round(14.8 / (1 + distance * .195)), 1, 15);
       const floorY = horizon + row;
       const roofY = horizon - row;
+      const skyRow = Math.max(0, SKY_H - row - 1) * SKY_W;
       for (let x = 0; x < VIEW_W; x++, fx += dx, fy += dy) {
         const tx = Math.floor(fx * T) & (T - 1);
         const ty = Math.floor(fy * T) & (T - 1);
         if (floorY >= 0 && floorY < VIEW_H) {
           const index = sampleFloor(fx, fy);
           const tile = world.floor[index];
-          let color = palette[tile === 1 ? 7 : tile === 2 ? 3 : tile === 4 ? 9 : 5][light][ty * T + tx];
+          let color = palette[floorPalette[tile] ?? floorPalette[island ? 6 : 0]][island ? Math.min(15, light + 2) : light][ty * T + tx];
           const circles = powder.size && tile === 4 ? powder.get(index) : null;
           if (circles) for (const hazard of circles) {
             const radius = hazard.radius;
             const d = (hazard.x - fx) ** 2 + (hazard.y - fy) ** 2;
             if (d >= radius * radius) continue;
-            if (hazard.burst) color = d > radius * .80 ? rgb(243, 152, 96) : rgb(166, 58, 52);
+            if (hazard.tone === "root") {
+              if (hazard.burst) color = d > radius * .80 ? rgb(211, 206, 116) : rgb(116, 134, 56);
+              else if (d >= (radius - .11) ** 2) color = rgb(203, 211, 108);
+              else if ((tx + ty) % 6 < 2) color = rgb(129, 144, 69);
+            } else if (hazard.burst) color = d > radius * .80 ? rgb(243, 152, 96) : rgb(166, 58, 52);
             else if (d >= (radius - .11) ** 2) color = rgb(228, 110, 68);
             else if ((tx + ty) % 6 < 2) color = rgb(150, 65, 48);
           }
           pixels[floorY * VIEW_W + x] = color;
         }
-        if (roofY >= 0 && roofY < VIEW_H) pixels[roofY * VIEW_W + x] = palette[6][Math.max(0, light - 4)][ty * T + tx];
+        if (roofY >= 0 && roofY < VIEW_H) {
+          if (island) {
+            pixels[roofY * VIEW_W + x] = sky[skyRow + ((skyAzimuth + (x >> 1)) & (SKY_W - 1))];
+          } else pixels[roofY * VIEW_W + x] = palette[6][Math.max(0, light - 4)][ty * T + tx];
+        }
       }
     }
 
@@ -466,7 +645,7 @@ export function createRenderer(canvas) {
       const tall = VIEW_H / distance;
       const top = horizon - tall / 2;
       const bottom = Math.min(VIEW_H, Math.ceil(top + tall));
-      const shade = clamp(Math.round(15.2 / (1 + distance * .167)) - hit.side * 2, 0, 15);
+      const shade = clamp(Math.round(15.2 / (1 + distance * .167)) - hit.side * 2 + (island ? 3 : 0), 0, 15);
       const slab = palette[hit.wall || 1][shade];
       const column = Math.min(T - 1, Math.max(0, Math.floor(hit.u * T)));
       for (let y = Math.max(0, Math.floor(top)); y < bottom; y++) {
@@ -533,9 +712,10 @@ export function createRenderer(canvas) {
 
 export function mapDraw(canvas, world) {
   const ctx = canvas.getContext("2d");
-  const scale = Math.floor(Math.min((canvas.width - 28) / WIDTH, (canvas.height - 28) / HEIGHT));
-  const left = Math.floor((canvas.width - WIDTH * scale) / 2);
-  const top = Math.floor((canvas.height - HEIGHT * scale) / 2);
+  const { width, height } = world;
+  const scale = Math.floor(Math.min((canvas.width - 28) / width, (canvas.height - 28) / height));
+  const left = Math.floor((canvas.width - width * scale) / 2);
+  const top = Math.floor((canvas.height - height * scale) / 2);
   const shade = ctx.createRadialGradient(canvas.width * .5, canvas.height * .42, 10, canvas.width * .5, canvas.height * .5, canvas.width * .61);
   shade.addColorStop(0, "#efdbad");
   shade.addColorStop(.80, "#d4b078");
@@ -550,9 +730,10 @@ export function mapDraw(canvas, world) {
   ctx.strokeStyle = "#794e2a8c";
   ctx.lineWidth = 1;
   ctx.strokeRect(8.5, 8.5, canvas.width - 17, canvas.height - 17);
-  for (let y = 1; y < HEIGHT - 1; y++) for (let x = 1; x < WIDTH - 1; x++) {
+  for (let y = 1; y < height - 1; y++) for (let x = 1; x < width - 1; x++) {
     if (!ink(x, y)) continue;
-    cell(world.floor[y * WIDTH + x] === 4 ? "#a079645e" : "#9e74504b", x, y);
+    const style = world.floor[y * width + x];
+    cell(style === 4 ? "#a079645e" : style >= 5 ? "#7a865d64" : "#9e74504b", x, y);
     const px = left + x * scale, py = top + y * scale;
     if (!ink(x - 1, y)) rect(ctx, "#624025", px, py, 1, scale);
     if (!ink(x + 1, y)) rect(ctx, "#624025", px + scale - 1, py, 1, scale);

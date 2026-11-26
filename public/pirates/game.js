@@ -1,16 +1,18 @@
-import { ARMORY, BOSS_ACTS, cast, compassObjective, createRun, location, secretAhead, stepRun, switchWeapon, weaponCapacity } from "./world.js?v=6";
-import { createRenderer, mapDraw } from "./render.js?v=6";
-import { pirateSound } from "./sound.js?v=6";
+import { ARMORY, cast, chooseSkill, compassObjective, createRun, location, nextLevel, secretAhead, stepRun, switchWeapon, weaponCapacity } from "./world.js?v=8";
+import { createRenderer, kingPortrait, mapDraw } from "./render.js?v=8";
+import { pirateSound } from "./sound.js?v=8";
 
 const $ = id => document.getElementById(id);
 const scene = $("scene");
 const paint = createRenderer(scene);
+$("cinematic").style.setProperty("--king-portrait", "url(" + kingPortrait() + ")");
 const touch = matchMedia("(any-pointer: coarse)").matches;
 const keys = new Set();
 const held = new Set();
+const relicMarks = [...document.querySelectorAll(".compass-gems i")];
 const roundMarks = [...document.querySelectorAll(".chambers i")];
 const titleChoices = [...document.querySelectorAll(".title-choice")];
-const screens = ["menu", "pause", "result", "chart", "cinematic"];
+const screens = ["menu", "pause", "result", "chart", "cinematic", "skills"];
 const storageKey = "fortune-sound";
 let soundOn = true;
 try { soundOn = localStorage.getItem(storageKey) !== "off"; } catch { /* Use the default. */ }
@@ -65,10 +67,61 @@ function text(id, value) {
 }
 
 function updateScore() {
-  if (mode === "menu" || (mode === "cinematic" && cinematic.kind === "arrival")) sound.track("dock");
-  else if (run.status === "won" || run.arena.cleared) sound.track("dock");
+  const calmScene = mode === "cinematic" && ["arrival", "ending"].includes(cinematic.kind);
+  if (mode === "menu" || calmScene || run.status === "won" || run.arena.cleared) sound.track("dock");
   else if (run.status === "dead") sound.track("silence");
+  else if (run.map.key === "island") sound.track(run.arena.active ? "king" : "island");
   else sound.track(run.arena.active ? "watcher" : "fort");
+}
+
+function skillIcon(skill) {
+  const icon = document.createElement("span");
+  icon.className = "skill-icon";
+  icon.style.backgroundPosition = skill.icon % 6 * 20 + "% " + Math.floor(skill.icon / 6) * 25 + "%";
+  icon.setAttribute("aria-hidden", "true");
+  return icon;
+}
+
+function skillDetails(skill) {
+  const details = document.createElement("span");
+  const name = document.createElement("strong");
+  const effect = document.createElement("span");
+  name.textContent = skill.name;
+  effect.textContent = skill.effect;
+  details.append(name, effect);
+  return details;
+}
+
+function showSkills() {
+  const choices = run.skillChoices.map((skill, index) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "skill-card";
+    const key = document.createElement("kbd");
+    key.textContent = index + 1;
+    key.setAttribute("aria-hidden", "true");
+    button.append(skillIcon(skill), skillDetails(skill), key);
+    button.addEventListener("click", () => selectSkill(skill.id));
+    return button;
+  });
+  $("skill-options").replaceChildren(...choices);
+  show("skills");
+  choices[0]?.focus({ preventScroll: true });
+}
+
+function selectSkill(id) {
+  if (mode !== "skills" || !chooseSkill(run, id)) return;
+  resumePlay();
+}
+
+function showLearnedSkills() {
+  const entries = run.player.skills.map(skill => {
+    const entry = document.createElement("li");
+    entry.append(skillIcon(skill), skillDetails(skill));
+    return entry;
+  });
+  $("learned-skills").replaceChildren(...entries);
+  $("skills-empty").hidden = entries.length > 0;
 }
 
 function show(next) {
@@ -93,9 +146,15 @@ function show(next) {
   }
   if (next === "play") scene.focus({ preventScroll: true });
   if (next === "chart") {
+    text("chart-title", run.map.key === "island" ? "Карта острова" : "Карта форта");
     text("chart-location", location(run));
     text("chart-secrets", "Тайные ходы " + run.secrets.filter(secret => secret.open).length + " / " + run.secrets.length);
-    const position = mapDraw($("map"), run);
+    showLearnedSkills();
+    const map = $("map");
+    map.width = 28 + run.width * 6;
+    map.height = 28 + run.height * 6;
+    map.style.minWidth = run.map.key === "island" ? Math.round(run.width * 4.1) + "px" : "";
+    const position = mapDraw(map, run);
     const paper = $("chart-scroll");
     paper.scrollLeft = paper.scrollWidth * position - paper.clientWidth / 2;
     $("chart-close").focus({ preventScroll: true });
@@ -105,6 +164,7 @@ function show(next) {
 const speakers = {
   pirate: { name: "Моряк", pace: 32 },
   watcher: { name: "Смотритель", pace: 43 },
+  king: { name: "Король обезьян", pace: 38 },
 };
 
 const scenes = {
@@ -122,6 +182,31 @@ const scenes = {
       { speaker: "pirate", shot: "arena", text: "Решётка захлопнулась. Ты держишь здесь выход?" },
       { speaker: "watcher", shot: "arena", text: "Море забрало мою команду. Теперь ты займёшь её место." },
       { speaker: "pirate", shot: "arena", text: "Море уже пыталось. Теперь открой ворота." },
+    ],
+  },
+  crossing: {
+    title: "Остров обезьян",
+    next: "Сойти на берег",
+    lines: [
+      { speaker: "pirate", shot: "island", text: "Паром проклятых вышел из тумана, едва я покинул форт. На его палубе не было ни души." },
+      { speaker: "pirate", shot: "island", text: "Вон берег. Компас дрожит так, будто чует ещё пять осколков. Придётся пойти за стрелкой." },
+    ],
+  },
+  king: {
+    title: "Трон обезьян",
+    next: "В бой",
+    lines: [
+      { speaker: "pirate", shot: "arena", text: "Пять печатей пали. Почему же джунгли вдруг замолчали?" },
+      { speaker: "king", shot: "arena", text: "Я слышал каждый твой шаг, капитан. Оставь компас у трона, и остров отпустит тебя." },
+      { speaker: "pirate", shot: "arena", text: "За мной уже закрывалась одна решётка. Я больше не оставляю своё спасение в чужих руках." },
+    ],
+  },
+  ending: {
+    title: "Берег на рассвете",
+    next: "К итогам",
+    lines: [
+      { speaker: "pirate", shot: "ending", text: "Король пал. Лианы разошлись, и за руинами показалась бухта. У берега ещё ждёт судно." },
+      { speaker: "pirate", shot: "ending", text: "Компас собран. Он больше не тянет меня к берегу. Впервые стрелка смотрит в открытое море." },
     ],
   },
 };
@@ -150,7 +235,7 @@ function beginScene(kind) {
 
 function dialogueLabel() {
   if (cinematic.index < cinematic.act.lines.length - 1) return "Далее";
-  return cinematic.kind === "arrival" ? "Войти в форт" : "В бой";
+  return cinematic.act.next ?? (cinematic.kind === "arrival" ? "Войти в форт" : "В бой");
 }
 
 function advanceScene() {
@@ -173,7 +258,7 @@ function film(now) {
     cinematic.nextLetter = now + speakers[speaker].pace + (/[.!?…]/u.test(glyph) ? 155 : /[,«»]/u.test(glyph) ? 65 : 0);
     if (cinematic.shown === letters.length) text("scene-next", dialogueLabel());
   }
-  if (kind === "watcher") {
+  if (kind === "watcher" || kind === "king") {
     const pan = reducedMotion.matches ? 0 : Math.min(1, (now - started) / 8000);
     paint(run, { x: run.arena.left + 2.9 + pan * 4.4, y: run.boss.y + (1 - pan) * 1.75,
       angle: -.23 + pan * .22, pitch: .028, bob: 0, moving: 0, time: run.time + (now - started) / 1000 });
@@ -181,7 +266,12 @@ function film(now) {
 }
 
 function leaveScene(interactive) {
+  const ending = cinematic.kind === "ending";
   cinematic = null;
+  if (ending) {
+    finish();
+    return;
+  }
   show("play");
   paint(run);
   if (interactive) lock();
@@ -210,17 +300,20 @@ function start() {
 
 function finish() {
   const win = run.status === "won";
-  const minute = Math.floor(run.time / 60);
-  const seconds = String(Math.floor(run.time) % 60).padStart(2, "0");
+  const duration = run.time + run.history.time;
+  const minute = Math.floor(duration / 60);
+  const seconds = String(Math.floor(duration) % 60).padStart(2, "0");
   $("result").dataset.outcome = win ? "won" : "dead";
   $("death-skull").hidden = win;
   text("result-title", win ? "Конец демо" : "ТЫ ПОГИБ");
   text("retry", win ? "Новый поход" : "Меня не остановить");
   text("result-menu", win ? "В меню игры" : "Мне нужен покой");
   $("win-note").hidden = !win;
-  const secrets = run.secrets.filter(secret => secret.open).length;
-  text("summary", "Осколки " + run.player.relics + " / 3 · Тайники " + secrets + " / " + run.secrets.length
-    + " · Победы " + run.player.kills + " · " + minute + ":" + seconds);
+  text("result-location", run.map.title);
+  const secrets = run.history.secrets + run.secrets.filter(secret => secret.open).length;
+  const relics = run.history.relics + run.player.relics;
+  text("summary", "Осколки " + relics + " / " + (run.history.relics + run.total) + " · Тайники " + secrets
+    + " / " + (run.history.totalSecrets + run.secrets.length) + " · Победы " + (run.history.kills + run.player.kills) + " · " + minute + ":" + seconds);
   show("result");
   $("retry").focus({ preventScroll: true });
 }
@@ -232,6 +325,10 @@ function updateHud() {
   health.max = player.max;
   health.value = player.hp;
   $("compass").dataset.filled = String(player.relics);
+  for (const [i, mark] of relicMarks.entries()) {
+    mark.hidden = i >= run.total;
+    mark.dataset.filled = String(i < player.relics);
+  }
   const { point, label } = compassObjective(run);
   const bearing = Math.atan2(point.y - player.y, point.x - player.x) - player.angle;
   $("compass-needle").style.rotate = bearing + "rad";
@@ -254,7 +351,7 @@ function updateHud() {
     $("reload-label").hidden = !player.reloadLeft;
   }
   text("weapon", weapon.name);
-  text("relics", player.relics + " / 3");
+  text("relics", player.relics + " / " + run.total);
   const dash = $("dash-meter");
   dash.max = player.dashReset;
   dash.value = player.dashReset - player.dashCooldown;
@@ -262,7 +359,9 @@ function updateHud() {
   $("boss-meter").max = run.boss.max;
   $("boss-meter").value = run.boss.hp;
   $("boss-hud").dataset.stage = run.arena.stage + 1;
-  text("boss-phase", BOSS_ACTS[run.arena.stage].name);
+  text("boss-name", run.bossName);
+  $("boss-meter").setAttribute("aria-label", "Здоровье · " + run.bossName);
+  text("boss-phase", run.acts[run.arena.stage].name);
   $("boss-hud").hidden = mode !== "play" || !run.arena.active || run.arena.cleared;
   const signal = mode === "play" && run.hint && run.hintUntil >= run.time;
   $("signal").hidden = !signal;
@@ -317,12 +416,23 @@ function frame(now) {
     sound.combat(Math.min(1, run.pressure / 3));
     sound.bossPhase(run.arena.stage);
     for (const event of run.events.splice(0)) {
-      if (event === "arena") beginScene("watcher");
+      if (event === "arena") beginScene(run.map.key === "island" ? "king" : "watcher");
+      if (event === "skill") showSkills();
       if (event === "victory") updateScore();
     }
     updateHud();
     if (mode === "play") paint(run);
-    if (run.status !== "play") finish();
+    if (run.status === "dead") finish();
+    if (run.status === "won") {
+      const upcoming = nextLevel(run);
+      if (upcoming) {
+        run = upcoming;
+        run.hint = touch ? "Пять осколков · умения на карте" : "Пять осколков · карта и умения на Tab";
+        run.hintUntil = 4.2;
+        sound.bossPhase(0);
+        beginScene("crossing");
+      } else beginScene("ending");
+    }
   } else if (mode === "cinematic") film(now);
   requestAnimationFrame(frame);
 }
@@ -337,6 +447,12 @@ document.addEventListener("keydown", event => {
     const offset = event.code === "ArrowUp" ? -1 : 1;
     const target = current === -1 ? 0 : (current + offset + titleChoices.length) % titleChoices.length;
     titleChoices[target].focus();
+    return;
+  }
+  if (mode === "skills" && /^Digit[1-3]$/.test(event.code)) {
+    event.preventDefault();
+    const skill = run.skillChoices[Number(event.code.at(-1)) - 1];
+    if (skill && !event.repeat) selectSkill(skill.id);
     return;
   }
   if (mode === "cinematic" && event.code === "Escape" && !event.repeat) {

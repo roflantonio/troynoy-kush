@@ -4,11 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#111a1c">
-  <meta name="description" content="Проклятие фортуны — пиратский шутер-рогалик. Пройди Форт проклятых и собери осколки компаса.">
+  <meta name="description" content="Проклятие фортуны — пиратский шутер-рогалик. Пройди форт и Остров обезьян, собери восемь осколков компаса.">
   <title>Проклятие фортуны</title>
   <link rel="preload" as="image" href="./awakening.webp">
-  <link rel="stylesheet" href="./pirates.css?v=7">
-  <script type="module" src="./game.js?v=7"></script>
+  <link rel="stylesheet" href="./pirates.css?v=8">
+  <script type="module" src="./game.js?v=8"></script>
 </head>
 <body>
   <main class="cabinet" id="cabinet" data-mode="menu">
@@ -21,7 +21,7 @@
         <button id="touch-interact" class="field-hint" type="button" hidden>Открыть тайный ход</button>
       </div>
       <div class="boss-hud" id="boss-hud" data-stage="1" hidden>
-        <span class="boss-name">Смотритель</span>
+        <span id="boss-name" class="boss-name">Смотритель</span>
         <span class="boss-phase" id="boss-phase">Картечь</span>
         <progress id="boss-meter" max="600" value="600" aria-label="Здоровье Смотрителя"></progress>
         <div class="boss-seals" aria-hidden="true"><i></i><i></i><i></i></div>
@@ -30,7 +30,7 @@
         <div id="compass" class="compass instrument" data-filled="0">
           <span class="compass-dial" aria-hidden="true"><span id="compass-needle"></span></span>
           <div><span class="instrument-label" id="compass-target">Осколок</span>
-            <div class="compass-gems" aria-hidden="true"><i></i><i></i><i></i></div>
+            <div class="compass-gems" aria-hidden="true"><i></i><i></i><i></i><i hidden></i><i hidden></i></div>
             <span class="sr-only" id="relics">0 / 3</span>
           </div>
         </div>
@@ -61,7 +61,6 @@
       <div class="title-content">
         <div class="title-crest" aria-hidden="true"><span class="emblem compass-mark"></span></div>
         <h1 id="game-title">Проклятие<br><em>фортуны</em></h1>
-        <p class="chapter">Форт проклятых</p>
         <nav class="title-choices" aria-label="Главное меню">
           <button id="start" class="title-choice" type="button" disabled>Начать поход</button>
           <button id="guide" class="title-choice" type="button">Управление</button>
@@ -81,10 +80,10 @@
     </section>
     <section id="result" class="overlay modal-screen" hidden aria-labelledby="result-title">
       <div class="sheet">
-        <p class="chapter">Форт проклятых</p>
+        <p class="chapter" id="result-location"></p>
         <img id="death-skull" src="./death-skull.webp" alt="" decoding="async" hidden>
         <h2 id="result-title"></h2>
-        <p class="win-note" id="win-note" hidden>Смотритель пал. Форт проклятых пройден.</p>
+        <p class="win-note" id="win-note" hidden>Король обезьян пал. Компас собран.</p>
         <p class="summary" id="summary"></p>
         <div class="menu-buttons">
           <button id="retry" class="button primary" type="button">Новый поход</button>
@@ -92,16 +91,29 @@
         </div>
       </div>
     </section>
-    <section id="chart" class="overlay modal-screen" hidden aria-label="Карта Форта проклятых">
+    <section id="chart" class="overlay modal-screen" hidden aria-labelledby="chart-title">
       <div class="sheet chart-box">
-        <h2>Карта форта</h2>
+        <h2 id="chart-title">Карта форта</h2>
         <div class="chart-subtitle" id="chart-location">Форт проклятых</div>
         <div class="chart-scroll" id="chart-scroll" tabindex="0" aria-label="Исследованные участки форта">
-          <canvas id="map" width="988" height="290" aria-label="Открытые проходы Форта проклятых"></canvas>
+          <canvas id="map" width="988" height="290" aria-label="Открытые проходы текущего уровня"></canvas>
         </div>
         <p class="map-legend"><span>◆ Осколок</span><span>▮ Печать</span><span>▣ Выход</span><span class="secret-legend">✦ Тайный ход</span><span>➤ Ты</span></p>
         <p class="chart-secrets" id="chart-secrets">Тайные ходы 0 / 3</p>
+        <details class="chart-skills" open>
+          <summary>Капитанские умения</summary>
+          <p id="skills-empty">Найди жетон, чтобы выбрать первое умение.</p>
+          <ul id="learned-skills"></ul>
+        </details>
         <button id="chart-close" class="button plain" type="button">Закрыть карту</button>
+      </div>
+    </section>
+
+    <section id="skills" class="overlay modal-screen" hidden aria-labelledby="skills-title">
+      <div class="sheet skill-sheet">
+        <h2 id="skills-title">Капитанские умения</h2>
+        <p>Выбери одно умение</p>
+        <div class="skill-options" id="skill-options"></div>
       </div>
     </section>
 
@@ -148,10 +160,11 @@
       <div><dt>R</dt><dd>Перезарядка. При удержании огня пустое оружие перезаряжается автоматически</dd></div>
       <div><dt>Shift</dt><dd>Рывок по ходу движения. Помогает увернуться от удара или снаряда</dd></div>
       <div><dt>E</dt><dd>Открыть тайный ход. Подойди к стене с медным знаком и наведи прицел</dd></div>
-      <div><dt>Tab / M</dt><dd>Открыть или закрыть карту</dd></div>
+      <div><dt>Tab / M</dt><dd>Открыть карту и посмотреть капитанские умения</dd></div>
       <div><dt>Esc</dt><dd>Пауза</dd></div>
     </dl>
     <p>На телефоне вращай камеру свайпом и используй экранные кнопки. Карта заполняется по мере разведки. Краб быстро сближается зигзагом. Щитоносец уязвим во время замаха и после удара.</p>
+    <p>На острове макаки-налётчики быстро сближаются, пращники бросают камни, гадюки замедляют укусом, маски идолов выпускают веер снарядов, а гориллы бьют вблизи. При подборе жетона выбери умение из трёх.</p>
   </dialog>
 </body>
 </html>

@@ -27,10 +27,35 @@ const oath = [
 ];
 const WATCHER_TICK = 60 / 144 / 4;
 
+const jungle = [
+  [45,[69,72,74]], [45,[76,74,72]], [48,[67,72,67]], [43,[65,67,69]],
+  [45,[69,72,76]], [50,[74,77,76]], [41,[72,69,65]], [43,[67,65,62]],
+  [45,[69,72,74,76]], [48,[79,76,72]], [43,[67,72,74]], [40,[71,67,64]],
+  [45,[64,69,72]], [41,[65,69,72]], [43,[74,71,67]], [50,[74,77,81,77]],
+  [45,[76,72,69]], [48,[72,76,79]], [50,[81,77,74]], [43,[74,72,67]],
+  [41,[65,67,69]], [43,[67,71,74]], [45,[76,74,72]], [40,[71,67,64]],
+  [45,[69,72,76]], [43,[74,71,67]], [50,[77,76,74]], [41,[72,69,65]],
+  [48,[67,72,76]], [43,[67,71,74]], [40,[71,67,64]], [45,[69,64,69]],
+];
+const throne = [
+  [40,[64,65,59]], [40,[67,65,64]], [41,[65,60,66]], [38,[62,65,61]],
+  [40,[64,71,65]], [43,[67,68,62]], [41,[65,72,66]], [35,[59,65,62]],
+  [40,[64,65,71]], [38,[62,66,65]], [36,[60,67,65]], [41,[65,72,69]],
+  [40,[76,74,71]], [43,[79,74,68]], [37,[73,76,67]], [35,[71,65,62]],
+  [40,[76,77,71]], [41,[77,72,66]], [38,[74,77,65]], [39,[75,82,70]],
+  [40,[76,71,65]], [43,[79,74,71]], [38,[74,65,62]], [40,[64,65,71]],
+  [40,[76,77,83]], [41,[77,84,72]], [37,[73,76,67]], [35,[71,65,59]],
+  [40,[76,71,65]], [38,[74,68,65]], [41,[77,72,65]], [40,[76,71,64]],
+];
+const ISLAND_BEAT = .263;
+const KING_TICK = 60 / 152 / 4;
+
 const tracks = {
   dock: { bars: shore, duration: 4.4, air: .49, cutoff: 1240, lead: .114 },
   fort: { bars: depths, duration: 4.0 },
   watcher: { bars: oath, duration: 32 * WATCHER_TICK },
+  island: { bars: jungle, duration: 12 * ISLAND_BEAT },
+  king: { bars: throne, duration: 32 * KING_TICK },
 };
 
 const fortKicks = [
@@ -48,12 +73,21 @@ const enemyTimbres = {
   sentinel: { pitch: 224, cutoff: 1250, type: "triangle", scrape: 1280 },
   corsair: { pitch: 179, cutoff: 820, type: "sawtooth", scrape: 1110 },
   captain: { pitch: 91, cutoff: 590, type: "sawtooth", scrape: 640 },
+  macaque: { pitch: 438, cutoff: 1775, type: "triangle", scrape: 2050 },
+  slinger: { pitch: 302, cutoff: 1340, type: "square", scrape: 1320 },
+  viper: { pitch: 548, cutoff: 1600, type: "triangle", scrape: 3260 },
+  mask: { pitch: 198, cutoff: 770, type: "sine", scrape: 880 },
+  gorilla: { pitch: 87, cutoff: 505, type: "sawtooth", scrape: 690 },
+  king: { pitch: 111, cutoff: 885, type: "square", scrape: 835 },
 };
 const floorTimbres = {
   wood: { foot: 142, grit: 825, decay: .145, weight: .16 },
   damp: { foot: 97, grit: 1760, decay: .22, weight: .105 },
   stone: { foot: 113, grit: 2250, decay: .105, weight: .13 },
   flagstone: { foot: 82, grit: 1520, decay: .18, weight: .15 },
+  sand: { foot: 92, grit: 2360, decay: .16, weight: .08 },
+  leaves: { foot: 133, grit: 1960, decay: .14, weight: .10 },
+  "forest-stone": { foot: 105, grit: 1830, decay: .17, weight: .12 },
 };
 
 export function pirateSound(enabled) {
@@ -192,10 +226,67 @@ export function pirateSound(enabled) {
     });
   }
 
+  function islandBar(bus, at, root, melody, index) {
+    const beat = n => at + n * ISLAND_BEAT;
+    const accents = index % 4 === 3 ? [0, 2, 4, 6, 9, 10, 11] : [0, 3, 5, 6, 8, 10];
+    for (const n of accents) {
+      const down = n % 3 === 0;
+      tone(bus, beat(n), down ? 147 : 208, down ? 62 : 112, .16, down ? .20 : .12, "sine");
+      noise(bus, beat(n) + .014, .086, down ? 846 : 1400, .09);
+    }
+    for (const n of [1, 4, 7, 10]) noise(bus, beat(n), .095, 4200, .063);
+    for (const n of [0, 3, 6, 9]) {
+      const pitch = note(root - 12 + (n === 9 ? 7 : 0));
+      tone(bus, beat(n), pitch, pitch, .35, .171, "triangle", 540);
+    }
+    for (const [i, pitch] of melody.entries()) {
+      const onset = beat([.62, 3.83, 7.1, 9.2][i]);
+      tone(bus, onset, note(pitch), note(pitch), .31, .138, "triangle", 1770);
+      tone(bus, onset, note(pitch + 12), note(pitch + 12), .08, .041, "sine");
+      if (index % 2) swell(bus, onset + .087, pitch - 12, .68, .060, "sine", 1030, .093);
+    }
+    if (index % 8 < 4) swell(bus, beat(2), root + 12, 2.71, .057, "sine", 850, .55);
+  }
+
+  function kingBar(bus, at, root, riff, index) {
+    const tick = n => at + n * KING_TICK;
+    const late = watcherPhase === 2;
+    const bassSteps = index % 4 === 3 ? [0,3,4,7,8,11,13,16,19,20,23,24,26,29,31]
+      : [0,2,4,6,9,11,13,16,18,20,22,24,27,30];
+    for (const [i, n] of bassSteps.entries()) {
+      const frequency = note(root - 12 + (i % 7 === 4 ? 1 : i % 9 === 7 ? 7 : 0));
+      tone(bus, tick(n), frequency, frequency, .15, .242, "sawtooth", late ? 925 : 690);
+      if (n % 4 === 0) tone(bus, tick(n), frequency, frequency, .18, .13, "sine");
+    }
+    for (const n of [0,4,8,12,16,20,24,28]) tone(bus, tick(n), 163, 39, .21, .31, "sine");
+    const congas = late ? [1,3,6,9,10,11,14,15,17,19,22,23,25,27,29,31]
+      : watcherPhase ? [3,6,9,11,14,15,19,22,23,27,30,31] : [3,6,9,14,19,22,27,30];
+    for (const n of congas) {
+      tone(bus, tick(n), n % 2 ? 264 : 206, n % 2 ? 132 : 90, .149, .134, "triangle", 1250);
+      noise(bus, tick(n), .095, 1920 + (n % 4) * 170, .087);
+    }
+    for (const n of [4,12,20,28]) noise(bus, tick(n) + .02, .17, 3440, .157);
+    for (const [i, pitch] of riff.entries()) {
+      const push = [0, .35, .14, .53][Math.floor(index / 8)];
+      const atNote = tick(3 + i * 8 + index % 2 + push);
+      const freq = note(pitch);
+      tone(bus, atNote, freq, freq * .94, .26, .133, i % 2 ? "sawtooth" : "square", 1710);
+      if (late || i === 0) tone(bus, atNote + .023, freq * 2.01, freq * 1.98, .14, .042, "triangle");
+    }
+  }
+
   function playBar(part, at) {
     const index = bar++ % part.bars.length;
     const [chord, melody] = part.bars[index];
     const bus = music[track];
+    if (track === "island") {
+      islandBar(bus, at, chord, melody, index);
+      return;
+    }
+    if (track === "king") {
+      kingBar(bus, at, chord, melody, index);
+      return;
+    }
     if (track === "fort") {
       fortBar(bus, at, chord, melody, index);
       return;
@@ -279,7 +370,8 @@ export function pirateSound(enabled) {
     if (!active || !context || context.state !== "running" || document.hidden) return;
     const at = context.currentTime + .007;
     const pirate = kind === "pirate";
-    const pitch = (pirate ? [230, 256, 240, 278, 252] : [103, 118, 109, 92, 121])[syllable++ % 5];
+    const pitches = pirate ? [230, 256, 240, 278, 252] : kind === "king" ? [151, 167, 139, 186, 157] : [103, 118, 109, 92, 121];
+    const pitch = pitches[syllable++ % pitches.length];
     tone(effects, at, pitch, pitch * (pirate ? .82 : .69), pirate ? .059 : .082,
       pirate ? .10 : .138, pirate ? "triangle" : "sawtooth", pirate ? 1420 : 670);
   }
@@ -361,7 +453,11 @@ export function pirateSound(enabled) {
       if (color === "damp") noise(bus, at + .063, .14, 2950 * variation, .135);
       if (color === "wood") tone(bus, at + .028, 465 * variation, 284, .13, .069, "triangle", 1130);
     } else if (kind === "ambience") {
-      if (color === "dock") {
+      if (color === "jungle") {
+        tone(bus, at, 1160, 1780, .095, .064, "sine", 2450);
+        tone(bus, at + .19, 1510, 982, .135, .046, "sine", 2240);
+        noise(bus, at, .43, 2070, .11);
+      } else if (color === "dock") {
         noise(bus, at, .53, 430, .17);
         tone(bus, at + .17, 312, 173, .48, .073, "triangle", 660);
       } else {
@@ -384,6 +480,14 @@ export function pirateSound(enabled) {
       noise(bus, at, .53, 676, .32);
       tone(bus, at, 119, 49, .56, .26, "triangle", 680);
       tone(bus, at + .29, 920, 330, .24, .14, "triangle", 1360);
+    } else if (kind === "skill") {
+      tone(bus, at, 370, 544, .27, .18, "triangle", 1220);
+    } else if (kind === "king-bolt" || kind === "king-charge" || kind === "king-stomp" || kind === "king-root") {
+      tone(bus, at, kind === "king-charge" ? 173 : 113, 42, .44, .29, "sawtooth", 610);
+      noise(bus, at + .032, .33, kind === "king-root" ? 1750 : 940, .24);
+    } else if (kind === "stone-bolt" || kind === "curse-bolt") {
+      tone(bus, at, kind === "stone-bolt" ? 298 : 522, 111, .21, .177, "triangle", 1700);
+      noise(bus, at, .145, 1490, .11);
     } else if (kind === "upgrade") {
       [57, 64, 69, 73].forEach((pitch, i) => swell(bus, at + i * .066, pitch, .56, .18, "triangle", 1700, .031));
     } else if (kind === "seal-open") {

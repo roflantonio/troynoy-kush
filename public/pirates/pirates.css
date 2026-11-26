@@ -45,7 +45,6 @@ h1,h2,p,dl,dd{margin:0}
 .chapter{font-size:.87rem;text-transform:uppercase;letter-spacing:.19em;color:var(--sea);font-weight:800}
 .title-content h1{font:400 clamp(3.3rem,8.3vw,8rem)/.93 var(--inscription);letter-spacing:-.045em;text-transform:uppercase;text-shadow:0 4px 3px #0a0c13,0 12px 44px #020409;margin:12px 0 14px}
 .title-content h1 em{display:inline-block;font-style:normal;color:#e9b87e}
-.title-content .chapter{font:400 clamp(.70rem,2vw,.95rem)/1.15 var(--inscription);color:#d8b085;letter-spacing:.27em}
 .title-choices{display:grid;justify-items:stretch;width:min(100%,334px);margin-top:clamp(17px,4svh,47px)}
 .title-choice{position:relative;display:flex;align-items:center;justify-content:center;min-height:45px;padding:5px 27px;color:#ebd8b6;background:none;border:1px solid transparent;outline:none;text-align:center;font:400 clamp(1.12rem,2.1vw,1.56rem)/1.1 var(--inscription);text-shadow:0 2px 8px #070b13}
 .title-choice::before,.title-choice::after{content:"";position:absolute;top:50%;width:6px;height:6px;background:#f1bc7b;transform:translateY(-50%) rotate(45deg);opacity:0}
@@ -127,6 +126,7 @@ dialog::backdrop{background:#070d12d9}
 #help dl div{display:grid;grid-template-columns:125px 1fr;gap:9px;padding:4px;border-bottom:1px solid #435956;font-size:.9rem}
 #help dt{color:var(--sea);font-weight:800}
 #help p{color:var(--muted);font-size:.88rem}
+#help p + p{margin-top:8px}
 .emblem{display:inline-block;flex:none;width:var(--emblem,24px);height:var(--emblem,24px);background:url("./instruments.png") var(--mark,0%) center/700% 100% no-repeat;vertical-align:middle}
 .heart-mark{--mark:16.6667%}
 .dash-mark{--mark:33.3333%}
@@ -144,9 +144,7 @@ dialog::backdrop{background:#070d12d9}
 #compass-needle{z-index:1;width:31%;height:70%;clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);background:linear-gradient(180deg,#9bdeff 0 7%,#459fdb 38%,#61c4fb 50%,#ead2a5 51%,#8a613d 100%)}
 .compass-gems{display:flex;gap:6px;margin:6px 0 2px}
 .compass-gems i,.boss-seals i{width:7px;height:7px;border:1px solid #93714e;background:#443c33;transform:rotate(45deg)}
-#compass:is([data-filled="1"],[data-filled="2"],[data-filled="3"]) .compass-gems > i:first-child,
-#compass:is([data-filled="2"],[data-filled="3"]) .compass-gems > i:nth-child(2),
-#compass[data-filled="3"] .compass-gems > i:nth-child(3){background:#9ce6d0;border-color:#ace5ca;box-shadow:0 0 7px #65d4b8}
+.compass-gems > i[data-filled="true"]{background:#9ce6d0;border-color:#ace5ca;box-shadow:0 0 7px #65d4b8}
 .vital{left:var(--hud-edge);bottom:var(--hud-edge);width:clamp(100px,15vw,169px);padding:8px 10px 9px;border-radius:11px 3px 11px 3px}
 .vital-face{display:flex;align-items:center;gap:7px;margin-bottom:5px}
 .vital-face .emblem{--emblem:clamp(22px,4.1vw,37px)}
@@ -196,6 +194,30 @@ kbd{font:inherit;font-size:.78em;border:1px solid currentColor;border-radius:2px
 .scene-next::after{content:"›";margin-left:12px;font-size:1.24em}
 #skip-scene{position:absolute;bottom:12px;right:clamp(13px,4vw,51px)}
 @keyframes eyes-open{from{opacity:0;transform:scale(1.075);filter:blur(11px)}to{opacity:1;transform:scale(1);filter:blur(0)}}
+.cinematic[data-shot="island"]::before,.cinematic[data-shot="ending"]::before{content:"";position:absolute;z-index:-2;inset:-4%;background:linear-gradient(0deg,#101913 2%,transparent 69%),url("./island-arrival.webp") center/cover;animation:eyes-open 1.5s ease-out both}
+.cinematic[data-shot="ending"]::before{background-image:linear-gradient(0deg,#1d1612 1%,transparent 65%),url("./island-ending.webp")}
+.cinematic[data-speaker="king"] .portrait{left:auto;right:clamp(15px,7.5vw,134px);background:var(--king-portrait) center/contain no-repeat;aspect-ratio:1;image-rendering:pixelated;mask-image:none}
+.cinematic[data-speaker="king"] .speaker-name{left:auto;right:clamp(11px,3vw,39px);background:linear-gradient(110deg,#ac9659,#d7c480);border-color:#ecd187}
+#skills,#chart{grid-template-rows:minmax(0,1fr)}
+#skills{background:radial-gradient(ellipse at 50% 50%,#182e2bf2,#081117fb)}
+.skill-sheet{width:min(100%,900px);max-height:100%;overflow-y:auto;padding:clamp(12px,3vw,36px);border-color:#aa8b60}
+.skill-sheet>p{color:#c5b991;font-size:.95rem;margin:-2px 0 17px}
+.skill-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(5px,1.65vw,20px);justify-items:stretch}
+.skill-card{position:relative;display:grid;grid-template-rows:auto 1fr auto;justify-items:center;align-items:start;min-height:clamp(164px,31vh,256px);padding:clamp(9px,2vw,22px);border:1px solid #96825b;border-radius:3px;background:radial-gradient(ellipse at 50% 12%,#34483a,#152529 67%);box-shadow:inset 0 0 0 3px #131d20,inset 0 0 0 4px #9f83573b;color:#fae1ae}
+.skill-card:hover,.skill-card:focus-visible{border-color:#e3be7d;background:radial-gradient(ellipse at 50% 12%,#4a5b3f,#203337 70%)}
+.skill-icon{display:inline-block;flex:none;width:var(--skill-icon,60px);aspect-ratio:1;background:url("./skill-icons.png") 0 0/600% 500% no-repeat;image-rendering:pixelated}
+.skill-card>span:nth-child(2),#learned-skills li>span:nth-child(2){display:grid;gap:6px;overflow-wrap:anywhere}
+.skill-card strong,#learned-skills strong{font:400 clamp(.81rem,1.85vw,1.25rem)/1.12 var(--inscription)}
+.skill-card>span:nth-child(2)>span{color:#e4dcc3;font-size:clamp(.69rem,1.4vw,.84rem);line-height:1.35}
+.skill-card kbd{margin:7px 0 0;font-size:.73rem;color:#d9b57e}
+.chart-box{max-height:100%;overflow-y:auto}
+.chart-skills{margin:0 0 12px;padding:5px 8px;border-block:1px solid #9c734a88;color:#563522}
+.chart-skills summary{cursor:pointer;font:400 1.06rem var(--inscription)}
+.chart-skills p{margin:5px 0;color:#684d35;font-size:.8rem}
+#learned-skills{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 12px;max-height:18svh;overflow-y:auto;list-style:none;padding:0;margin:4px 0;text-align:left}
+#learned-skills li{display:flex;align-items:center;gap:7px;font-size:.76rem;line-height:1.25}
+#learned-skills .skill-icon{--skill-icon:34px}
+#learned-skills li>span:nth-child(2){gap:2px}
 @media(max-width:620px){
   .title-screen::before,.cinematic[data-shot="fort"]::before{background-position:63% center}
   .title-content{padding:44px 23px 23px}
@@ -216,6 +238,11 @@ kbd{font:inherit;font-size:.78em;border:1px solid currentColor;border-radius:2px
   .touch-group{gap:3px}
   .touch-group .utility,.touch-group .button{min-width:34px;padding-inline:5px}
   .chart-box{padding:17px 12px 14px}
+  .skill-card{padding:8px 5px}
+  .skill-card .skill-icon{--skill-icon:clamp(31px,11vw,48px)}
+  .skill-sheet>p{margin-bottom:10px}
+  #learned-skills{grid-template-columns:1fr}
+  .cinematic[data-speaker="king"] .portrait{right:2vw}
   .toolbar{top:7px;right:7px}
   .sheet{padding:13px}
   #help dl div{grid-template-columns:102px 1fr}
@@ -233,7 +260,9 @@ kbd{font:inherit;font-size:.78em;border:1px solid currentColor;border-radius:2px
   .menu-buttons .button{min-height:34px}
   .touch{bottom:54px}
   .sheet h2{margin-bottom:5px}
-  .chart-scroll{max-height:41svh}
+  .chart-scroll{max-height:34svh}
+  .skill-card{min-height:144px}
+  .skill-card .skill-icon{--skill-icon:40px}
   .dialogue{min-height:105px;padding-top:18px;padding-bottom:41px;margin-bottom:44px}
   .scene-next{min-height:31px;padding-block:6px;bottom:7px}
   .portrait{width:min(28vw,42svh);bottom:86px}
@@ -241,5 +270,5 @@ kbd{font:inherit;font-size:.78em;border:1px solid currentColor;border-radius:2px
 }
 
 @media(prefers-reduced-motion:reduce){
-  .title-screen::before,.sea-haze,.cinders,.cinematic[data-shot="fort"]::before{animation:none}
+  .title-screen::before,.sea-haze,.cinders,.cinematic[data-shot="fort"]::before,.cinematic[data-shot="island"]::before,.cinematic[data-shot="ending"]::before{animation:none}
 }
