@@ -1,4 +1,4 @@
-import { ISLAND_TERRAIN, SECRET_PANEL, cast, discovered, seeded, shieldRaised, tileAt } from "./world.js?v=8";
+import { ISLAND_TERRAIN, SECRET_PANEL, cast, discovered, seeded, shieldRaised, tileAt } from "./world.js?v=9";
 
 export const VIEW_W = 432;
 export const VIEW_H = 244;
@@ -419,13 +419,15 @@ function prop(kind, phase = 0) {
     if (kind === "heal") { rect(c, "#ffe7b8", 14, 22, 4, 7); rect(c, "#ffe7b8", 12, 24, 8, 3); }
     else for (const x of [10,15,20]) { rect(c, "#e4c077", x, 21, 3, 9); rect(c, "#865937", x, 25, 3, 5); }
   } else if (kind === "scatter") {
-    poly(c, "#6e4439", [[3,25],[7,22],[22,16],[27,16],[27,19],[15,25],[8,30],[4,30]]);
-    poly(c, "#cba987", [[10,22],[20,17],[28,15],[30,16],[28,19],[16,24]]);
-    rect(c, "#f3bb75", 8, 24, 8, 3);
+    poly(c, "#744338", [[2,27],[3,23],[11,21],[20,17],[26,17],[27,21],[16,25],[8,30],[3,30]]);
+    poly(c, "#697882", [[12,21],[18,17],[25,15],[27,17],[24,21],[14,24]]);
+    poly(c, "#bd8951", [[21,16],[26,15],[30,12],[32,12],[32,19],[28,20],[25,19],[22,20]]);
+    poly(c, "#f0c784", [[23,16],[28,14],[31,13],[31,15],[26,17],[23,17]]);
   } else if (kind === "musket") {
-    poly(c, "#633c2b", [[1,27],[4,23],[15,20],[30,12],[31,15],[16,23],[7,30],[2,31]]);
-    poly(c, "#adc4b7", [[8,23],[16,18],[30,11],[31,13],[16,21]]);
-    rect(c, "#f6c475", 14, 19, 4, 3);
+    poly(c, "#7c4e38", [[1,29],[2,24],[7,22],[15,21],[30,12],[31,15],[16,24],[8,28],[3,32]]);
+    poly(c, "#839da5", [[8,22],[17,18],[31,10],[32,12],[17,21],[9,24]]);
+    rect(c, "#c08c52", 16, 18, 2, 4);
+    rect(c, "#e3b371", 24, 13, 2, 3);
   } else if (kind === "gate" || kind === "closed") {
     const color = kind === "gate" ? "#7ce6c6" : "#e0aa69";
     poly(c, "#18262b", [[3,34],[3,14],[6,8],[11,4],[21,4],[26,8],[29,14],[29,34]]);
@@ -454,52 +456,68 @@ function prop(kind, phase = 0) {
   return image;
 }
 
-// Separate profiles, grip positions and muzzle anchors keep each weapon legible in silhouette.
-function arm(kind) {
-  const [image, c] = pixelCanvas(160, 94);
-  let muzzle;
-  if (kind === "blade") {
-    poly(c, "#263234", [[111,94],[101,72],[105,65],[114,65],[114,61],[103,56],[101,48],[112,49],[124,58],[133,46],[140,29],[144,6],[151,13],[153,29],[149,45],[139,60],[136,74],[141,94]]);
-    poly(c, "#a7b5a4", [[125,59],[134,46],[142,28],[145,9],[150,16],[151,29],[147,44],[137,59],[134,65]]);
-    poly(c, "#ecf4d6", [[147,14],[149,20],[149,32],[145,44],[138,56],[132,61],[143,42]]);
-    poly(c, "#b5894d", [[104,50],[115,50],[127,60],[138,64],[137,69],[130,72],[115,61],[108,58]]);
-    poly(c, "#855449", [[110,94],[104,76],[110,66],[121,65],[132,72],[137,82],[140,94]]);
-    poly(c, "#cf996f", [[109,75],[113,68],[121,67],[131,73],[131,78],[118,73],[111,81]]);
-  } else if (kind === "scatter") {
-    muzzle = [72, 27];
-    poly(c, "#1a2022", [[32,94],[38,77],[48,63],[52,48],[43,37],[42,26],[52,15],[92,15],[103,25],[102,39],[91,48],[92,66],[111,75],[115,94]]);
-    poly(c, "#73523b", [[45,94],[45,77],[57,63],[59,43],[83,42],[85,62],[103,78],[104,94]]);
-    poly(c, "#a07747", [[50,41],[45,33],[46,25],[55,19],[90,19],[99,27],[98,36],[91,44],[83,48],[63,48]]);
-    poly(c, "#e1d4a0", [[47,28],[54,21],[91,21],[97,28],[93,36],[87,39],[56,39],[49,34]]);
-    poly(c, "#252a2a", [[53,28],[58,24],[88,24],[93,28],[89,34],[55,34]]);
-    rect(c, "#f3c984", 56, 44, 32, 3);
-    poly(c, "#9f6650", [[35,94],[42,80],[51,77],[55,69],[63,70],[73,80],[82,69],[92,65],[100,68],[108,80],[111,94]]);
-    poly(c, "#dda879", [[42,84],[53,78],[59,72],[68,77],[67,83],[52,86],[45,92]]);
-    poly(c, "#d69a6b", [[80,77],[87,70],[93,68],[101,72],[103,79],[96,77],[94,82],[84,83]]);
-  } else if (kind === "musket") {
-    muzzle = [81, 5];
-    poly(c, "#232629", [[68,94],[54,80],[59,68],[64,59],[71,30],[75,15],[76,2],[86,2],[87,15],[85,28],[84,45],[89,63],[96,74],[113,83],[118,94]]);
-    poly(c, "#824e34", [[64,76],[70,61],[75,37],[81,25],[83,39],[80,50],[85,63],[94,75],[111,86],[114,94],[96,94],[83,85]]);
-    poly(c, "#657e83", [[67,62],[74,34],[77,14],[78,6],[85,6],[84,19],[81,41],[77,58],[73,67]]);
-    poly(c, "#a6bcc0", [[72,57],[77,32],[80,11],[84,8],[81,30],[77,54]]);
-    rect(c, "#d1bc92", 77, 3, 9, 4);
-    rect(c, "#20292c", 79, 4, 5, 2);
-    poly(c, "#d8a660", [[70,50],[73,48],[80,49],[79,53],[72,53]]);
-    poly(c, "#b28160", [[38,94],[46,79],[57,74],[63,65],[71,62],[78,66],[76,71],[68,75],[77,75],[77,79],[68,83],[65,94]]);
-    poly(c, "#e2aa79", [[50,81],[57,77],[63,72],[69,66],[75,66],[71,70],[62,79],[53,85]]);
-    poly(c, "#a8704e", [[95,94],[87,87],[88,81],[98,81],[112,88],[117,94]]);
+const HAND_W = 144;
+const HAND_H = 110;
+const VIEW_MODELS = {
+  pistol: { cell: [0, 0], x: -17, wrist: [101, 95], muzzle: [28, 30], kick: 7, dip: 23, tilt: -.40 },
+  scatter: { cell: [1, 0], x: -33, wrist: [104, 95], muzzle: [20, 34], kick: 13, dip: 30, tilt: -.23 },
+  musket: { cell: [0, 1], x: -29, wrist: [111, 96], muzzle: [14, 10], kick: 10, dip: 32, tilt: -.17 },
+  blade: { cell: [1, 1], x: 17, wrist: [106, 92] },
+};
+
+function muzzleFlash(ctx, x, y, age, heavy) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(-.78);
+  if (age < .073) {
+    const reach = (heavy ? 1.28 : 1) * (1 - age * 4);
+    ctx.scale(reach, reach);
+    poly(ctx, "#d77644", [[0,-22],[4,-11],[11,-15],[9,-6],[17,-3],[9,1],[8,7],[2,4],[-4,8],[-7,4],[-12,3],[-8,-4],[-14,-10],[-5,-9]]);
+    poly(ctx, "#f6ad5d", [[0,-18],[4,-8],[9,-10],[7,-4],[12,-2],[5,0],[4,5],[0,3],[-5,3],[-4,-4],[-9,-7],[-3,-7]]);
+    poly(ctx, "#fff0ad", [[0,-10],[3,-5],[6,-3],[3,1],[0,3],[-3,2],[-3,-4]]);
   } else {
-    muzzle = [76, 34];
-    poly(c, "#1d252b", [[61,94],[58,80],[61,69],[65,59],[62,51],[66,37],[70,31],[83,30],[89,38],[87,50],[90,59],[93,71],[109,87],[112,94]]);
-    poly(c, "#825239", [[64,88],[64,75],[70,62],[68,51],[72,44],[82,44],[85,57],[87,68],[100,85],[99,94],[78,94]]);
-    poly(c, "#627c80", [[64,52],[66,42],[68,37],[71,33],[83,33],[87,39],[86,47],[80,54],[70,57]]);
-    poly(c, "#b2ccbd", [[68,45],[70,38],[72,34],[81,34],[84,39],[81,46],[73,49]]);
-    rect(c, "#27383b", 72, 34, 8, 4);
-    poly(c, "#b58a55", [[82,57],[91,47],[94,49],[92,58],[85,63]]);
-    poly(c, "#927362", [[76,94],[67,81],[70,71],[77,66],[87,66],[93,73],[102,79],[112,85],[114,94]]);
-    poly(c, "#d49b72", [[71,78],[78,69],[86,69],[92,76],[85,75],[79,79],[77,87]]);
+    const drift = (age - .073) * 43;
+    ctx.globalAlpha = Math.max(0, .37 - (age - .073) * 2.4);
+    poly(ctx, "#b0a593", [[-8,-4-drift],[-11,-9-drift],[-6,-15-drift],[2,-18-drift],[7,-15-drift],[9,-7-drift],[3,-3-drift]]);
+    poly(ctx, "#817e78", [[-10,1-drift],[-9,-6-drift],[-3,-10-drift],[3,-8-drift],[5,-4-drift],[0,0-drift]]);
   }
-  return { image, muzzle };
+  ctx.restore();
+}
+
+function createViewModel(ctx) {
+  const atlas = new Image();
+  atlas.src = new URL("./viewmodels.png", import.meta.url).href;
+
+  return (p, time) => {
+    if (!atlas.complete || !atlas.naturalWidth) return;
+    const model = VIEW_MODELS[p.weapon];
+    const blade = p.weapon === "blade";
+    const recover = p.weapon === "pistol" || blade ? .195 : .29;
+    const attack = clamp(p.recoil / recover, 0, 1);
+    const recoil = attack * attack;
+    const slash = blade ? Math.sin(Math.PI * attack) : 0;
+    const reload = p.reloadLeft > 0 ? clamp(1 - p.reloadLeft / p.reloadSpan, 0, 1) : 0;
+    const dip = Math.sin(Math.PI * reload);
+    const settle = Math.sin(reload * Math.PI * 2) * dip;
+    const step = p.moving * Math.sin(p.bob * .64);
+    const breathe = Math.sin(time * 2.2) * .5;
+    const x = Math.round(VIEW_W / 2 + model.x + step * 4 - slash * 69 + dip * 7);
+    const y = Math.round(VIEW_H - HAND_H + 5 + Math.abs(Math.sin(p.bob)) * p.moving * 3 + breathe
+      + (model.kick ?? 0) * recoil + (model.dip ?? 0) * dip + slash * 8 + p.dash * 18);
+    const turn = blade ? -slash * .71 : recoil * .105 + model.tilt * dip + settle * .052;
+    const [wx, wy] = model.wrist;
+    const [sx, sy] = model.cell;
+
+    ctx.save();
+    ctx.translate(x + wx, y + wy);
+    ctx.rotate(turn);
+    ctx.drawImage(atlas, sx * HAND_W, sy * HAND_H, HAND_W, HAND_H, -wx, -wy, HAND_W, HAND_H);
+    if (model.muzzle && p.recoil > .015 && !p.reloadLeft) {
+      const [mx, my] = model.muzzle;
+      muzzleFlash(ctx, mx - wx, my - wy, recover * (1 - attack), p.weapon === "scatter");
+    }
+    ctx.restore();
+  };
 }
 
 function spriteBook() {
@@ -562,7 +580,7 @@ export function createRenderer(canvas) {
   });
   const sprites = spriteBook();
   const sky = islandSky();
-  const arms = Object.fromEntries(["pistol","scatter","blade","musket"].map(kind => [kind, arm(kind)]));
+  const drawViewModel = createViewModel(ctx);
   const vignette = ctx.createRadialGradient(VIEW_W / 2, VIEW_H * .44, 44, VIEW_W / 2, VIEW_H * .44, VIEW_W * .66);
   vignette.addColorStop(0, "#05090b00");
   vignette.addColorStop(.78, "#020a1070");
@@ -685,26 +703,7 @@ export function createRenderer(canvas) {
     ctx.globalAlpha = 1;
     rect(ctx, vignette, 0, 0, VIEW_W, VIEW_H);
     if (camera !== world.player) return;
-    const { image, muzzle } = arms[p.weapon];
-    const flash = muzzle && p.recoil > (p.weapon === "pistol" ? .14 : .235);
-    const slash = p.weapon === "blade" ? Math.sin(p.recoil * Math.PI / .195) : 0;
-    const handX = VIEW_W / 2 - 79 + Math.sin(p.bob * .61) * p.moving * 6 - slash * 57;
-    const reload = p.reloadLeft ? Math.sin(Math.PI * p.reloadLeft / p.reloadSpan) : 0;
-    const handY = VIEW_H - 93 + Math.abs(Math.sin(p.bob)) * p.moving * 4 + p.recoil * 40 + p.dash * 26 + reload * 57;
-    if (flash) {
-      const cx = handX + muzzle[0];
-      const cy = handY + muzzle[1];
-      poly(ctx, "#ffd47c", [[cx-26,cy-10],[cx-10,cy-12],[cx-9,cy-30],[cx,cy-18],[cx+12,cy-29],[cx+12,cy-12],[cx+28,cy-7],[cx+13,cy+5],[cx,cy+14],[cx-13,cy+5]]);
-      poly(ctx, "#fff5bf", [[cx-13,cy-5],[cx-2,cy-19],[cx+8,cy-10],[cx+16,cy-4],[cx,cy+4]]);
-    }
-    if (reload > .20) {
-      const hand = reload * 19;
-      poly(ctx, "#835f47", [[123,244],[130,226+hand],[146,211+hand],[158,211+hand],[160,219+hand],[148,230+hand],[146,244]]);
-      poly(ctx, "#dba474", [[134,226+hand],[147,213+hand],[156,213+hand],[155,219+hand],[145,225+hand],[140,232+hand]]);
-      rect(ctx, "#e2bc70", 150, 207 + hand, 15, 4);
-      rect(ctx, "#9d4e40", 159, 207 + hand, 6, 4);
-    }
-    ctx.drawImage(image, Math.round(handX), Math.round(handY));
+    drawViewModel(p, world.time);
     if (p.hurt) rect(ctx, "rgba(179,46,35," + Math.min(.31, p.hurt * .8) + ")", 0, 0, VIEW_W, VIEW_H);
     if (p.dash) rect(ctx, "rgba(95,181,175," + (p.dash * .36) + ")", 0, 0, VIEW_W, VIEW_H);
   };

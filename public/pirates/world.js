@@ -607,6 +607,7 @@ export function switchWeapon(world, kind) {
   if (world.player.weapon === kind) return false;
   world.player.weapon = kind;
   world.player.reloadLeft = 0;
+  world.player.recoil = 0;
   world.player.cooldown = Math.max(world.player.cooldown, .12);
   cue(world, "equip", null, kind);
   return true;
