@@ -1,4 +1,4 @@
-import { SEA_WIDTH as W, SEA_HEIGHT as H, broadsideTarget } from "./sea.js?v=16";
+import { SEA_WIDTH as W, SEA_HEIGHT as H, broadsideTarget } from "./sea.js?v=17";
 
 const box = (c, color, x, y, w, h) => {
   c.fillStyle = color;
@@ -212,6 +212,19 @@ export function seaRenderer(canvas) {
       vessel(c, ship.x, ship.y, time, ship);
       if (ship.hp > 0) box(c, "#f0aa86", ship.x - ship.hp * 2, ship.y + 25, ship.hp * 4, 2);
       if (ship.aim) ring(c, "#ea8b72", ship.aim.x, ship.aim.y, 17, 20);
+    }
+    const r = sea.rescue;
+    if (sea.phase === "fleet" && !r.saved && sea.time < r.until) {
+      const { x, y } = r;
+      box(c, "#a4c8c3", x - 12, y + 5, 24, 2);
+      shape(c, "#6a3e39", [[x-9,y],[x-6,y-6],[x+6,y-6],[x+10,y-1],[x+6,y+6],[x-5,y+6]]);
+      shape(c, "#e7b273", [[x-8,y],[x-5,y-5],[x+5,y-5],[x+8,y],[x+5,y+4],[x-5,y+4]]);
+      box(c, "#a34f40", x - 5, y - 4, 3, 8);
+      box(c, "#a34f40", x + 3, y - 3, 3, 7);
+      shape(c, "#6e5448", [[x-3,y+1],[x-4,y-7],[x,y-10],[x+4,y-6],[x+4,y+1]]);
+      box(c, "#d0a278", x - 2, y - 6, 4, 5);
+      box(c, "#f0dc98", x - 1, y - 15 - (reduced ? 0 : Math.sin(time * 8) * 2), 3, 3);
+      ring(c, "#f3cf83", x, y - 3, 13, 13);
     }
     vessel(c, p.x, p.y, time, { player: true });
     for (const [i, flash] of sea.flash.entries()) {

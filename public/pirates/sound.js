@@ -1,86 +1,6 @@
+import { scoreUrl } from "./score.js?v=17";
+
 const note = midi => 440 * 2 ** ((midi - 69) / 12);
-// Each theme has a full harmonic progression with room for sound effects.
-const shore = [
-  [[50,57,60,65],[69,72,77]], [[46,53,57,62],[74,72]], [[48,55,60,64],[67,72,76]], [[45,52,55,62],[74]],
-  [[43,50,57,58],[70,74,69]], [[41,48,53,57],[65,67]], [[46,53,57,60],[69,72,74]], [[45,52,59,64],[71]],
-  [[50,57,60,65],[77,76,72]], [[53,60,65,69],[74,77]], [[48,55,62,64],[79,76]], [[46,53,57,65],[72]],
-  [[43,50,55,60],[70,69,65]], [[45,52,57,62],[69,74]], [[46,53,57,64],[76,72]], [[48,55,60,67],[]],
-  [[53,57,60,64],[72,77,81]], [[46,53,57,62],[77,74,72]], [[48,55,60,65],[69,67]], [[43,50,57,62],[74,70]],
-  [[45,52,55,60],[72,69]], [[46,53,58,64],[76,77]], [[45,52,55,61],[73,76]], [[50,53,57,64],[69]],
-];
-const depths = [
-  [[45,52,59,60],[]], [[41,48,55,57],[64]], [[43,50,55,62],[67,62]], [[40,47,55,59],[62]],
-  [[45,52,55,60],[64,69]], [[48,55,59,64],[]], [[46,53,57,60],[65]], [[43,50,57,62],[67,65,62]],
-  [[41,48,53,60],[64]], [[40,47,55,57],[]], [[45,52,59,64],[67,71]], [[43,50,55,60],[69]],
-  [[38,45,53,57],[62,65]], [[41,48,55,57],[64]], [[46,53,57,62],[]], [[45,52,57,60],[64,69]],
-  [[40,47,53,57],[65,64]], [[43,50,58,62],[70,67]], [[45,52,55,59],[]], [[48,55,57,64],[72,67]],
-  [[46,53,55,60],[62,65]], [[41,48,55,57],[]], [[45,52,57,64],[69,71]], [[40,47,50,56],[68]],
-  [[45,52,55,60],[72,69,64]], [[43,50,55,59],[67]], [[41,48,55,62],[65,62]], [[40,47,56,57],[]],
-];
-const oath = [
-  [[40,47,53,58],[64,65,58]], [[40,47,52,53],[64,59]], [[38,45,50,56],[62,63,56]], [[41,48,53,59],[65,59]],
-  [[40,47,52,58],[64,58,59]], [[43,50,56,59],[67,68]], [[41,48,53,59],[65,60,59]], [[39,46,51,58],[63]],
-  [[40,47,53,58],[71,65,64]], [[41,48,53,60],[72,67]], [[37,44,52,55],[64,67,61]], [[38,45,50,56],[62,56]],
-  [[40,47,52,59],[64,71,65]], [[42,49,54,60],[66,60]], [[41,48,53,59],[65,71,65]], [[35,42,47,53],[59,65]],
-  [[40,47,53,58],[76,77,70]], [[38,45,52,56],[74,68]], [[36,43,48,54],[72,66,67]], [[37,44,49,55],[73,67]],
-  [[40,47,52,58],[76,71,70]], [[41,48,53,59],[77,71]], [[35,42,48,53],[71,65,60]], [[40,47,53,58],[64,58]],
-];
-const WATCHER_TICK = 60 / 144 / 4;
-
-const jungle = [
-  [45,[69,72,74]], [45,[76,74,72]], [48,[67,72,67]], [43,[65,67,69]],
-  [45,[69,72,76]], [50,[74,77,76]], [41,[72,69,65]], [43,[67,65,62]],
-  [45,[69,72,74,76]], [48,[79,76,72]], [43,[67,72,74]], [40,[71,67,64]],
-  [45,[64,69,72]], [41,[65,69,72]], [43,[74,71,67]], [50,[74,77,81,77]],
-  [45,[76,72,69]], [48,[72,76,79]], [50,[81,77,74]], [43,[74,72,67]],
-  [41,[65,67,69]], [43,[67,71,74]], [45,[76,74,72]], [40,[71,67,64]],
-  [45,[69,72,76]], [43,[74,71,67]], [50,[77,76,74]], [41,[72,69,65]],
-  [48,[67,72,76]], [43,[67,71,74]], [40,[71,67,64]], [45,[69,64,69]],
-];
-const throne = [
-  [40,[64,65,59]], [40,[67,65,64]], [41,[65,60,66]], [38,[62,65,61]],
-  [40,[64,71,65]], [43,[67,68,62]], [41,[65,72,66]], [35,[59,65,62]],
-  [40,[64,65,71]], [38,[62,66,65]], [36,[60,67,65]], [41,[65,72,69]],
-  [40,[76,74,71]], [43,[79,74,68]], [37,[73,76,67]], [35,[71,65,62]],
-  [40,[76,77,71]], [41,[77,72,66]], [38,[74,77,65]], [39,[75,82,70]],
-  [40,[76,71,65]], [43,[79,74,71]], [38,[74,65,62]], [40,[64,65,71]],
-  [40,[76,77,83]], [41,[77,84,72]], [37,[73,76,67]], [35,[71,65,59]],
-  [40,[76,71,65]], [38,[74,68,65]], [41,[77,72,65]], [40,[76,71,64]],
-];
-const ISLAND_BEAT = .263;
-const KING_TICK = 60 / 152 / 4;
-const tides = [
-  [38,[62,65,69]], [38,[72,69,65]], [34,[65,70,74]], [36,[67,72,70]],
-  [38,[69,72,77]], [41,[72,77,81]], [36,[76,72,67]], [33,[69,64,67]],
-  [34,[65,70,74]], [36,[67,70,76]], [38,[69,72,77]], [38,[81,77,72]],
-  [31,[67,70,74]], [34,[74,70,65]], [33,[64,69,73]], [38,[74,69,65]],
-];
-const trench = [
-  [33,[57,58,64]], [33,[69,68,62]], [29,[65,66,60]], [31,[67,68,62]],
-  [33,[69,70,64]], [36,[72,73,67]], [32,[68,65,62]], [31,[67,61,58]],
-  [33,[76,70,69]], [33,[74,70,64]], [30,[66,67,61]], [29,[65,67,60]],
-  [33,[69,70,76]], [34,[77,71,70]], [31,[74,68,62]], [33,[69,64,58]],
-];
-
-const tracks = {
-  dock: { bars: shore, duration: 4.4, air: .49, cutoff: 1240, lead: .114 },
-  fort: { bars: depths, duration: 4.0 },
-  watcher: { bars: oath, duration: 32 * WATCHER_TICK },
-  island: { bars: jungle, duration: 12 * ISLAND_BEAT },
-  king: { bars: throne, duration: 32 * KING_TICK },
-  sea: { bars: tides, duration: 3.2 },
-  kraken: { bars: trench, duration: 2.64 },
-};
-
-const fortKicks = [
-  [0, 3, 6, 8, 11, 14], [0, 2, 5, 8, 12, 15], [0, 4, 7, 10, 12, 14], [0, 3, 8, 11, 13],
-];
-const fortBass = [
-  [[0, 0], [3, 0], [5, 1], [6, 0], [8, 0], [11, 2], [12, 1], [14, 0]],
-  [[0, 0], [2, 1], [5, 0], [7, 2], [8, 0], [10, 0], [12, 1], [15, 2]],
-  [[0, 0], [3, 1], [4, 0], [7, 0], [10, 2], [12, 0], [14, 1]],
-  [[0, 0], [3, 0], [6, 1], [8, 0], [11, 0], [14, 2]],
-];
 const enemyTimbres = {
   drowned: { pitch: 131, cutoff: 465, type: "sawtooth", scrape: 710 },
   crab: { pitch: 366, cutoff: 1750, type: "triangle", scrape: 2590 },
@@ -97,6 +17,11 @@ const enemyTimbres = {
   "vault-gunner": { pitch: 167, cutoff: 1260, type: "triangle", scrape: 1680 },
   "vault-shield": { pitch: 137, cutoff: 1110, type: "triangle", scrape: 1730 },
   "vault-brute": { pitch: 102, cutoff: 805, type: "triangle", scrape: 1040 },
+  "fort-jailer": { pitch: 94, cutoff: 910, type: "square", scrape: 947 },
+  "island-jailer": { pitch: 121, cutoff: 680, type: "sawtooth", scrape: 2190 },
+  "vault-sniper": { pitch: 202, cutoff: 1330, type: "triangle", scrape: 2010 },
+  "vault-powder": { pitch: 156, cutoff: 1030, type: "sawtooth", scrape: 1450 },
+  "vault-boatswain": { pitch: 106, cutoff: 960, type: "square", scrape: 1660 },
   "rust-hook": { pitch: 121, cutoff: 978, type: "triangle", scrape: 1530 },
 };
 const floorTimbres = {
@@ -121,16 +46,13 @@ const voices = {
 export function pirateSound(volumes) {
   let context;
   let musicBus;
-  let music;
   let effects;
-  let pursuit;
   let grit;
-  let next = 0;
-  let bar = 0;
   let syllable = 0;
-  let track = "dock";
-  let danger = 0;
-  let watcherPhase = 0;
+  let track = "menu";
+  let playing;
+  let request = 0;
+  const tracks = new Map();
   let musicLevel = volumes.music;
   let effectsLevel = volumes.effects;
 
@@ -182,184 +104,53 @@ export function pirateSound(volumes) {
     osc.stop(at + duration + .03);
   }
 
-  // Two measures at 120 BPM per harmony. The percussion fills are arranged across the full cue.
-  function fortBar(bus, at, chord, melody, index) {
-    const groove = (index + Math.floor(index / 4)) % fortKicks.length;
-    const [root, fifth] = chord;
-    const bass = [root - 12, fifth - 12, root];
-    for (const [tick, degree] of fortBass[groove]) {
-      const frequency = note(bass[degree]);
-      tone(bus, at + tick * .25, frequency, frequency, tick % 2 ? .18 : .26, degree ? .103 : .147, "triangle", 395);
+  function loadTrack(name) {
+    const cached = tracks.get(name);
+    if (cached) {
+      tracks.delete(name);
+      tracks.set(name, cached);
+      return cached;
     }
-    for (const tick of fortKicks[groove]) {
-      tone(bus, at + tick * .25, tick % 2 ? 84 : 112, 42, .22, tick % 2 ? .127 : .255, "sine");
-    }
-    for (const tick of [4, 12]) {
-      const accent = at + tick * .25;
-      noise(bus, accent, .19, 1480, .16);
-      tone(bus, accent, 181, 92, .11, .085, "triangle", 475);
-    }
-    const shakerStart = index % 4 === 3 ? 2 : 1;
-    for (let tick = shakerStart; tick < 16; tick += 2) {
-      noise(bus, at + tick * .25, .077, 4880, tick % 4 === 1 ? .051 : .027);
-    }
-
-    const bed = index % 8 < 4 ? .044 : .030;
-    for (const pitch of chord.slice(1)) swell(bus, at, pitch, 4.24, bed, "sine", 950, .29);
-    melody.forEach((pitch, i) => {
-      const offset = (.50 + .25 * (index % 3)) + i * .75;
-      swell(bus, at + offset, pitch, .73, .104, "triangle", 1450, .040);
-      if (i === 0 && index % 3 === 0) swell(bus, at + offset + .51, pitch - 12, .90, .036, "sine", 860, .10);
-    });
-    for (const tick of index % 4 === 3 ? [7, 9, 13, 14, 15] : [3, 7, 11, 15]) {
-      const fill = at + tick * .25;
-      tone(pursuit, fill, 165 - (tick % 3) * 19, 62, .23, .215, "triangle", 760);
-      noise(pursuit, fill + .039, .087, 2320, .088);
-    }
+    const loading = fetch(scoreUrl(name))
+      .then(response => {
+        if (!response.ok) throw new Error("Soundtrack unavailable");
+        return response.arrayBuffer();
+      })
+      .then(bytes => context.decodeAudioData(bytes))
+      .catch(error => {
+        if (tracks.get(name) === loading) tracks.delete(name);
+        throw error;
+      });
+    tracks.set(name, loading);
+    if (tracks.size > 3) tracks.delete(tracks.keys().next().value);
+    return loading;
   }
 
-  function watcherBar(bus, at, chord, motif, index) {
-    const tickTime = tick => at + tick * WATCHER_TICK;
-    const root = chord[0];
-    const final = watcherPhase === 2;
-    const accent = index % 4;
-    const bass = [root - 12, root - 11, chord[1] - 12];
-    const phrase = accent % 2 ? [0, 3, 6, 8, 10, 13, 15, 16, 20, 22, 25, 28, 30]
-      : [0, 2, 4, 7, 9, 12, 14, 16, 18, 21, 24, 27, 29, 31];
-    for (const [i, tick] of phrase.entries()) {
-      const pitch = note(bass[(i + accent) % 7 === 3 ? 1 : i % 7 === 6 ? 2 : 0]);
-      tone(bus, tickTime(tick), pitch, pitch, .15, .235, "sawtooth", final ? 660 : 490);
-      if (tick % 4 === 0) tone(bus, tickTime(tick), pitch, pitch, .20, .10, "sine");
+  async function syncMusic() {
+    const token = ++request;
+    if (playing) {
+      const { source, level } = playing;
+      const now = context.currentTime;
+      level.gain.cancelScheduledValues(now);
+      level.gain.setTargetAtTime(0, now, .095);
+      source.stop(now + .44);
+      playing = null;
     }
-    const kicks = accent === 3 ? [0, 3, 7, 10, 12, 15, 16, 19, 23, 26, 28, 30]
-      : [0, 2, 6, 8, 11, 15, 16, 18, 22, 24, 27, 30];
-    for (const tick of kicks) tone(bus, tickTime(tick), 132, 38, .22, tick % 4 === 0 ? .31 : .18, "sine");
-    for (const tick of [4, 12, 20, 28]) {
-      noise(bus, tickTime(tick), .22, 1860, .21);
-      tone(bus, tickTime(tick), 201, 66, .20, .203, "triangle", 800);
-    }
-    const extra = final ? [1, 5, 13, 17, 21, 25, 29, 31] : watcherPhase ? [5, 13, 21, 29] : [];
-    for (const tick of extra) tone(bus, tickTime(tick), 157, 49, .15, .193, "triangle", 680);
-    for (const offset of [0, 16]) {
-      for (const pitch of chord.slice(1)) swell(bus, tickTime(offset), pitch, 1.86, .075,
-        pitch === chord[2] ? "sawtooth" : "triangle", 680, .073);
-      if (accent % 2 || offset === 0) {
-        tone(bus, tickTime(offset), 390, 298, .49, .10, "triangle", 1350);
-        tone(bus, tickTime(offset + .15), 557, 483, .37, .065, "sine");
-      }
-    }
-    motif.forEach((pitch, i) => {
-      const onset = tickTime(6 + i * 7 + (accent % 2 ? 2 : 0));
-      swell(bus, onset, pitch - 12, .56, .145, "sawtooth", 1420, .041);
-      if (i === 0 || final) swell(bus, onset + .024, pitch, .47, .044, "triangle", 1520, .055);
-    });
-  }
-
-  function islandBar(bus, at, root, melody, index) {
-    const beat = n => at + n * ISLAND_BEAT;
-    const accents = index % 4 === 3 ? [0, 2, 4, 6, 9, 10, 11] : [0, 3, 5, 6, 8, 10];
-    for (const n of accents) {
-      const down = n % 3 === 0;
-      tone(bus, beat(n), down ? 147 : 208, down ? 62 : 112, .16, down ? .20 : .12, "sine");
-      noise(bus, beat(n) + .014, .086, down ? 846 : 1400, .09);
-    }
-    for (const n of [1, 4, 7, 10]) noise(bus, beat(n), .095, 4200, .063);
-    for (const n of [0, 3, 6, 9]) {
-      const pitch = note(root - 12 + (n === 9 ? 7 : 0));
-      tone(bus, beat(n), pitch, pitch, .35, .171, "triangle", 540);
-    }
-    for (const [i, pitch] of melody.entries()) {
-      const onset = beat([.62, 3.83, 7.1, 9.2][i]);
-      tone(bus, onset, note(pitch), note(pitch), .31, .138, "triangle", 1770);
-      tone(bus, onset, note(pitch + 12), note(pitch + 12), .08, .041, "sine");
-      if (index % 2) swell(bus, onset + .087, pitch - 12, .68, .060, "sine", 1030, .093);
-    }
-    if (index % 8 < 4) swell(bus, beat(2), root + 12, 2.71, .057, "sine", 850, .55);
-  }
-
-  function kingBar(bus, at, root, riff, index) {
-    const tick = n => at + n * KING_TICK;
-    const late = watcherPhase === 2;
-    const bassSteps = index % 4 === 3 ? [0,3,4,7,8,11,13,16,19,20,23,24,26,29,31]
-      : [0,2,4,6,9,11,13,16,18,20,22,24,27,30];
-    for (const [i, n] of bassSteps.entries()) {
-      const frequency = note(root - 12 + (i % 7 === 4 ? 1 : i % 9 === 7 ? 7 : 0));
-      tone(bus, tick(n), frequency, frequency, .15, .242, "sawtooth", late ? 925 : 690);
-      if (n % 4 === 0) tone(bus, tick(n), frequency, frequency, .18, .13, "sine");
-    }
-    for (const n of [0,4,8,12,16,20,24,28]) tone(bus, tick(n), 163, 39, .21, .31, "sine");
-    const congas = late ? [1,3,6,9,10,11,14,15,17,19,22,23,25,27,29,31]
-      : watcherPhase ? [3,6,9,11,14,15,19,22,23,27,30,31] : [3,6,9,14,19,22,27,30];
-    for (const n of congas) {
-      tone(bus, tick(n), n % 2 ? 264 : 206, n % 2 ? 132 : 90, .149, .134, "triangle", 1250);
-      noise(bus, tick(n), .095, 1920 + (n % 4) * 170, .087);
-    }
-    for (const n of [4,12,20,28]) noise(bus, tick(n) + .02, .17, 3440, .157);
-    for (const [i, pitch] of riff.entries()) {
-      const push = [0, .35, .14, .53][Math.floor(index / 8)];
-      const atNote = tick(3 + i * 8 + index % 2 + push);
-      const freq = note(pitch);
-      tone(bus, atNote, freq, freq * .94, .26, .133, i % 2 ? "sawtooth" : "square", 1710);
-      if (late || i === 0) tone(bus, atNote + .023, freq * 2.01, freq * 1.98, .14, .042, "triangle");
-    }
-  }
-
-  function playBar(part, at) {
-    const index = bar++ % part.bars.length;
-    const [chord, melody] = part.bars[index];
-    const bus = music[track];
-    if (track === "sea" || track === "kraken") {
-      const storm = track === "kraken";
-      const step = part.duration / 8;
-      for (const beat of [0, 2, 3, 5, 6]) {
-        const when = at + beat * step;
-        tone(bus, when, storm ? 153 : 108, 35, .22, .24, "sine");
-        swell(bus, when, chord + (beat === 5 ? 7 : 0), step * .88, .15, storm ? "sawtooth" : "triangle", 620, .04);
-      }
-      for (const beat of [2.5, 5.5, 7]) noise(bus, at + beat * step, .14, storm ? 1550 : 810, .145);
-      for (const [i, pitch] of melody.entries()) {
-        const when = at + (i * 2 + (index % 3) * .3) * step;
-        swell(bus, when, pitch, step * (storm ? 1.9 : 2.65), .13, storm ? "square" : "triangle", storm ? 980 : 1660, .06);
-        swell(bus, when + .085, pitch - 12, step * 2.8, .07, "sawtooth", 640, .11);
-      }
-      return;
-    }
-    if (track === "island") {
-      islandBar(bus, at, chord, melody, index);
-      return;
-    }
-    if (track === "king") {
-      kingBar(bus, at, chord, melody, index);
-      return;
-    }
-    if (track === "fort") {
-      fortBar(bus, at, chord, melody, index);
-      return;
-    }
-    if (track === "watcher") {
-      watcherBar(bus, at, chord, melody, index);
-      return;
-    }
-    const { duration, air, cutoff, lead } = part;
-    chord.forEach((pitch, i) => swell(bus, at + i * .065, pitch, duration * 1.17,
-      i === 0 ? .113 : .052, i === 1 || i === 2 ? "triangle" : "sine", cutoff * .65, air));
-    const spacing = melody.length === 3 ? .72 : .99;
-    const start = [0.46, 0.77, 1.2, 0.88][index % 4];
-    melody.forEach((pitch, i) => {
-      const onset = at + start + i * spacing;
-      swell(bus, onset, pitch, 1.84 + i * .14, lead * (i ? .87 : 1), "triangle", cutoff, .075);
-      swell(bus, onset + .24, pitch, 1.45, lead * .21, "sine", cutoff, .18);
-    });
-  }
-
-  function score() {
-    if (!musicLevel || !tracks[track] || document.hidden || context.state !== "running") return;
-    if (next < context.currentTime) next = context.currentTime + .05;
-    if (next < context.currentTime + .22) {
-      const part = tracks[track];
-      playBar(part, next);
-      next += part.duration;
-    }
+    if (!musicLevel || context?.state !== "running" || document.hidden || track === "silence") return;
+    try {
+      const buffer = await loadTrack(track);
+      if (token !== request) return;
+      const source = context.createBufferSource();
+      const level = context.createGain();
+      const now = context.currentTime;
+      level.gain.setValueAtTime(0, now);
+      level.gain.setTargetAtTime(.38, now, .15);
+      source.buffer = buffer;
+      source.loop = true;
+      source.connect(level).connect(musicBus);
+      source.start(now);
+      playing = { source, level };
+    } catch { /* A missing track must not interrupt play. */ }
   }
 
   function prepare() {
@@ -371,28 +162,6 @@ export function pirateSound(volumes) {
     musicBus = context.createGain();
     musicBus.gain.value = musicLevel;
     musicBus.connect(master);
-    const reverb = context.createConvolver();
-    const impulse = context.createBuffer(2, Math.round(context.sampleRate * 2.35), context.sampleRate);
-    for (let channel = 0; channel < impulse.numberOfChannels; channel++) {
-      const samples = impulse.getChannelData(channel);
-      for (let i = 0; i < samples.length; i++) {
-        samples[i] = (2 * Math.random() - 1) * (1 - i / samples.length) ** 3.1;
-      }
-    }
-    reverb.buffer = impulse;
-    const wet = context.createGain();
-    wet.gain.value = .32;
-    reverb.connect(wet).connect(musicBus);
-    music = Object.fromEntries(Object.keys(tracks).map(name => {
-      const channel = context.createGain();
-      channel.gain.value = name === track ? .31 : 0;
-      channel.connect(musicBus);
-      channel.connect(reverb);
-      return [name, channel];
-    }));
-    pursuit = context.createGain();
-    pursuit.gain.value = danger;
-    pursuit.connect(music.fort);
     effects = context.createGain();
     effects.gain.value = .50 * effectsLevel;
     master.gain.value = .6;
@@ -403,7 +172,7 @@ export function pirateSound(volumes) {
     limiter.attack.value = .006;
     limiter.release.value = .18;
     master.connect(limiter).connect(context.destination);
-    setInterval(score, 50);
+    context.onstatechange = () => syncMusic();
   }
 
   async function unlock() {
@@ -413,6 +182,8 @@ export function pirateSound(volumes) {
       if (context.state !== "running") await context.resume();
     } catch { /* A browser can decline audio playback while the game continues. */ }
   }
+
+  document.addEventListener("visibilitychange", syncMusic);
 
   function voice(kind, reply = false) {
     if (!effectsLevel || !context || context.state !== "running" || document.hidden) return;
@@ -490,6 +261,12 @@ export function pirateSound(volumes) {
     if (kind === "pistol" || kind === "scatter" || kind === "musket") {
       noise(bus, at, kind === "scatter" ? .34 : kind === "musket" ? .28 : .21, kind === "musket" ? 920 : 1400, .63);
       tone(bus, at, kind === "musket" ? 181 : 122, 38, .19, .28, "sine");
+    } else if (kind === "spell") {
+      noise(bus, at, .31, 2140, .29);
+      [55, 62, 70, 74].forEach((pitch, index) => swell(bus, at + index * .046, pitch, .35, .13, "triangle", 2200, .05));
+    } else if (kind === "rally") {
+      tone(bus, at, 164, 246, .16, .21, "square", 1180);
+      tone(bus, at + .14, 220, 145, .28, .23, "sawtooth", 1080);
     } else if (kind === "coin") {
       tone(bus, at, 1060, 1590, .15, .19, "triangle", 2700);
       tone(bus, at + .05, 1630, 2190, .15, .12, "sine");
@@ -599,30 +376,19 @@ export function pirateSound(volumes) {
     unlock, effect, voice,
     volume(channel, level) {
       if (channel === "music") {
+        const changed = Boolean(musicLevel) !== Boolean(level);
         musicLevel = level;
         musicBus?.gain.setTargetAtTime(level, context.currentTime, .045);
+        if (changed) syncMusic();
       } else {
         effectsLevel = level;
         effects?.gain.setTargetAtTime(.50 * level, context.currentTime, .045);
       }
     },
-    combat(level) {
-      if (danger === level) return;
-      const rise = level > danger;
-      danger = level;
-      if (pursuit) pursuit.gain.setTargetAtTime(level, context.currentTime, rise ? .23 : .78);
-    },
-    bossPhase(stage) { watcherPhase = stage; },
     track(name) {
       if (track === name) return;
       track = name;
-      bar = 0;
-      if (!context) return;
-      const now = context.currentTime;
-      next = now + .075;
-      for (const [name, channel] of Object.entries(music)) {
-        channel.gain.setTargetAtTime(name === track ? .31 : 0, now, .23);
-      }
+      syncMusic();
     },
   };
 }

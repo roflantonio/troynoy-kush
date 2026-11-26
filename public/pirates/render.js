@@ -1,4 +1,4 @@
-import { ISLAND_TERRAIN, SECRET_PANEL, VAULT_WALL, cast, discovered, seeded, shieldRaised, tileAt } from "./world.js?v=16";
+import { ISLAND_TERRAIN, SECRET_PANEL, VAULT_MOSAIC, VAULT_WALL, cast, discovered, seeded, shieldRaised, tileAt } from "./world.js?v=17";
 
 export const VIEW_W = 432;
 export const VIEW_H = 244;
@@ -34,11 +34,16 @@ function wallPixels(kind, panel = false) {
   for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
     const variation = Math.floor(rand() * 21) - 10;
     let color;
-    if (kind === VAULT_WALL) {
+    if (kind === VAULT_MOSAIC) {
+      const seam = x % 8 === 0 || y % 8 === 0;
+      const tile = (Math.floor(x / 8) + Math.floor(y / 8)) % 2;
+      color = seam ? [110, 94, 64] : tile ? [161, 141, 94] : [102, 142, 134];
+      if (x % 8 === 2 || y % 8 === 2) color = tile ? [194, 168, 113] : [125, 162, 149];
+    } else if (kind === VAULT_WALL) {
       const joint = y % 8 < 1 || (x + Math.floor(y / 8) * 7) % 16 === 0;
       const patina = Math.sin(x * .4 + y) * 8;
-      color = joint ? [38, 42, 42] : [78 + patina, 79 + patina, 74 + patina];
-      if ((y === 4 || y === 27) && x > 1 && x < 30) color = [106, 79, 48];
+      color = joint ? [77, 69, 59] : [151 + patina, 126 + patina, 91 + patina];
+      if ((y === 4 || y === 27) && x > 1 && x < 30) color = [191, 148, 83];
     } else if (kind >= ISLAND_TERRAIN.jungle) {
       const { jungle, basalt, root, sand, shrine } = ISLAND_TERRAIN;
       const vein = Math.sin(x / 2 + y * .26) * 12;
@@ -185,7 +190,8 @@ function crabSprite(pose) {
 function sailor(kind, pose, guard = false) {
   const [image, c] = pixelCanvas(48, 58);
   const rust = kind === "rust-hook";
-  const leader = kind === "captain" || rust;
+  const jailer = kind === "fort-jailer";
+  const leader = kind === "captain" || rust || jailer;
   const human = rust || kind.startsWith("vault-");
   const flare = pose === "hurt" || pose === "strike";
   const stride = STRIDE[pose] || 0;
@@ -203,9 +209,10 @@ function sailor(kind, pose, guard = false) {
     rect(c, "#25222d", endX - 6, endY + 1, 12, 1);
   }
   c.translate(pose === "hurt" ? 2 : pose === "strike" ? -1 : 0, pose === "breathe" || Math.abs(stride) === 1 ? 1 : 0);
-  const shooter = kind === "corsair" || kind === "vault-gunner";
+  const shooter = ["corsair", "vault-gunner", "vault-sniper", "vault-boatswain"].includes(kind);
   const sentinel = kind === "sentinel" || kind === "vault-shield";
-  const coat = leader ? "#983e38" : shooter ? "#84472d" : sentinel ? "#556653" : "#23767b";
+  const accent = { "vault-powder": "#bd6b35", "vault-sniper": "#365563", "vault-boatswain": "#8a3858" };
+  const coat = accent[kind] ?? (jailer ? "#8d7251" : leader ? "#983e38" : shooter ? "#84472d" : sentinel ? "#556653" : "#23767b");
   const shade = leader ? "#542d31" : shooter ? "#58362b" : sentinel ? "#363b33" : "#194049";
   const rim = leader ? "#ffc885" : shooter ? "#e4a567" : sentinel ? "#b8ae72" : "#5cc1b0";
   const bone = human ? (flare ? "#e7ae87" : "#bd7c5e") : flare ? "#fff3ae" : "#e5dcb1";
@@ -289,6 +296,12 @@ function sailor(kind, pose, guard = false) {
     const y = raised ? 16 : reach ? 22 : 35;
     poly(c, "#6b4a3c", [[40,y+9],[39,y+2],[41,y-3],[45,y-5],[47,y-4],[43,y],[42,y+5],[45,y+8],[45,y+11]]);
     poly(c, "#d3a781", [[41,y+8],[40,y+2],[42,y-2],[45,y-4],[46,y-4],[43,y-1],[42,y+3],[43,y+7]]);
+  }
+  if (kind === "vault-powder") {
+    const y = raised ? 18 : 37;
+    poly(c, "#593935", [[33,y],[40,y-4],[46,y],[48,y+8],[43,y+12],[35,y+10]]);
+    rect(c, "#bd8552", 37, y + 2, 8, 4);
+    rect(c, raised ? "#ffe284" : "#d09b55", 42, y - 5, 4, 4);
   }
   return image;
 }
@@ -457,7 +470,19 @@ function islandFighter(kind, pose) {
 
 function prop(kind, phase = 0) {
   const [image, c] = pixelCanvas(32, 36);
-  if (kind === "coin") {
+  if (kind === "coin-heap") {
+    poly(c, "#67432c", [[1,29],[7,23],[12,23],[16,17],[23,18],[26,24],[31,27],[28,34],[3,34]]);
+    for (const [x, y, w] of [[3,30,9],[6,26,12],[13,23,11],[17,19,7],[18,27,11],[9,32,13],[22,30,7]]) {
+      rect(c, "#d29c4c", x, y, w, 3);
+      rect(c, "#f8cf6c", x + 1, y, Math.max(2, w - 4), 1);
+    }
+  } else if (kind === "rescue-lever") {
+    poly(c, "#34424a", [[6,32],[8,24],[25,24],[29,32]]);
+    rect(c, "#8a7961", 7, 27, 19, 4);
+    poly(c, "#a49778", phase ? [[14,26],[16,8],[20,8],[18,26]] : [[14,26],[21,9],[24,10],[18,26]]);
+    rect(c, phase ? "#83be92" : "#cb7960", phase ? 14 : 19, 6, 7, 5);
+    for (const x of [10,15,20]) rect(c, "#e6b36a", x, 28, 2, 1);
+  } else if (kind === "coin") {
     poly(c, "#704227", [[7,21],[12,13],[24,13],[29,19],[27,26],[18,31],[10,27]]);
     poly(c, "#dfaa53", [[8,20],[13,14],[23,14],[27,19],[24,25],[14,27],[9,24]]);
     poly(c, "#a96937", [[12,21],[16,16],[22,17],[24,20],[21,24],[15,24]]);
@@ -635,7 +660,8 @@ function createViewModel(ctx) {
 function spriteBook() {
   const sprites = {};
   for (const kind of ["drowned", "corsair", "captain", "sentinel", "crab",
-    "vault-cutlass", "vault-gunner", "vault-shield", "vault-brute", "rust-hook"]) {
+    "vault-cutlass", "vault-gunner", "vault-shield", "vault-brute", "vault-powder", "vault-sniper",
+    "vault-boatswain", "rust-hook", "fort-jailer"]) {
     for (const pose of STANCES) {
       sprites[kind + "-" + pose] = kind === "crab" ? crabSprite(pose) : sailor(kind, pose);
       if (kind === "sentinel" || kind === "vault-shield") sprites[kind + "-shield-" + pose] = sailor(kind, pose, true);
@@ -644,16 +670,30 @@ function spriteBook() {
   sprites["captain-charge"] = sailor("captain", "charge");
   sprites["rust-hook-charge"] = sailor("rust-hook", "charge");
   sprites["king-charge"] = islandFighter("king", "charge");
+  sprites["island-jailer-charge"] = islandFighter("gorilla", "charge");
+  for (const pose of STANCES) sprites["island-jailer-" + pose] = islandFighter("gorilla", pose);
   for (const kind of ISLAND_MOBS) for (const pose of STANCES) sprites[kind + "-" + pose] = islandFighter(kind, pose);
   for (const vendor of ["skills", "arms", "chests"]) {
     sprites["vendor-" + vendor] = vendorSprite(vendor, 0);
     sprites["vendor-" + vendor + "-sway"] = vendorSprite(vendor, 1);
     sprites["stall-" + vendor] = stallSprite(vendor);
   }
-  for (const kind of ["torch","barrel","heal","ammo","relic","upgrade","scatter","musket","gate","closed","bolt","boss-bolt","spark","fern","palm","idol","stone-bolt","curse-bolt","coin","chest","chain-hook"]) {
+  for (const [name, vendor] of [["runa", "skills"], ["brann", "arms"]]) {
+    const [image, ctx] = pixelCanvas(56, 64);
+    ctx.drawImage(sprites["vendor-" + vendor], 4, 0);
+    for (const x of [4, 14, 24, 34, 44, 52]) {
+      rect(ctx, "#24323a", x, 1, 3, 63);
+      rect(ctx, "#756758", x, 1, 1, 63);
+    }
+    rect(ctx, "#554539", 3, 2, 52, 3);
+    rect(ctx, "#554539", 3, 35, 52, 3);
+    sprites["cell-" + name] = image;
+  }
+  for (const kind of ["torch","barrel","heal","ammo","relic","upgrade","scatter","musket","gate","closed","bolt","boss-bolt","spark","fern","palm","idol","stone-bolt","curse-bolt","coin","chest","chain-hook","coin-heap","rescue-lever"]) {
     sprites[kind] = prop(kind);
     if (kind === "torch" || kind === "gate") sprites[kind + "-lit"] = prop(kind, 2);
   }
+  sprites["rescue-lever-on"] = prop("rescue-lever", 1);
   return sprites;
 }
 
@@ -675,14 +715,23 @@ function sceneSprites(world, time) {
   const gate = shocked ? (flick ? "gate-lit" : "gate") : "closed";
   const propHeights = { torch: .63, palm: 1.66, idol: 1.04, fern: .51, "vendor-skills": 1.10,
     "vendor-arms": 1.28, "vendor-chests": .77, "stall-skills": 1.75, "stall-arms": 1.77, "stall-chests": 1.64 };
+  const rescue = world.rescue;
+  const prisoners = [];
+  if (rescue && rescue.stage !== "saved") {
+    const free = rescue.stage === "opened";
+    const art = free ? "vendor-" + (rescue.person === "runa" ? "skills" : "arms") : "cell-" + rescue.person;
+    prisoners.push({ ...rescue.cell, art, h: 1.15, lift: 0 });
+    if (rescue.stage !== "cell") prisoners.push({ ...rescue.lever, art: free ? "rescue-lever-on" : "rescue-lever", h: .65, lift: 0 });
+  }
   return [
+    ...prisoners,
     ...world.props.map(p => ({ ...p, art: p.kind === "torch" && flick ? "torch-lit"
       : p.id && Math.floor(time * 2.4) % 2 ? p.kind + "-sway" : p.kind, h: propHeights[p.kind] ?? .52, lift: 0 })),
     ...world.items.map(p => ({ ...p, art: p.kind, h: p.kind === "coin" ? .29 : .39,
       lift: p.kind === "coin" || p.kind === "relic" || p.kind === "upgrade" ? .13 + Math.sin(world.time * 4) * .035 : 0 })),
     ...world.enemies.map(e => ({
       x: e.x, y: e.y, art: enemyArt(e, time),
-      h: e.kingWard ? .92 : (({ captain: 1.16, king: 1.4, crab: .44, viper: .49, gorilla: 1.14, mask: .64,
+      h: e.rescueGuard ? 1.27 : e.kingWard ? .92 : (({ captain: 1.16, king: 1.4, crab: .44, viper: .49, gorilla: 1.14, mask: .64,
         "rust-hook": 1.40, "vault-brute": 1.14 })[e.kind] ?? .93),
       lift: e.kind === "mask" && e.hp > 0 ? .24 + Math.sin(time * 5 + e.phase) * .044 : (e.lift ?? 0),
     })),
@@ -697,7 +746,7 @@ export function createRenderer(canvas) {
   const id = ctx.createImageData(VIEW_W, VIEW_H);
   const pixels = new Uint32Array(id.data.buffer);
   const depth = new Float32Array(VIEW_W);
-  const palettes = panel => Array.from({ length: VAULT_WALL + 1 }, (_, kind) => {
+  const palettes = panel => Array.from({ length: VAULT_MOSAIC + 1 }, (_, kind) => {
     const base = wallPixels(kind, panel);
     return Array.from({ length: 16 }, (_, i) => Uint32Array.from(base, c => shaded(c, .21 + i * .059)));
   });
@@ -718,12 +767,13 @@ export function createRenderer(canvas) {
     const horizon = Math.floor(VIEW_H * (1 + p.pitch) / 2 + Math.sin(p.bob) * p.moving * 2.6);
     const rowLimit = Math.max(horizon + 1, VIEW_H - horizon);
     const island = world.map.key === "island";
+    const vault = world.map.key === "vault";
     const port = world.map.key === "port";
     const outdoor = island || port;
     const width = world.width;
     const skyAzimuth = Math.floor(p.angle / (Math.PI * 2) * SKY_W);
     const sampleFloor = (fx, fy) => Math.floor(fy) * width + Math.floor(fx);
-    const floorPalette = [5, 7, 3, 5, island ? ISLAND_TERRAIN.shrine : 9,
+    const floorPalette = [vault ? VAULT_WALL : 5, 7, 3, 5, vault ? VAULT_MOSAIC : island ? ISLAND_TERRAIN.shrine : 9,
       ISLAND_TERRAIN.sand, ISLAND_TERRAIN.jungle, ISLAND_TERRAIN.basalt];
     const powder = new Map();
     for (const hazard of world.hazards) {
@@ -733,7 +783,7 @@ export function createRenderer(canvas) {
       const maxY = Math.floor(hazard.y + hazard.radius);
       for (let y = minY; y <= maxY; y++) for (let x = minX; x <= maxX; x++) {
         const tile = y * width + x;
-        if (world.floor[tile] !== 4) continue;
+        if (tileAt(world, x, y)) continue;
         const bucket = powder.get(tile) ?? [];
         bucket.push(hazard);
         powder.set(tile, bucket);
@@ -757,7 +807,7 @@ export function createRenderer(canvas) {
         if (floorY >= 0 && floorY < VIEW_H) {
           const index = sampleFloor(fx, fy);
           const tile = world.floor[index];
-          let color = palette[floorPalette[tile] ?? floorPalette[island ? 6 : 0]][outdoor ? Math.min(15, light + 2) : light][ty * T + tx];
+          let color = palette[floorPalette[tile] ?? floorPalette[island ? 6 : 0]][Math.min(15, light + (vault ? 4 : outdoor ? 2 : 0))][ty * T + tx];
           const stains = world.blood.size && world.blood.get(index);
           if (stains) for (const mark of stains) {
             const radius = mark.radius * Math.min(1, .30 + (world.time - mark.time) * 2.6);
@@ -766,7 +816,7 @@ export function createRenderer(canvas) {
               break;
             }
           }
-          const circles = powder.size && tile === 4 ? powder.get(index) : null;
+          const circles = powder.size && powder.get(index);
           if (circles) for (const hazard of circles) {
             const radius = hazard.radius;
             const d = (hazard.x - fx) ** 2 + (hazard.y - fy) ** 2;
@@ -787,7 +837,7 @@ export function createRenderer(canvas) {
         if (roofY >= 0 && roofY < VIEW_H) {
           if (outdoor) {
             pixels[roofY * VIEW_W + x] = sky[skyRow + ((skyAzimuth + (x >> 1)) & (SKY_W - 1))];
-          } else pixels[roofY * VIEW_W + x] = palette[6][Math.max(0, light - 4)][ty * T + tx];
+          } else pixels[roofY * VIEW_W + x] = palette[vault ? VAULT_WALL : 6][Math.max(0, light - (vault ? 3 : 4))][ty * T + tx];
         }
       }
     }
@@ -800,7 +850,7 @@ export function createRenderer(canvas) {
       const tall = VIEW_H / distance;
       const top = horizon - tall / 2;
       const bottom = Math.min(VIEW_H, Math.ceil(top + tall));
-      const shade = clamp(Math.round(15.2 / (1 + distance * .167)) - hit.side * 2 + (island ? 3 : 0), 0, 15);
+      const shade = clamp(Math.round(15.2 / (1 + distance * .167)) - hit.side * 2 + (vault ? 4 : island ? 3 : 0), 0, 15);
       const slab = hit.wall === SECRET_PANEL
         ? panelPalette[world.secretWalls[hit.y * width + hit.x] || 1][shade]
         : palette[hit.wall || 1][shade];
@@ -840,7 +890,9 @@ export function createRenderer(canvas) {
       }
     }
     ctx.globalAlpha = 1;
+    if (vault) ctx.globalAlpha = .55;
     rect(ctx, vignette, 0, 0, VIEW_W, VIEW_H);
+    ctx.globalAlpha = 1;
     if (camera !== world.player) return;
     if (!port) drawViewModel(p, world.time);
     if (p.hurt) rect(ctx, "rgba(179,46,35," + Math.min(.31, p.hurt * .8) + ")", 0, 0, VIEW_W, VIEW_H);
@@ -902,6 +954,11 @@ export function mapDraw(canvas, world) {
   }
   for (const trader of world.merchants ?? []) {
     if (discovered(world, trader.x, trader.y)) cell("#92622b", Math.floor(trader.x), Math.floor(trader.y));
+  }
+  if (world.rescue && world.rescue.stage !== "saved") {
+    const { cell: prison, lever, stage, seen } = world.rescue;
+    if (seen || discovered(world, prison.x, prison.y)) cell("#406b8d", Math.floor(prison.x), Math.floor(prison.y));
+    if (stage === "key") cell("#7a5d9d", Math.floor(lever.x), Math.floor(lever.y));
   }
   const p = world.player;
   const x = left + p.x * scale, y = top + p.y * scale;

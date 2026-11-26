@@ -1,0 +1,70 @@
+.chapter-sheet{width:min(620px,100%);max-height:100%;overflow:auto}
+#chapters{grid-template-rows:minmax(0,1fr)}
+.chapter-list{display:grid;gap:7px;padding:0;margin:0 0 14px;list-style:none}
+.chapter-choice{display:grid;grid-template-columns:36px 1fr auto;align-items:center;gap:8px;width:100%;padding:10px 12px;
+  text-align:left;border:1px solid #977353;color:#f3dcb6;background:linear-gradient(115deg,#36514a,#192b30);font:400 clamp(1rem,2.4vw,1.38rem) var(--inscription)}
+.chapter-choice b{font-weight:400;color:#b9dbbd}
+.chapter-choice small{font:750 .73rem var(--body);color:#d8c9ad}
+.chapter-choice:not(:disabled):is(:hover,:focus-visible){background:linear-gradient(115deg,#476955,#21363c)}
+.chapter-choice:disabled{color:#beb6a5;background:#19242a}
+.chapter-choice:disabled small::before{content:"";display:inline-block;width:9px;height:8px;border:1px solid currentColor;border-radius:1px;margin-inline-end:5px;box-shadow:0 -3px 0 -1px #19242a,0 -4px 0 -1px currentColor}
+.cinematic-chapter{position:absolute;top:clamp(14px,3.2vh,38px);left:clamp(17px,5.6vw,105px);font:750 clamp(.64rem,1.35vw,.87rem) var(--body);
+  letter-spacing:.12em;text-transform:uppercase;color:#d7c19b;text-shadow:0 2px 5px #080b10}
+.cinematic .scene-title{top:clamp(37px,6.8vh,75px);line-height:1.1}
+.cinematic[data-shot="dark"] .cinematic-chapter{opacity:0}
+.cinematic[data-shot="cell"]{background:radial-gradient(ellipse at 53% 30%,#1b343c18,#090e17cf 89%),linear-gradient(0deg,#090f16,#14303915 58%)}
+.cinematic[data-emotion="tense"][data-speaker="pirate"]{--expressive:url("./portraits/pirate-tense.webp")}
+.cinematic[data-emotion="tense"][data-speaker="watcher"]{--expressive:url("./portraits/watcher-tense.webp")}
+.cinematic[data-emotion="tense"][data-speaker="king"]{--expressive:url("./portraits/king-tense.webp")}
+.cinematic[data-emotion="tense"][data-speaker="rust"]{--expressive:url("./portraits/rust-tense.webp")}
+.cinematic[data-emotion="tense"][data-speaker="runa"]{--expressive:url("./portraits/runa-tense.webp")}
+.cinematic[data-emotion="tense"][data-speaker="brann"]{--expressive:url("./portraits/brann-tense.webp")}
+.cinematic[data-emotion="joy"][data-speaker="runa"]{--expressive:url("./portraits/runa-joy.webp")}
+.cinematic[data-emotion="joy"][data-speaker="shkiv"]{--expressive:url("./portraits/shkiv-joy.webp")}
+.cinematic:is([data-emotion="tense"],[data-emotion="joy"]) .portrait{
+  background:var(--expressive) center bottom/contain no-repeat;aspect-ratio:1;mask-image:none
+}
+.rescue-sheet{display:grid;justify-items:center;gap:9px}
+.rescue-sheet label{color:#dbd2b9}
+.rescue-sheet input{
+  width:7.5ch;max-width:100%;padding:.25em .6em;color:#fff0c9;background:#0c191e;border:1px solid #af8f62;
+  border-radius:2px;text-align:center;letter-spacing:.15em;font:400 2.15rem var(--inscription)
+}
+#rescue-error{min-height:1.4em;color:#eab194;font-size:.82rem}
+.rescue-journal{padding:6px 8px;margin-block:6px 9px;border-block:1px solid #9c734a88;color:#533720;font-size:.84rem}
+@media(max-height:450px){.chapter-choice{padding-block:6px}}
+[data-rarity="0"]{--tier:#b9c3cb}
+[data-rarity="1"]{--tier:#72d68a}
+[data-rarity="2"]{--tier:#71b7ff}
+[data-rarity="3"]{--tier:#ce8aff}
+[data-rarity="4"]{--tier:#ffad60}
+[data-rarity="5"]{--tier:#ffe187}
+.skill-card[data-rarity]{
+  border-color:var(--tier);
+  background:radial-gradient(ellipse at 50% 12%,color-mix(in srgb,var(--tier) 30%,#223132),#152529 72%);
+  box-shadow:inset 0 3px var(--tier),inset 0 0 0 4px #111b20a0
+}
+.skill-card[data-rarity]:is(:hover,:focus-visible){
+  background:radial-gradient(ellipse at 50% 12%,color-mix(in srgb,var(--tier) 46%,#223132),#203337 72%)
+}
+.skill-rarity{color:var(--tier);font:750 clamp(.62rem,1.4vw,.76rem)/1.2 var(--body)}
+#learned-skills li[data-rarity]{border-left:3px solid color-mix(in srgb,var(--tier) 70%,#44404b);padding-left:4px}
+#learned-skills .skill-rarity{color:color-mix(in srgb,var(--tier) 28%,#30323b)}
+.trade-catalog [data-rarity] h3{color:var(--tier)}
+.boss-hud[data-stage="guard"] .boss-seals{display:none}
+.boss-hud[data-stage="guard"] progress{--fill:#e6a960}
+.active-skills{
+  position:absolute;z-index:1;left:50%;bottom:clamp(7px,2.2vw,25px);transform:translateX(-50%);
+  display:flex;gap:4px;max-width:58%
+}
+.active-skills button{
+  position:relative;display:grid;justify-items:center;align-items:center;flex:0 1 auto;min-width:0;
+  width:clamp(27px,6vw,55px);padding:1px 1px 2px;
+  color:#f6e7c7;background:#16282ced;border:1px solid var(--tier);border-radius:4px
+}
+.active-skills .skill-icon{--skill-icon:clamp(19px,4.7vw,43px);max-width:100%}
+.active-skills kbd{border:0;margin:0;font-size:.72rem;line-height:1}
+.active-skills button:disabled{opacity:.8;filter:saturate(.55)}
+.active-cooldown:not(:empty){position:absolute;inset:0;display:grid;place-items:center;background:#0f1520b5;color:white;font-size:clamp(.72rem,2vw,1.25rem)}
+@media(pointer:coarse){.active-skills{bottom:37%}}
+.skill-icon[data-atlas="captain"]{background-image:url("./captain-icons.png");background-size:1000% 500%}

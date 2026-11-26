@@ -1,9 +1,11 @@
-import { ARMORY, advanceDream, cast, chooseSkill, compassObjective, createDream, createPort, createRun, dreamHint, location, nextLevel, portInteraction, secretAhead, seeded, stepRun, switchWeapon, weaponCapacity } from "./world.js?v=16";
-import { createRenderer, mapDraw } from "./render.js?v=16";
-import { pirateSound } from "./sound.js?v=16";
-import { FLEET_TOTAL, FLEET_WAVES, KRAKEN_HP, HELM, answerHelm, beginKraken, broadsideTarget, fireBroadside, newVoyage, stepVoyage } from "./sea.js?v=16";
-import { TRADERS, offers, purchase } from "./trade.js?v=16";
-import { seaRenderer } from "./sea-render.js?v=13";
+import { ARMORY, advanceDream, cast, chooseSkill, compassObjective, createDream, createPort, createRun, dreamHint, learnRescueCode, location, nextLevel, portInteraction, rescueInteraction, secretAhead, seeded, stepRun, switchWeapon, unlockRescue, weaponCapacity } from "./world.js?v=17";
+import { createRenderer, mapDraw } from "./render.js?v=17";
+import { pirateSound } from "./sound.js?v=17";
+import { FLEET_TOTAL, FLEET_WAVES, KRAKEN_HP, HELM, answerHelm, beginKraken, broadsideTarget, fireBroadside, newVoyage, stepVoyage } from "./sea.js?v=17";
+import { TRADERS, offers, purchase } from "./trade.js?v=17";
+import { seaRenderer } from "./sea-render.js?v=17";
+import { SPEAKERS as speakers, sceneFor } from "./story.js?v=17";
+import { RARITIES } from "./skills.js?v=17";
 import { animateFortMenu } from "./menu-scene.js?v=13";
 
 const $ = id => document.getElementById(id);
@@ -18,9 +20,13 @@ const touch = matchMedia("(any-pointer: coarse)").matches;
 const keys = new Set();
 const held = new Set();
 const relicMarks = [...document.querySelectorAll(".compass-gems i")];
+const activeSkills = $("active-skills");
+const skillKeys = new Set(["KeyQ", "KeyF", "KeyC", "KeyX", "KeyZ", "KeyV"]);
+let displayedSkills = [];
+let skillButtons = [];
 const roundMarks = [...document.querySelectorAll(".chambers i")];
 const titleChoices = [...document.querySelectorAll(".title-choice")];
-const screens = ["menu", "pause", "result", "chart", "cinematic", "skills", "sea-briefing", "shop"];
+const screens = ["menu", "chapters", "pause", "result", "chart", "cinematic", "skills", "sea-briefing", "shop", "rescue-lock"];
 const traderVoices = { skills: "runa", arms: "brann", chests: "shkiv" };
 const storageKey = "fortune-volumes";
 const dreamKey = "fortune-dream";
@@ -49,6 +55,7 @@ let tilt = 0;
 let dashPressed = false;
 let reloadPressed = false;
 let interactPressed = false;
+let skillPressed;
 let cinematic = null;
 const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
 let firing = false;
@@ -66,6 +73,7 @@ function clearInput() {
   dashPressed = false;
   reloadPressed = false;
   interactPressed = false;
+  skillPressed = undefined;
   drag = null;
 }
 
@@ -91,21 +99,40 @@ function text(id, value) {
   if (element.textContent !== value) element.textContent = value;
 }
 
+const sceneThemes = {
+  "dream-start": "film-shore", "dream-guard": "film-dream-guard", "dream-end": "film-dream-end",
+  arrival: "film-fort", "runa-code": "film-rescue", "runa-free": "film-runa-free", watcher: "film-watcher",
+  crossing: "film-island", "brann-code": "film-brann-code", "brann-free": "film-brann-free", king: "film-king",
+  ending: "film-sea", kraken: "film-kraken",
+  "port-arrival": "film-port", "port-market": "film-market",
+  "vault-arrival": "film-vault", rust: "film-rust", "vault-end": "film-vault-end",
+};
+const seaThemes = { fleet: "sea", kraken: "kraken", dead: "silence", victory: "film-port" };
+const arenaThemes = { fort: "watcher", island: "king", vault: "rust" };
+
+function miniBoss() {
+  const guard = run.rescue?.guard;
+  if (guard?.hp > 0 && guard.awake && Math.hypot(guard.x - run.player.x, guard.y - run.player.y) < 10) return guard;
+  return null;
+}
+
 function updateScore() {
-  const calmScene = mode === "cinematic" && ["arrival", "ending"].includes(cinematic.kind);
-  if (mode === "menu" || calmScene || run.training || run.map.key === "port") sound.track("dock");
-  else if (voyage) sound.track(voyage.phase === "fleet" ? "sea"
-    : ["reveal", "kraken"].includes(voyage.phase) ? "kraken" : voyage.phase === "dead" ? "silence" : "dock");
-  else if (run.status === "won" || run.arena.cleared) sound.track("dock");
+  if (mode === "menu" || mode === "chapters") sound.track("menu");
+  else if (mode === "cinematic") sound.track(sceneThemes[cinematic.kind]);
+  else if (mode === "sea-briefing") sound.track("film-helm");
+  else if (voyage) sound.track(seaThemes[voyage.phase] ?? "film-kraken");
   else if (run.status === "dead") sound.track("silence");
-  else if (run.map.key === "island") sound.track(run.arena.active ? "king" : "island");
-  else sound.track(run.arena.active ? "watcher" : "fort");
+  else if (run.arena.active && !run.arena.cleared && arenaThemes[run.map.key]) sound.track(arenaThemes[run.map.key]);
+  else if (miniBoss()) sound.track(run.map.key === "fort" ? "jailer-fort" : "jailer-island");
+  else sound.track(run.map.key);
 }
 
 function skillIcon(skill) {
   const icon = document.createElement("span");
   icon.className = "skill-icon";
-  icon.style.backgroundPosition = skill.icon % 6 * 20 + "% " + Math.floor(skill.icon / 6) * 25 + "%";
+  const columns = skill.atlas === "captain" ? 10 : 6;
+  if (skill.atlas) icon.dataset.atlas = skill.atlas;
+  icon.style.backgroundPosition = skill.icon % columns * 100 / (columns - 1) + "% " + Math.floor(skill.icon / columns) * 25 + "%";
   icon.setAttribute("aria-hidden", "true");
   return icon;
 }
@@ -116,7 +143,11 @@ function skillDetails(skill) {
   const effect = document.createElement("span");
   name.textContent = skill.name + (skill.maxRank > 1 ? " · " + ["I","II","III"][skill.rank - 1] : "");
   effect.textContent = skill.effect;
-  details.append(name, effect);
+  const rarity = document.createElement("small");
+  rarity.className = "skill-rarity";
+  rarity.textContent = RARITIES[skill.rarity][0];
+  effect.textContent += skill.key ? " · " + skill.key + " · откат " + skill.cooldown + " с" : "";
+  details.append(name, rarity, effect);
   return details;
 }
 
@@ -125,6 +156,7 @@ function showSkills() {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "skill-card";
+    button.dataset.rarity = skill.rarity;
     const key = document.createElement("kbd");
     key.textContent = index + 1;
     key.setAttribute("aria-hidden", "true");
@@ -146,6 +178,7 @@ function selectSkill(id) {
 function showLearnedSkills() {
   const entries = run.player.skills.map(skill => {
     const entry = document.createElement("li");
+    entry.dataset.rarity = skill.rarity;
     entry.append(skillIcon(skill), skillDetails(skill));
     return entry;
   });
@@ -158,6 +191,7 @@ function renderShop(message = "", focusId = null) {
   const cards = offers(run.player, vendor).map(offer => {
     const row = document.createElement("li");
     const icon = offer.skill ? skillIcon(offer.skill) : document.createElement("span");
+    if (offer.skill) row.dataset.rarity = offer.skill.rarity;
     if (!offer.skill) {
       icon.className = "trade-icon";
       icon.dataset.icon = offer.icon;
@@ -168,6 +202,7 @@ function renderShop(message = "", focusId = null) {
     const description = document.createElement("p");
     const button = document.createElement("button");
     title.textContent = offer.title + (offer.price && offer.maxRank > 1 ? " · " + ["I", "II", "III"][offer.rank - 1] : "");
+    if (offer.skill?.key) title.textContent += " · " + offer.skill.key;
     description.textContent = offer.price ? offer.detail : vendor === "chests" ? "Все умения уже освоены" : "Максимальный ранг";
     button.className = "button plain trade-buy";
     button.type = "button";
@@ -231,13 +266,27 @@ function updateInteraction() {
     $("interaction").hidden = true;
     return;
   }
-  const target = portInteraction(run);
+  const target = portInteraction(run) ?? rescueInteraction(run);
   const label = target?.name ?? (secretAhead(run) ? "Открыть тайный ход" : "");
   $("interaction").hidden = !label;
   if (label) {
     text("interact-hint", "E · " + label);
     text("touch-interact", label);
   }
+}
+
+function updateRescueJournal() {
+  const r = run.rescue;
+  const journal = $("rescue-journal");
+  journal.hidden = !r?.seen;
+  if (journal.hidden) return;
+  const progress = {
+    cell: "поговори через решётку",
+    key: "код " + r.code + " · победи стража и отопрись у рычага",
+    opened: "рычаг сработал · вернись к темнице",
+    saved: "на свободе",
+  };
+  journal.textContent = r.name + " · " + progress[r.stage];
 }
 
 function show(next) {
@@ -253,7 +302,7 @@ function show(next) {
     for (const id of ["sea-notice", "sea-qte", "kraken-meter"]) $(id).hidden = true;
   }
   $("deck").hidden = seaVisible || !["play", "pause", "chart"].includes(next);
-  $("boss-hud").hidden = next !== "play" || !run.arena.active || run.arena.cleared;
+  if (next !== "play") $("boss-hud").hidden = activeSkills.hidden = true;
   $("crosshair").hidden = next !== "play";
   $("signal").hidden = next !== "play" || run.hintUntil < run.time || !run.hint;
   updateInteraction();
@@ -263,7 +312,6 @@ function show(next) {
   $("skip-dream").hidden = !run.training || next !== "pause";
   $("dream-replay").hidden = next !== "menu";
   updateScore();
-  if (next !== "play") sound.combat(0);
   if (next !== "play" && document.pointerLockElement === scene) {
     lockedBefore = false;
     document.exitPointerLock?.();
@@ -276,6 +324,7 @@ function show(next) {
     text("chart-title", chartTitles[run.map.key] ?? "Карта форта");
     text("chart-location", location(run));
     text("chart-secrets", "Тайные ходы " + run.secrets.filter(secret => secret.open).length + " / " + run.secrets.length);
+    updateRescueJournal();
     showLearnedSkills();
     const map = $("map");
     map.width = 28 + run.width * 6;
@@ -288,139 +337,13 @@ function show(next) {
   }
 }
 
-const speakers = {
-  pirate: { name: "Моряк", pace: 32 },
-  watcher: { name: "Смотритель", pace: 43 },
-  king: { name: "Король обезьян", pace: 38 },
-  runa: { name: "Руна", pace: 29 },
-  brann: { name: "Бранн", pace: 48 },
-  shkiv: { name: "Шкив", pace: 43 },
-  rust: { name: "Капитан Ржавый Крюк", pace: 42 },
-};
-
-const scenes = {
-  "dream-start": {
-    title: "До шторма",
-    next: "Встать с лежанки",
-    lines: [
-      { speaker: "pirate", shot: "dark", text: "Опять снится старый трюм. Боцман будил меня до рассвета, чтобы я повторил всё, что может спасти жизнь в походе." },
-      { speaker: "pirate", shot: "dream", text: "Кажется, я ещё помню его уроки. Сначала надо оглядеться. Прервать сон можно через паузу." },
-    ],
-  },
-  "dream-guard": {
-    title: "Последний урок",
-    next: "На арену",
-    lines: [
-      { speaker: "pirate", shot: "dream", text: "Боцман всегда говорил: следи за замахом, уходи с линии залпа и отвечай, пока враг не готов атаковать снова." },
-      { speaker: "pirate", shot: "dream", text: "У разных противников свои слабости. Щит опускается во время замаха, а отмеченные круги и полосы опасны, пока не минует удар. После победы войду в ворота." },
-    ],
-  },
-  "dream-end": {
-    title: "Перед пробуждением",
-    next: "Проснуться",
-    lines: [
-      { speaker: "pirate", shot: "dream", text: "Мушкетон хорош вблизи, а длинный мушкет — на расстоянии. Патроны кончатся, если стрелять без разбора. Сабля всегда со мной." },
-      { speaker: "pirate", shot: "dark", text: "В настоящем походе карта заполнится по мере разведки, а капитанские умения останутся со мной на следующем острове. Кажется, это уже шум настоящих волн…" },
-    ],
-  },
-  arrival: {
-    title: "Форт проклятых",
-    lines: [
-      { speaker: "pirate", shot: "dark", text: "В ушах шумит. Воды полный рот… Я ещё жив?" },
-      { speaker: "pirate", shot: "fort", text: "Форт проклятых. Течение выбросило меня прямо к воротам." },
-      { speaker: "pirate", shot: "fort", text: "Мой корабль разбит. Найду три осколка, открою дальние врата и выберусь отсюда." },
-    ],
-  },
-  watcher: {
-    title: "Зал Смотрителя",
-    lines: [
-      { speaker: "pirate", shot: "arena", text: "Решётка захлопнулась. Ты держишь здесь выход?" },
-      { speaker: "watcher", shot: "arena", text: "Море забрало мою команду. Теперь ты займёшь её место." },
-      { speaker: "pirate", shot: "arena", text: "Море уже пыталось. Теперь открой ворота." },
-    ],
-  },
-  crossing: {
-    title: "Остров обезьян",
-    next: "Сойти на берег",
-    lines: [
-      { speaker: "pirate", shot: "island", text: "Паром проклятых вышел из тумана, едва я покинул форт. На его палубе не было ни души." },
-      { speaker: "pirate", shot: "island", text: "Вон берег. Компас дрожит так, будто чует ещё пять осколков. Придётся пойти за стрелкой." },
-    ],
-  },
-  king: {
-    title: "Трон обезьян",
-    next: "В бой",
-    lines: [
-      { speaker: "pirate", shot: "arena", text: "Пять печатей пали. Почему же джунгли вдруг замолчали?" },
-      { speaker: "king", shot: "arena", text: "Я слышал каждый твой шаг, капитан. Оставь компас у трона, и остров отпустит тебя." },
-      { speaker: "pirate", shot: "arena", text: "За мной уже закрывалась одна решётка. Я больше не оставляю своё спасение в чужих руках." },
-    ],
-  },
-  ending: {
-    title: "Берег на рассвете",
-    next: "Выйти в море",
-    lines: [
-      { speaker: "pirate", shot: "ending", text: "Король пал. Лианы разошлись, и за руинами показалась бухта. У берега ещё ждёт судно." },
-      { speaker: "pirate", shot: "ending", text: "Компас собран. Он больше не тянет меня к берегу. Впервые стрелка смотрит в открытое море." },
-    ],
-  },
-  kraken: {
-    title: "Кракен",
-    next: "К пушкам",
-    lines: [
-      { speaker: "pirate", shot: "kraken", text: "Кракен… Так вот почему флот не смог уйти из этой воды. К пушкам, пока он не утащил нас на дно." },
-    ],
-  },
-  "port-arrival": {
-    title: "Порт мошенников",
-    next: "Сойти на причал",
-    lines: [
-      { speaker: "pirate", shot: "port", text: "Кракен ушёл на дно. Вдали зажглись огни. Если компас верен, это Порт мошенников." },
-      { speaker: "pirate", shot: "port", text: "Поставлю корабль у причала. Надо спросить у местных, кто запер проход за рынком." },
-    ],
-  },
-  "port-market": {
-    title: "Торговые причалы",
-    next: "Осмотреть порт",
-    lines: [
-      { speaker: "pirate", shot: "port", text: "Добрый вечер. Куда ведут ворота в конце причала? И где тут можно потратить дублоны?" },
-      { speaker: "runa", shot: "port", text: "В казну Ржавого Крюка, красавец. Дверь открывается с этой стороны. Если хочешь вернуться живым, загляни ко мне. Научу паре хитростей." },
-      { speaker: "brann", shot: "port", text: "Бранн. Кузница справа. Подтягиваю металл, чиню стволы." },
-      { speaker: "shkiv", shot: "port", text: "У-у? И-и-и! Ук-ук!" },
-      { speaker: "pirate", shot: "port", text: "Шкив показывает на сундуки. Выбор наугад, судя по его улыбке. Сначала осмотрюсь." },
-    ],
-  },
-  "vault-arrival": {
-    title: "Сокровищница капитана Ржавого Крюка",
-    next: "Войти в казну",
-    lines: [
-      { speaker: "pirate", shot: "vault", text: "За дверью ещё восемь печатей. В каждом крыле есть осколок, а у осколков люди капитана. Придётся идти за синей стрелкой." },
-    ],
-  },
-  rust: {
-    title: "Зал Ржавого Крюка",
-    next: "В бой",
-    lines: [
-      { speaker: "pirate", shot: "arena", text: "Последняя печать упала. Это твоя казна, Ржавый Крюк?" },
-      { speaker: "rust", shot: "arena", text: "Моя. И дублоны в твоём кошеле тоже мои. Положи их на пол. Я посчитаю после выстрела." },
-      { speaker: "pirate", shot: "arena", text: "Давай сначала посчитаем, сколько шагов до твоего крюка." },
-    ],
-  },
-  "vault-end": {
-    title: "Казна открыта",
-    next: "К итогам похода",
-    lines: [
-      { speaker: "pirate", shot: "vault", text: "Крюк замолчал. За последними воротами свет. До корабля я успею, пока не начался прилив." },
-    ],
-  },
-};
-
 function setLine(index, now) {
   const line = cinematic.act.lines[index];
   const delay = line.shot === "kraken" ? 2050 : line.shot === "dark" ? 580 : 200;
   Object.assign(cinematic, { index, letters: Array.from(line.text), shown: 0, nextLetter: now + delay });
   $("cinematic").dataset.shot = line.shot;
   $("cinematic").dataset.speaker = line.speaker;
+  $("cinematic").dataset.emotion = line.emotion;
   text("speaker-name", speakers[line.speaker].name);
   text("cinematic-line", "");
   text("accessible-line", speakers[line.speaker].name + ". " + line.text);
@@ -428,7 +351,7 @@ function setLine(index, now) {
 }
 
 function beginScene(kind) {
-  const act = scenes[kind];
+  const act = sceneFor(kind, run);
   const now = performance.now();
   cinematic = { kind, act, started: now };
   $("cinematic").dataset.act = kind;
@@ -464,18 +387,25 @@ function film(now) {
     if (cinematic.shown === letters.length) text("scene-next", dialogueLabel());
   }
   if (["watcher", "king", "rust"].includes(kind)) {
-    const pan = reducedMotion.matches ? 0 : Math.min(1, (now - started) / 8000);
-    paint(run, { x: run.arena.left + 2.9 + pan * 4.4, y: run.boss.y + (1 - pan) * 1.75,
-      angle: -.23 + pan * .22, pitch: .028, bob: 0, moving: 0, time: run.time + (now - started) / 1000 });
+    const pan = reducedMotion.matches ? 0 : Math.min(1, (now - started) / 7200);
+    const ease = pan * pan * (3 - 2 * pan);
+    const offset = kind === "king" ? 2.35 : kind === "rust" ? -1.75 : 1.15;
+    paint(run, { x: run.arena.left + 3.2 + ease * 3.6, y: run.boss.y + (1 - ease) * offset,
+      angle: -offset * .10 * (1 - ease), pitch: (1 - ease) * .08 - .018, bob: 0, moving: 0, time: run.time + (now - started) / 1000 });
   }
   if (kind === "kraken") paintSea(voyage, (now - started) / 1000, reducedMotion.matches);
   if (act.lines[index].shot === "vault") paint(run, { ...run.player });
   if (run.training && act.lines[index].shot === "dream") paint(run, { ...run.player });
+  if (act.lines[index].shot === "cell") {
+    const p = run.player, c = run.rescue.cell;
+    paint(run, { ...p, angle: Math.atan2(c.y - p.y, c.x - p.x), pitch: .035, bob: 0, moving: 0 });
+  }
 }
 
 function leaveScene(interactive) {
   const kind = cinematic.kind;
   cinematic = null;
+  if (kind === "runa-code" || kind === "brann-code") learnRescueCode(run);
   if (kind === "port-arrival") {
     beginScene("port-market");
     return;
@@ -540,7 +470,6 @@ function start(forceDream = false) {
 
 function startFort(seed) {
   run = createRun(seed);
-  sound.bossPhase(0);
   run.hint = touch ? "Синяя стрелка укажет путь к осколку" : "Синяя стрелка — к осколку. E — тайные ходы";
   run.hintUntil = 5;
   updateHud();
@@ -561,7 +490,7 @@ function finish() {
   const seconds = String(Math.floor(duration) % 60).padStart(2, "0");
   $("result").dataset.outcome = win ? "won" : "dead";
   $("death-skull").hidden = win;
-  text("result-title", win ? "Конец демо" : "ТЫ ПОГИБ");
+  text("result-title", win ? "Глава I завершена" : "ТЫ ПОГИБ");
   text("retry", win ? "Новый поход" : voyage ? "Повторить морской бой" : "Меня не остановить");
   text("result-menu", win ? "В меню игры" : "Мне нужен покой");
   $("win-note").hidden = !win;
@@ -571,13 +500,14 @@ function finish() {
   const sunk = run.history.sunk + (voyage?.sunk ?? 0);
   text("summary", "Осколки " + relics + " / " + (run.history.relics + run.total) + " · Тайники " + secrets
     + " / " + (run.history.totalSecrets + run.secrets.length) + " · Победы " + (run.history.kills + run.player.kills)
-    + (sunk ? " · Потоплено " + sunk + " / " + FLEET_TOTAL : "") + " · Дублоны " + run.player.coins + " · " + minute + ":" + seconds);
+    + (sunk ? " · Потоплено " + sunk + " / " + FLEET_TOTAL : "") + " · Дублоны " + run.player.coins
+    + " · Спасено " + Object.values(run.rescued).filter(Boolean).length + " / 3 · " + minute + ":" + seconds);
   show("result");
   $("retry").focus({ preventScroll: true });
 }
 
 function prepareVoyage() {
-  voyage = newVoyage(seeded(run.seed ^ 0x3640baba));
+  voyage = newVoyage(seeded(run.seed ^ 0x3640baba), seeded(run.seed ^ 0xc5316477));
   endingAt = null;
   $("fleet-meter").max = FLEET_TOTAL;
   $("kraken-health").max = KRAKEN_HP;
@@ -639,7 +569,10 @@ function seaFrame(dt) {
   if (keys.has("KeyQ")) fireBroadside(voyage, -1);
   if (keys.has("KeyE")) fireBroadside(voyage, 1);
   stepVoyage(voyage, { x: x / magnitude, y: y / magnitude }, dt);
-  for (const cue of voyage.cues.splice(0)) sound.effect(cue);
+  for (const cue of voyage.cues.splice(0)) {
+    if (cue === "shkiv" || cue === "sea-rescue") sound.voice("shkiv", true);
+    else sound.effect(cue);
+  }
   if (voyage.phase === "reveal") {
     sound.effect("kraken-rise");
     beginScene("kraken");
@@ -648,6 +581,38 @@ function seaFrame(dt) {
   if (voyage.phase === "victory") updateScore();
   updateSeaHud();
   paintSea(voyage, 0, reducedMotion.matches);
+}
+
+function updateActiveSkills(player) {
+  const skills = player.skills.filter(skill => skill.key);
+  if (skills.length !== displayedSkills.length || skills.some((skill, index) => skill !== displayedSkills[index])) {
+    displayedSkills = skills;
+    skillButtons = skills.map(skill => {
+      const button = document.createElement("button");
+      const key = document.createElement("kbd");
+      const cooldown = document.createElement("span");
+      button.type = "button";
+      button.dataset.rarity = skill.rarity;
+      button.title = skill.name;
+      button.setAttribute("aria-label", skill.name + " · " + skill.key);
+      button.tabIndex = -1;
+      key.textContent = skill.key;
+      cooldown.className = "active-cooldown";
+      button.append(skillIcon(skill), key, cooldown);
+      button.addEventListener("pointerdown", event => { if (event.pointerType === "mouse") event.preventDefault(); });
+      button.addEventListener("click", () => { if (mode === "play") skillPressed = skill.key; });
+      return { button, cooldown, skill };
+    });
+    activeSkills.replaceChildren(...skillButtons.map(entry => entry.button));
+  }
+  activeSkills.hidden = mode !== "play" || run.map.key === "port" || !skills.length;
+  if (activeSkills.hidden) return;
+  for (const { button, cooldown, skill } of skillButtons) {
+    const left = Math.max(0, Math.ceil((player.skillTimers[skill.id] ?? 0) - run.time));
+    button.disabled = left > 0;
+    const label = left ? String(left) : "";
+    if (cooldown.textContent !== label) cooldown.textContent = label;
+  }
 }
 
 function updateHud() {
@@ -690,15 +655,22 @@ function updateHud() {
   dash.max = player.dashReset;
   dash.value = player.dashReset - player.dashCooldown;
   dash.parentElement.dataset.ready = String(player.dashCooldown === 0);
-  if (run.boss) {
-    $("boss-meter").max = run.boss.max;
-    $("boss-meter").value = run.boss.hp;
+  updateActiveSkills(player);
+  const guard = miniBoss();
+  const arenaBoss = run.arena.active && !run.arena.cleared ? run.boss : null;
+  const boss = arenaBoss ?? guard;
+  const bossHud = $("boss-hud");
+  bossHud.hidden = mode !== "play" || !boss;
+  if (boss) {
+    const name = arenaBoss ? run.bossName : run.rescue.guardName;
+    const meter = $("boss-meter");
+    meter.max = boss.max;
+    meter.value = boss.hp;
+    meter.setAttribute("aria-label", "Здоровье · " + name);
+    bossHud.dataset.stage = arenaBoss ? run.arena.stage + 1 : "guard";
+    text("boss-name", name);
+    text("boss-phase", arenaBoss ? run.acts[run.arena.stage].name : "Страж рычага");
   }
-  $("boss-hud").dataset.stage = run.arena.stage + 1;
-  text("boss-name", run.bossName);
-  $("boss-meter").setAttribute("aria-label", "Здоровье · " + run.bossName);
-  text("boss-phase", run.acts[run.arena.stage].name);
-  $("boss-hud").hidden = mode !== "play" || !run.arena.active || run.arena.cleared;
   const hint = run.training ? dreamHint(run, touch) : run.hintUntil >= run.time && run.hint;
   $("signal").hidden = mode !== "play" || !hint;
   if (hint) text("signal", hint);
@@ -715,13 +687,14 @@ function control(dt) {
     forward: Number(up) - Number(down), strafe: Number(keys.has("KeyD")) - Number(keys.has("KeyA")),
     turn: Number(right) - Number(left), look, fire: firePressed || firing || value("Space", "fire"),
     tilt: tilt + (Number(keys.has("PageUp")) - Number(keys.has("PageDown"))) * dt * 1.5,
-    dash: dashPressed, reload: reloadPressed, interact: interactPressed,
+    dash: dashPressed, reload: reloadPressed, interact: interactPressed, skill: skillPressed,
   };
   look = 0;
   tilt = 0;
   dashPressed = false;
   reloadPressed = false;
   interactPressed = false;
+  skillPressed = undefined;
   firePressed = false;
   return input;
 }
@@ -749,8 +722,7 @@ function frame(now) {
   if (mode === "play") {
     stepRun(run, control(elapsed), elapsed);
     for (const cue of run.cues.splice(0)) playCue(cue);
-    sound.combat(Math.min(1, run.pressure / 3));
-    sound.bossPhase(run.arena.stage);
+    updateScore();
     const events = run.events.splice(0);
     advanceDream(run, events);
     for (const event of events) {
@@ -758,6 +730,14 @@ function frame(now) {
       if (event === "skill") showSkills();
       if (event === "victory") updateScore();
       if (event.startsWith("shop-")) openShop(event.slice(5));
+      if (event === "rescue-code") beginScene(run.rescue.person + "-code");
+      if (event === "rescue-free") beginScene(run.rescue.person + "-free");
+      if (event === "rescue-lock") {
+        $("rescue-form").reset();
+        text("rescue-error", "");
+        show("rescue-lock");
+        $("rescue-code").focus({ preventScroll: true });
+      }
     }
     updateHud();
     if (mode === "play") paint(run);
@@ -769,7 +749,6 @@ function frame(now) {
         run.hint = run.map.key === "vault" ? "Восемь осколков · следуй за синей стрелкой"
           : touch ? "Пять осколков · умения на карте" : "Пять осколков · карта и умения на Tab";
         run.hintUntil = 4.2;
-        sound.bossPhase(0);
         beginScene(run.map.key === "vault" ? "vault-arrival" : "crossing");
       } else beginScene(run.training ? "dream-end" : run.map.key === "vault" ? "vault-end" : "ending");
     }
@@ -783,6 +762,12 @@ requestAnimationFrame(frame);
 const moves = new Set(["KeyW","KeyA","KeyS","KeyD","ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Space","PageUp","PageDown","KeyR","KeyE","ShiftLeft","ShiftRight"]);
 document.addEventListener("keydown", event => {
   if ($("settings").open) return;
+  if (!event.repeat && event.code === "Escape" && ["chapters", "rescue-lock"].includes(mode)) {
+    event.preventDefault();
+    if (mode === "chapters") $("chapters-close").click();
+    else resumePlay();
+    return;
+  }
   if (mode === "shop" && event.code === "Escape" && !event.repeat) {
     event.preventDefault();
     resumePlay();
@@ -841,6 +826,11 @@ document.addEventListener("keydown", event => {
   }
   if (event.target.matches?.("button,a,input")) return;
   if (mode !== "play") return;
+  if (skillKeys.has(event.code)) {
+    event.preventDefault();
+    if (!event.repeat) skillPressed = event.code.at(-1);
+    return;
+  }
   const weapon = { Digit1: "pistol", Digit2: "scatter", Digit3: "blade", Digit4: "musket" }[event.code];
   if (weapon) {
     event.preventDefault();
@@ -917,6 +907,25 @@ $("touch-weapon").addEventListener("click", () => {
   switchWeapon(run, list[(list.indexOf(run.player.weapon) + 1) % list.length]);
 });
 $("start").addEventListener("click", () => start());
+$("chapter-select").addEventListener("click", () => {
+  show("chapters");
+  $("chapter-one").focus({ preventScroll: true });
+});
+$("chapter-one").addEventListener("click", () => start());
+$("chapters-close").addEventListener("click", () => {
+  show("menu");
+  $("chapter-select").focus({ preventScroll: true });
+});
+$("rescue-close").addEventListener("click", resumePlay);
+$("rescue-form").addEventListener("submit", event => {
+  event.preventDefault();
+  if (mode !== "rescue-lock") return;
+  if (unlockRescue(run, $("rescue-code").value.trim())) resumePlay();
+  else {
+    text("rescue-error", "Замок не открылся. Проверь код в журнале карты.");
+    $("rescue-code").select();
+  }
+});
 $("retry").addEventListener("click", () => {
   if (voyage?.phase === "dead") {
     prepareVoyage();

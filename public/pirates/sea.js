@@ -33,12 +33,16 @@ const KRAKEN_ATTACKS = {
 const INK_SPEED = 204;
 const clamp = (n, a, b) => Math.min(b, Math.max(a, n));
 
-export function newVoyage(coinRandom = Math.random) {
+export function newVoyage(coinRandom = Math.random, driftRandom = Math.random) {
+  const fromLeft = driftRandom() < .5;
+  const rescue = { wave: 2 + Math.floor(driftRandom() * 5), delay: 1.4 + driftRandom() * 3.2,
+    x: fromLeft ? 53 : SEA_WIDTH - 53, y: 118 + driftRandom() * 64,
+    drift: fromLeft ? 11 : -11, readyAt: null, until: 0, saved: false };
   return {
     phase: "fleet", player: { x: 216, y: 172 }, hull: 100, time: 0,
     wave: 0, nextWave: .8, sunk: 0, coins: 0, coinRandom, ships: [], shots: [], ink: [], bursts: [],
     reload: [0, 0], flash: [0, 0], cues: [], qte: null, qteOrder: 0,
-    notice: "Держи цель вдоль борта", noticeUntil: 5, damage: 0,
+    notice: "Держи цель вдоль борта", noticeUntil: 5, damage: 0, rescue,
     boss: { x: 100, y: 142, hp: KRAKEN_HP, stage: 1, age: 0, cycle: 0, openness: 0, attack: null, move: 0, nextAttack: 0 },
   };
 }
@@ -73,6 +77,7 @@ function fleet(sea, dt) {
       return;
     }
     sea.wave++;
+    if (sea.wave === sea.rescue.wave) sea.rescue.readyAt = sea.time + sea.rescue.delay;
     if (sea.wave > 1) {
       sea.hull = Math.min(100, sea.hull + 19);
       notice(sea, "Корпус залатан · новые паруса");
@@ -116,6 +121,23 @@ function fleet(sea, dt) {
     sea.nextWave = sea.time + 1.3;
     sea.qte = null;
   }
+}
+
+function driftingShkiv(sea, dt) {
+  const r = sea.rescue;
+  if (r.saved || r.readyAt === null || sea.time < r.readyAt) return;
+  if (!r.until) {
+    r.until = sea.time + 15;
+    notice(sea, "Шкив за бортом! Подведи корабль к спасательному кругу", 6);
+    sea.cues.push("sea-rescue");
+  }
+  if (sea.time >= r.until) return;
+  r.x += r.drift * dt;
+  if (Math.hypot(sea.player.x - r.x, sea.player.y - r.y) > 22) return;
+  r.saved = true;
+  notice(sea, "Шкив на борту", 4);
+  burst(sea, r.x, r.y, "water");
+  sea.cues.push("shkiv");
 }
 
 const destination = target => ({ tx: target.x, ty: target.y });
@@ -305,7 +327,10 @@ export function stepVoyage(sea, input, dt) {
     sea.reload[i] = Math.max(0, sea.reload[i] - dt);
     sea.flash[i] = Math.max(0, sea.flash[i] - dt);
   }
-  if (sea.phase === "fleet") fleet(sea, dt);
+  if (sea.phase === "fleet") {
+    fleet(sea, dt);
+    if (sea.phase === "fleet") driftingShkiv(sea, dt);
+  }
   else {
     kraken(sea, dt);
     if (sea.phase === "kraken") moveInk(sea, dt);

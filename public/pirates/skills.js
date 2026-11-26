@@ -1,3 +1,6 @@
+import { RARITIES, TREASURE_SKILLS } from "./captain-skills.js?v=17";
+export { RARITIES };
+
 const scale = (stat, direction = 1, inverse = false) => (player, before, after) => {
   const ratio = (1 + direction * after / 100) / (1 + direction * before / 100);
   player[stat] *= inverse ? 1 / ratio : ratio;
@@ -45,11 +48,12 @@ const island = [
 ];
 
 export const UPGRADES = legacy.map(([name, description, steps, apply], icon) => ({
-  name, description, steps, apply, id: "gear-" + icon, icon,
+  name, description, steps, apply, id: "gear-" + icon, icon, rarity: icon % 4 === 0 ? 1 : 0,
 }));
 export const CAPTAIN_SKILLS = [...UPGRADES, ...island.map(([id, name, description, steps], i) => ({
-  id, name, description, steps, icon: i + UPGRADES.length, apply: player => player.traits.add(id),
-}))];
+  id, name, description, steps, icon: i + UPGRADES.length, rarity: id === "revive" ? 4 : i % 3 === 0 ? 3 : 2,
+  apply: player => player.traits.add(id),
+})), ...TREASURE_SKILLS];
 
 export function skillAtRank(skill, rank) {
   const maxRank = skill.steps?.length ?? 1;
@@ -57,19 +61,36 @@ export function skillAtRank(skill, rank) {
   const power = skill.steps?.[rank - 1] ?? 0;
   const prior = skill.steps?.[rank - 2] ?? 0;
   return {
-    id: skill.id, name: skill.name, icon: skill.icon, rank, maxRank, power,
+    id: skill.id, name: skill.name, icon: skill.icon, atlas: skill.atlas, rank, maxRank, power,
+    rarity: skill.rarity, key: skill.key, cooldown: skill.cooldown,
     effect: skill.description.replace("%d", power),
     apply: player => skill.apply(player, prior, power),
   };
 }
 
-export const skillPower = (player, id) => (player.skills.find(skill => skill.id === id)?.power ?? 0) / 100;
+export const skillPower = (player, id) => ((player.skillPowers ? player.skillPowers[id]
+  : player.skills.find(skill => skill.id === id)?.power) ?? 0) / 100;
+
+export function drawSkills(pool, random, count) {
+  const groups = RARITIES.map(([, weight], rarity) => ({ weight, entries: pool.filter(skill => skill.rarity === rarity) }));
+  const drawn = [];
+  while (drawn.length < count) {
+    const available = groups.filter(group => group.entries.length);
+    const total = available.reduce((sum, group) => sum + group.weight, 0);
+    if (!total) break;
+    let roll = random() * total;
+    const group = available.find(entry => (roll -= entry.weight) < 0) ?? available.at(-1);
+    drawn.push(group.entries.splice(Math.floor(random() * group.entries.length), 1)[0]);
+  }
+  return drawn;
+}
 
 export function learnSkill(player, skill) {
   const index = player.skills.findIndex(entry => entry.id === skill.id);
   const current = player.skills[index]?.rank ?? 0;
   if (skill.rank !== current + 1 || skill.rank > skill.maxRank) return false;
   skill.apply(player);
+  (player.skillPowers ??= {})[skill.id] = skill.power;
   if (index < 0) player.skills.push(skill);
   else player.skills[index] = skill;
   return true;

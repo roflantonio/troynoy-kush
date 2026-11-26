@@ -1,29 +1,29 @@
-import { ARMORY } from "./world.js?v=16";
-import { CAPTAIN_SKILLS, learnSkill, skillAtRank } from "./skills.js?v=16";
+import { ARMORY } from "./world.js?v=17";
+import { CAPTAIN_SKILLS, drawSkills, learnSkill, skillAtRank } from "./skills.js?v=17";
 
 export const TRADERS = {
   skills: {
-    name: "Руна", title: "Лавка умений", greeting: "Как насчёт нового трюка, капитан?",
+    name: "Руна", title: "Лавка умений", greeting: "Решётка осталась в форте. Теперь я сама назначаю цену за уроки.",
     replies: [
-      "Ох, вот теперь за тобой и шторму не угнаться!",
-      "И это всё, что от меня нужно? Какой скромный капитан.",
-      "Дублоны звенят, глаза горят. Обожаю удачные сделки!",
-      "Попробуй при случае. Только не вздумай сказать, что сам придумал!",
-      "С таким трюком и в родном порту не узнают.",
-      "Знаешь, ты хватаешь на лету. Вернёшься — покажу ещё кое-что.",
-      "Запомнил? А если забудешь, придётся зайти снова.",
-      "Улыбнись! Удача любит тех, кто успел заплатить.",
+      "Ловко схватил! В темнице я учила этому крысу, у неё ушла целая неделя.",
+      "Если попробуешь это у Крюка, расскажи потом, какое у него было лицо.",
+      "Монета чистая, урок честный. В этом порту это почти чудо.",
+      "Держи. И да, я беру плату за то, что ты стал опаснее.",
+      "У тебя неплохой вкус. Надеюсь, осталась монета на ужин.",
+      "Попробуй при луне. Почти всё получается лучше, когда никто не видит.",
+      "На волне этот трюк смотрится особенно хорошо. Главное, не выпусти саблю.",
+      "Вот теперь я бы сама на тебя поставила. Пару дублонов, для начала.",
     ],
   },
   arms: {
-    name: "Бранн", title: "Кузница", greeting: "Покажи оружие.", replies: ["Готово.", "Держи крепче.", "Проверено.", "Сделано."],
+    name: "Бранн", title: "Кузница", greeting: "Ствол на стол.", replies: ["Сталь держит.", "Теперь ровно.", "Бери.", "Подогнал."],
   },
   chests: {
-    name: "Шкив", title: "Сундуки Шкива", greeting: "У-у? А-а!", replies: ["Ук-ук! А-а!", "И-и! У-у-у!", "А-ак! У-ук!", "У-у! Хи-и!"],
+    name: "Шкив", title: "Сундуки Шкива", greeting: "И-и? Ук-а!", replies: ["А-а! У-ук!", "Ик-ик! У-у!", "Ки-и! А-ак!", "У-у! И-и!"],
   },
 };
 
-const INTRO_STOCK = new Set(["gear-0", "gear-3", "leech", "parry"]);
+const INTRO_STOCK = new Set(["gear-0", "gear-3", "parry", "brine-ward", "undertow", "left-pocket", "damp-flint"]);
 const ARM_PRICES = [22, 36, 55];
 const SKILL_PRICES = [16, 23, 34];
 
@@ -45,7 +45,7 @@ export function offers(player, vendor) {
     return availableSkills(player).filter(skill => skill.rank > 1 || INTRO_STOCK.has(skill.id))
       .sort((a, b) => b.rank - a.rank)
       .map(skill => ({ id: skill.id, title: skill.name, detail: skill.effect, rank: skill.rank, maxRank: skill.maxRank,
-        skill, price: SKILL_PRICES[skill.rank - 1] }));
+        skill, price: SKILL_PRICES[skill.rank - 1] + skill.rarity * 3 }));
   }
   if (vendor === "chests") {
     return [{ id: "chest", title: "Запертый сундук", icon: "chest",
@@ -56,14 +56,14 @@ export function offers(player, vendor) {
 }
 
 export function purchase(world, vendor, id) {
-  if (world.map.key !== "port" || world.status !== "play") return null;
+  if (world.map.key !== "port" || world.status !== "play" || !world.merchants.some(merchant => merchant.id === vendor)) return null;
   const p = world.player;
   const offer = offers(p, vendor).find(option => option.id === id);
   if (!offer?.price || p.coins < offer.price) return null;
   let skill = offer.skill;
   if (vendor === "chests") {
     const pool = availableSkills(p);
-    skill = pool[Math.floor(world.lootRandom() * pool.length)];
+    [skill] = drawSkills(pool, world.lootRandom, 1);
     if (!skill) return null;
   }
   if (skill && !learnSkill(p, skill)) return null;

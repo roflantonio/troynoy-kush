@@ -1,0 +1,22 @@
+.score-page{
+  min-height:100svh;
+  background:linear-gradient(#0b151aed,#10191afb 36rem),url("./fort.webp") center top/cover fixed;
+}
+.score-cover{width:min(940px,calc(100% - 36px));margin:auto;padding:24px 0 70px}
+.score-back{display:inline-block;padding:6px 0;color:var(--sea)}
+.score-cover header{margin:clamp(22px,5vw,61px) 0 25px}
+.score-cover header p{color:#d1b38e;font-size:.87rem}
+.score-cover h1{font:400 clamp(2.8rem,9vw,5.75rem)/1.05 var(--inscription);color:#f3d29e}
+.score-player{padding:16px 18px 12px;border:1px solid #9a7852;background:#203236;box-shadow:inset 0 0 0 3px #121e23}
+.score-player h2{margin:0 0 10px;font:400 clamp(1.15rem,3vw,1.7rem)/1.2 var(--inscription);color:var(--coin)}
+.score-player audio{width:100%}
+.score-library{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:28px;margin-top:30px}
+.score-library h2{font:400 1.4rem var(--inscription);color:var(--coin)}
+.score-library ol{padding:0;margin:8px 0 0;list-style:none;border-top:1px solid #75664b}
+.score-library li{display:flex;align-items:center;gap:7px;border-bottom:1px solid #75664b}
+.score-library button,.score-library a{min-height:44px;padding:7px 10px;color:var(--ink);font-size:.86rem}
+.score-library button{flex:1;border:0;background:transparent;text-align:left}
+.score-library button[aria-current]{background:#244240;color:#bbf4dc}
+.score-library button:hover,.score-library a:hover{background:#263d40}
+.score-library a{flex:none;display:grid;place-items:center;color:var(--sea);white-space:nowrap}
+@media(max-width:590px){.score-library{grid-template-columns:1fr;gap:22px}}
