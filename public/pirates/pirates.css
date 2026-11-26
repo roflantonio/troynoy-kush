@@ -29,7 +29,7 @@ h1,h2,p,dl,dd{margin:0}
 .title-screen::before,.title-screen::after,.sea-haze,.cinders{content:"";position:absolute;inset:0;pointer-events:none}
 .title-screen::before{z-index:-4;background:url("./fort.webp") center/cover}
 .title-art{position:absolute;inset:0;z-index:-3;width:100%;height:100%;object-fit:cover;pointer-events:none}
-.title-screen::after{z-index:-2;background:radial-gradient(ellipse at 42% 49%,#0a141dd8 9%,#09151a9e 32%,#08111838 66%,#070e1690 100%),linear-gradient(0deg,#080f16 0%,#0d182533 43%,#050c1555 100%)}
+.title-screen::after{z-index:-2;background:linear-gradient(90deg,#08131cda 0%,#09151aac 25%,#08131c50 52%,#070e161f 80%,#070e1660 100%),linear-gradient(0deg,#080f16 0%,#0d182533 43%,#050c1555 100%)}
 .sea-haze{z-index:-1;inset:44% -15% -30%;opacity:.57;background:radial-gradient(ellipse at 77% 48%,#77b6ac4a,transparent 58%),radial-gradient(ellipse at 18% 68%,#70a6a660,transparent 62%);filter:blur(15px);animation:drift 14s ease-in-out infinite alternate}
 .cinders{z-index:-1;inset:30% 0 -15% 35%;opacity:.62;background:radial-gradient(circle at 28% 68%,#e9b574 0 1px,transparent 3px),radial-gradient(circle at 48% 78%,#fbd7a6 0 1px,transparent 3px),radial-gradient(circle at 58% 38%,#a6d1c9 0 1px,transparent 2px),radial-gradient(circle at 67% 70%,#ebb476 0 1px,transparent 2px),radial-gradient(circle at 85% 51%,#c0ddd3 0 1px,transparent 2px);animation:embers 7s ease-in-out infinite alternate}
 @keyframes drift{from{transform:translate(-6%,3%)}to{transform:translate(6%,-7%)}}
@@ -38,25 +38,21 @@ h1,h2,p,dl,dd{margin:0}
 .title-frame::before,.title-frame::after{content:"";position:absolute;inset:-1px;background:linear-gradient(#ca96642c,#ca96642c),linear-gradient(#ca96647d,#ca96647d),linear-gradient(#ca96642c,#ca96642c),linear-gradient(#ca96647d,#ca96647d);background-repeat:no-repeat}
 .title-frame::before{background-size:31px 1px,1px 31px,31px 1px,1px 31px;background-position:top left,top left,bottom right,bottom right}
 .title-frame::after{background-size:31px 1px,1px 31px,31px 1px,1px 31px;background-position:top right,top right,bottom left,bottom left}
-.title-content{position:relative;display:grid;justify-items:center;align-content:center;max-width:990px;padding:40px 24px;margin-inline:auto;text-align:center}
-.title-crest{display:flex;gap:12px;align-items:center;justify-content:center}
+.title-content{position:relative;display:grid;justify-self:start;justify-items:start;min-width:0;padding-block:40px;margin-inline:clamp(24px,7vw,128px) 24px;text-align:left}
+.title-crest{display:flex;gap:12px;align-items:center}
 .title-crest .emblem{--emblem:clamp(35px,6vw,55px);filter:drop-shadow(0 0 17px #d8ac5c6a)}
-.title-crest::before,.title-crest::after{content:"";width:clamp(25px,8vw,104px);height:1px;background:linear-gradient(90deg,transparent,#ebaf71)}
-.title-crest::after{transform:scaleX(-1)}
+.title-crest::after{content:"";width:clamp(35px,8vw,104px);height:1px;background:linear-gradient(90deg,#ebaf71,transparent)}
 .chapter{font-size:.87rem;text-transform:uppercase;letter-spacing:.19em;color:var(--sea);font-weight:800}
 .title-content h1{font:400 clamp(3.3rem,8.3vw,8rem)/.93 var(--inscription);letter-spacing:-.045em;text-transform:uppercase;text-shadow:0 4px 3px #0a0c13,0 12px 44px #020409;margin:12px 0 14px}
 .title-content h1 em{display:inline-block;font-style:normal;color:#e9b87e}
 .title-choices{display:grid;justify-items:stretch;width:min(100%,334px);margin-top:clamp(17px,4svh,47px)}
-.title-choice{position:relative;display:flex;align-items:center;justify-content:center;min-height:45px;padding:5px 27px;color:#ebd8b6;background:none;border:1px solid transparent;outline:none;text-align:center;font:400 clamp(1.12rem,2.1vw,1.56rem)/1.1 var(--inscription);text-shadow:0 2px 8px #070b13}
-.title-choice::before,.title-choice::after{content:"";position:absolute;top:50%;width:6px;height:6px;background:#f1bc7b;transform:translateY(-50%) rotate(45deg);opacity:0}
-.title-choice::before{left:15px}
-.title-choice::after{right:15px}
-.title-choice:first-child{color:#f7cf96;background:linear-gradient(90deg,transparent,#503927ac 21%,#503927ac 79%,transparent);border-block-color:#ad825759}
-.title-choice:hover,.title-choice:focus-visible{color:#ffe9bb;background:linear-gradient(90deg,transparent,#765539df 21%,#765539df 79%,transparent);border-block-color:#c69569a6}
-.title-choice:is(:first-child,:hover,:focus-visible)::before,.title-choice:is(:first-child,:hover,:focus-visible)::after{opacity:1}
+.title-choice{position:relative;display:flex;align-items:center;min-height:45px;padding:5px 15px 5px 31px;color:#ebd8b6;background:none;border:1px solid transparent;outline:none;text-align:left;font:400 clamp(1.12rem,2.1vw,1.56rem)/1.1 var(--inscription);text-shadow:0 2px 8px #070b13}
+.title-choice::before{content:"";position:absolute;top:50%;left:13px;width:6px;height:6px;background:#f1bc7b;transform:translateY(-50%) rotate(45deg);opacity:0}
+.title-choice:first-child{color:#f7cf96;background:linear-gradient(90deg,#503927ac,transparent);border-block-color:#ad825759}
+.title-choice:hover,.title-choice:focus-visible{color:#ffe9bb;background:linear-gradient(90deg,#765539df,transparent);border-block-color:#c69569a6}
+.title-choice:is(:first-child,:hover,:focus-visible)::before{opacity:1}
 .title-choices:has(.title-choice:is(:hover,:focus-visible):not(:first-child)) .title-choice:first-child{background:none;border-color:transparent}
-.title-choices:has(.title-choice:is(:hover,:focus-visible):not(:first-child)) .title-choice:first-child::before,
-.title-choices:has(.title-choice:is(:hover,:focus-visible):not(:first-child)) .title-choice:first-child::after{opacity:0}
+.title-choices:has(.title-choice:is(:hover,:focus-visible):not(:first-child)) .title-choice:first-child::before{opacity:0}
 .title-return{font-size:clamp(.9rem,1.75vw,1.17rem);color:#cbc2ac}
 .menu-buttons{display:flex;flex-direction:column;gap:8px;width:min(100%,290px)}
 .button{min-height:44px;display:inline-flex;align-items:center;justify-content:center;padding:9px 13px;border-radius:2px;border:1px solid transparent;font-weight:800;font-size:.94rem;line-height:1.2}
@@ -128,13 +124,6 @@ dialog::backdrop{background:#070d12d9}
 .volume-control input{grid-column:1/-1;width:100%;min-height:34px;accent-color:var(--coin);cursor:pointer;margin:0}
 .help-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
 .help-head h2{font-size:2.2rem}
-#controls-reference{margin-top:12px}
-#controls-reference summary{padding-block:6px;cursor:pointer;color:var(--sea)}
-#controls-reference dl{display:grid;gap:5px;margin-bottom:12px}
-#controls-reference dl div{display:grid;grid-template-columns:125px 1fr;gap:9px;padding:4px;border-bottom:1px solid #435956;font-size:.9rem}
-#controls-reference dt{color:var(--sea);font-weight:800}
-#controls-reference p{color:var(--muted);font-size:.88rem}
-#controls-reference p + p{margin-top:8px}
 #dream-replay{margin-top:12px}
 .emblem{display:inline-block;flex:none;width:var(--emblem,24px);height:var(--emblem,24px);background:url("./instruments.png") var(--mark,0%) center/700% 100% no-repeat;vertical-align:middle}
 .heart-mark{--mark:16.6667%}
@@ -232,7 +221,7 @@ kbd{font:inherit;font-size:.78em;border:1px solid currentColor;border-radius:2px
 #learned-skills li>span:nth-child(2){gap:2px}
 @media(max-width:620px){
   .cinematic[data-shot="fort"]::before{background-position:63% center}
-  .title-content{padding:44px 23px 23px}
+  .title-content{padding-block:44px 23px}
   .title-content h1{font-size:clamp(2.55rem,11.65vw,5.8rem)}
   .touch{bottom:14px}
   .vital,.weapon-hud{padding:5px 7px}
@@ -257,13 +246,12 @@ kbd{font:inherit;font-size:.78em;border:1px solid currentColor;border-radius:2px
   .cinematic[data-speaker="king"] .portrait{right:2vw}
   .toolbar{top:7px;right:7px}
   .sheet{padding:13px}
-  #controls-reference dl div{grid-template-columns:102px 1fr}
 }
 @media(max-height:490px){
   #result[data-outcome="dead"] .sheet{padding-block:10px}
   #death-skull{width:min(72%,24svh,150px);margin-block:2px 5px}
   #result[data-outcome="dead"] .summary{margin-bottom:9px}
-  .title-content{padding:26px 22px 14px}
+  .title-content{padding-block:26px 14px}
   .title-content h1{font-size:clamp(2.45rem,12vh,4.15rem);margin-block:6px}
   .title-crest .emblem{--emblem:29px}
   .title-choices{margin-top:10px}
