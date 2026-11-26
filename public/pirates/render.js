@@ -1,4 +1,4 @@
-import { ISLAND_TERRAIN, SECRET_PANEL, cast, discovered, seeded, shieldRaised, tileAt } from "./world.js?v=9";
+import { ISLAND_TERRAIN, SECRET_PANEL, cast, discovered, seeded, shieldRaised, tileAt } from "./world.js?v=12";
 
 export const VIEW_W = 432;
 export const VIEW_H = 244;
@@ -28,7 +28,7 @@ function rect(ctx, color, x, y, w, h) {
   ctx.fillRect(x, y, w, h);
 }
 
-function wallPixels(kind) {
+function wallPixels(kind, panel = false) {
   const rand = seeded(89 + kind * 825);
   const source = new Uint32Array(T * T);
   for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {
@@ -64,13 +64,6 @@ function wallPixels(kind) {
       const shade = 13 * Math.sin(Math.floor(x / 8) * 7) + knots;
       color = seam ? [31, 31, 30] : [89 + shade, 62 + shade, 43 + shade];
       if (kind === 2 && ((y > 4 && y < 8) || (y > 24 && y < 28))) color = [42, 66, 68];
-    } else if (kind === SECRET_PANEL) {
-      const grain = 5 * Math.sin(x * 2 + y / 4);
-      color = x % 6 === 0 ? [29, 29, 34] : [64 + grain, 53 + grain, 48 + grain];
-      if (y === 3 || y === 28) color = [102, 78, 53];
-      const rose = Math.abs(x - 15.5) + Math.abs(y - 15.5);
-      if (rose >= 5 && rose < 7) color = [190, 136, 76];
-      if (rose < 4 && (x === 15 || y === 15)) color = [153, 108, 66];
     } else if (kind === 9) {
       const grout = x % 16 < 1 || y % 16 < 1;
       const inlay = (y === 3 && x > 1 && x < 14) || (x === 13 && y > 2 && y < 13);
@@ -106,7 +99,9 @@ function wallPixels(kind) {
         if ((x * 7 + y * 13) % 29 < 3) color = [65 + light, 90 + light, 92 + light];
       }
     }
-    source[y * T + x] = rgb(...color.map(component => clamp(Math.floor(component + variation), 0, 255)));
+    const seam = panel && (x === 7 + (y > 18 ? -1 : y > 9 ? 1 : 0) || (x > 21 && x < 26 && y === 17));
+    const relief = seam ? -23 : 0;
+    source[y * T + x] = rgb(...color.map(component => clamp(Math.floor(component + variation + relief), 0, 255)));
   }
   return source;
 }
@@ -357,8 +352,6 @@ function islandFighter(kind, pose) {
   return image;
 }
 
-export const kingPortrait = () => islandFighter("king", "wind").toDataURL();
-
 function prop(kind, phase = 0) {
   const [image, c] = pixelCanvas(32, 36);
   if (kind === "palm" || kind === "fern") {
@@ -378,8 +371,8 @@ function prop(kind, phase = 0) {
     rect(c, "#b9bd72", 13, 16, 3, 2);
     rect(c, "#b9bd72", 20, 16, 3, 2);
     rect(c, "#aa9060", 15, 25, 8, 2);
-  } else if (["stone-bolt", "curse-bolt", "king-bolt"].includes(kind)) {
-    const color = kind === "stone-bolt" ? "#bf9d75" : kind === "king-bolt" ? "#ddbd5d" : "#b1d782";
+  } else if (kind === "stone-bolt" || kind === "curse-bolt") {
+    const color = kind === "stone-bolt" ? "#bf9d75" : "#b1d782";
     poly(c, "#354738", [[8,23],[7,14],[15,9],[21,11],[25,18],[20,25],[13,27]]);
     poly(c, color, [[10,21],[11,15],[17,11],[22,15],[22,21],[17,24]]);
     rect(c, "#fbebac", 14, 15, 5, 3);
@@ -529,7 +522,7 @@ function spriteBook() {
   sprites["captain-charge"] = sailor("captain", "charge");
   sprites["king-charge"] = islandFighter("king", "charge");
   for (const kind of ISLAND_MOBS) for (const pose of STANCES) sprites[kind + "-" + pose] = islandFighter(kind, pose);
-  for (const kind of ["torch","barrel","heal","ammo","relic","upgrade","scatter","musket","gate","closed","bolt","boss-bolt","spark","fern","palm","idol","stone-bolt","curse-bolt","king-bolt"]) {
+  for (const kind of ["torch","barrel","heal","ammo","relic","upgrade","scatter","musket","gate","closed","bolt","boss-bolt","spark","fern","palm","idol","stone-bolt","curse-bolt"]) {
     sprites[kind] = prop(kind);
     if (kind === "torch" || kind === "gate") sprites[kind + "-lit"] = prop(kind, 2);
   }
@@ -539,7 +532,7 @@ function spriteBook() {
 function enemyArt(enemy, time) {
   let pose = "idle";
   if (enemy.hp <= 0) pose = time - enemy.down < .22 ? "fall" : "down";
-  else if (enemy.charge) pose = "charge";
+  else if (enemy.charge || enemy.leap) pose = "charge";
   else if (enemy.hurt > .07) pose = "hurt";
   else if (enemy.recover > .03) pose = "strike";
   else if (enemy.attack) pose = enemy.attack > enemy.attackSpan * .35 ? "wind" : "strike";
@@ -558,8 +551,8 @@ function sceneSprites(world, time) {
       lift: p.kind === "relic" || p.kind === "upgrade" ? .13 + Math.sin(world.time * 4) * .035 : 0 })),
     ...world.enemies.map(e => ({
       x: e.x, y: e.y, art: enemyArt(e, time),
-      h: ({ captain: 1.16, king: 1.4, crab: .44, viper: .49, gorilla: 1.14, mask: .64 })[e.kind] ?? .93,
-      lift: e.kind === "mask" && e.hp > 0 ? .24 + Math.sin(time * 5 + e.phase) * .044 : 0,
+      h: e.kingWard ? .92 : (({ captain: 1.16, king: 1.4, crab: .44, viper: .49, gorilla: 1.14, mask: .64 })[e.kind] ?? .93),
+      lift: e.kind === "mask" && e.hp > 0 ? .24 + Math.sin(time * 5 + e.phase) * .044 : (e.lift ?? 0),
     })),
     ...world.bolts.map(b => ({ ...b, art: b.kind, h: b.kind === "boss-bolt" ? .30 : .20, lift: .43 })),
     ...world.flashes.map(b => ({ ...b, art: "spark", h: .25, lift: .59 })),
@@ -572,10 +565,11 @@ export function createRenderer(canvas) {
   const id = ctx.createImageData(VIEW_W, VIEW_H);
   const pixels = new Uint32Array(id.data.buffer);
   const depth = new Float32Array(VIEW_W);
-  const palette = Array.from({ length: ISLAND_TERRAIN.shrine + 1 }, (_, kind) => {
-    const base = wallPixels(kind);
+  const palettes = panel => Array.from({ length: ISLAND_TERRAIN.shrine + 1 }, (_, kind) => {
+    const base = wallPixels(kind, panel);
     return Array.from({ length: 16 }, (_, i) => Uint32Array.from(base, c => shaded(c, .21 + i * .059)));
   });
+  const palette = palettes(false), panelPalette = palettes(true);
   const sprites = spriteBook();
   const sky = islandSky();
   const drawViewModel = createViewModel(ctx);
@@ -635,7 +629,10 @@ export function createRenderer(canvas) {
             const radius = hazard.radius;
             const d = (hazard.x - fx) ** 2 + (hazard.y - fy) ** 2;
             if (d >= radius * radius) continue;
-            if (hazard.tone === "root") {
+            if (hazard.tone === "fault") {
+              if (hazard.burst) color = rgb(133, 200, 176);
+              else if (d >= (radius - .16) ** 2 || (tx * 2 + ty) % 9 < 3) color = rgb(100, 157, 139);
+            } else if (hazard.tone === "root") {
               if (hazard.burst) color = d > radius * .80 ? rgb(211, 206, 116) : rgb(116, 134, 56);
               else if (d >= (radius - .11) ** 2) color = rgb(203, 211, 108);
               else if ((tx + ty) % 6 < 2) color = rgb(129, 144, 69);
@@ -662,7 +659,9 @@ export function createRenderer(canvas) {
       const top = horizon - tall / 2;
       const bottom = Math.min(VIEW_H, Math.ceil(top + tall));
       const shade = clamp(Math.round(15.2 / (1 + distance * .167)) - hit.side * 2 + (island ? 3 : 0), 0, 15);
-      const slab = palette[hit.wall || 1][shade];
+      const slab = hit.wall === SECRET_PANEL
+        ? panelPalette[world.secretWalls[hit.y * width + hit.x] || 1][shade]
+        : palette[hit.wall || 1][shade];
       const column = Math.min(T - 1, Math.max(0, Math.floor(hit.u * T)));
       for (let y = Math.max(0, Math.floor(top)); y < bottom; y++) {
         const tex = clamp(Math.floor((y - top) * T / tall), 0, T - 1) * T + column;

@@ -1,11 +1,16 @@
-import { ARMORY, cast, chooseSkill, compassObjective, createRun, location, nextLevel, secretAhead, stepRun, switchWeapon, weaponCapacity } from "./world.js?v=9";
-import { createRenderer, kingPortrait, mapDraw } from "./render.js?v=11";
-import { pirateSound } from "./sound.js?v=8";
+import { ARMORY, cast, chooseSkill, compassObjective, createRun, location, nextLevel, secretAhead, stepRun, switchWeapon, weaponCapacity } from "./world.js?v=12";
+import { createRenderer, mapDraw } from "./render.js?v=12";
+import { pirateSound } from "./sound.js?v=12";
+import { FLEET_TOTAL, HELM, answerHelm, beginKraken, broadsideTarget, fireBroadside, newVoyage, stepVoyage } from "./sea.js?v=12";
+import { seaRenderer } from "./sea-render.js?v=12";
 
 const $ = id => document.getElementById(id);
 const scene = $("scene");
 const paint = createRenderer(scene);
-$("cinematic").style.setProperty("--king-portrait", "url(" + kingPortrait() + ")");
+const seaView = $("sea-view");
+const paintSea = seaRenderer(seaView);
+const broadsides = [$("port-cannon"), $("starboard-cannon")];
+const reloadMeters = broadsides.map(button => button.querySelector("progress"));
 const touch = matchMedia("(any-pointer: coarse)").matches;
 const keys = new Set();
 const held = new Set();
@@ -19,6 +24,8 @@ try { soundOn = localStorage.getItem(storageKey) !== "off"; } catch { /* Use the
 const sound = pirateSound(soundOn);
 let mode = "menu";
 let run = createRun(1249);
+let voyage = null;
+let endingAt = null;
 let previous = performance.now();
 let look = 0;
 let tilt = 0;
@@ -68,7 +75,10 @@ function text(id, value) {
 
 function updateScore() {
   const calmScene = mode === "cinematic" && ["arrival", "ending"].includes(cinematic.kind);
-  if (mode === "menu" || calmScene || run.status === "won" || run.arena.cleared) sound.track("dock");
+  if (mode === "menu" || calmScene) sound.track("dock");
+  else if (voyage) sound.track(voyage.phase === "fleet" ? "sea"
+    : ["reveal", "kraken"].includes(voyage.phase) ? "kraken" : voyage.phase === "dead" ? "silence" : "dock");
+  else if (run.status === "won" || run.arena.cleared) sound.track("dock");
   else if (run.status === "dead") sound.track("silence");
   else if (run.map.key === "island") sound.track(run.arena.active ? "king" : "island");
   else sound.track(run.arena.active ? "watcher" : "fort");
@@ -86,7 +96,7 @@ function skillDetails(skill) {
   const details = document.createElement("span");
   const name = document.createElement("strong");
   const effect = document.createElement("span");
-  name.textContent = skill.name;
+  name.textContent = skill.name + (skill.maxRank > 1 ? " · " + ["I","II","III"][skill.rank - 1] : "");
   effect.textContent = skill.effect;
   details.append(name, effect);
   return details;
@@ -129,7 +139,13 @@ function show(next) {
   $("cabinet").dataset.mode = next;
   clearInput();
   for (const screen of screens) $(screen).hidden = next !== screen;
-  $("deck").hidden = !["play", "pause", "chart"].includes(next);
+  const seaVisible = !!voyage && (["sea", "pause"].includes(next) || (next === "cinematic" && cinematic.kind === "kraken"));
+  $("sea").hidden = !seaVisible;
+  $("sea-hud").hidden = $("sea-controls").hidden = next !== "sea";
+  if (next !== "sea") {
+    for (const id of ["sea-notice", "sea-qte", "kraken-meter"]) $(id).hidden = true;
+  }
+  $("deck").hidden = seaVisible || !["play", "pause", "chart"].includes(next);
   $("boss-hud").hidden = next !== "play" || !run.arena.active || run.arena.cleared;
   $("crosshair").hidden = next !== "play";
   $("signal").hidden = next !== "play" || run.hintUntil < run.time || !run.hint;
@@ -137,7 +153,7 @@ function show(next) {
   $("audio").hidden = !["menu", "pause"].includes(next);
   $("touch").hidden = !touch || next !== "play";
   $("map-toggle").hidden = next !== "play";
-  $("pause-toggle").hidden = next !== "play";
+  $("pause-toggle").hidden = next !== "play" && next !== "sea";
   updateScore();
   if (next !== "play") sound.combat(0);
   if (next !== "play" && document.pointerLockElement === scene) {
@@ -145,6 +161,7 @@ function show(next) {
     document.exitPointerLock?.();
   }
   if (next === "play") scene.focus({ preventScroll: true });
+  if (next === "sea") seaView.focus({ preventScroll: true });
   if (next === "chart") {
     text("chart-title", run.map.key === "island" ? "Карта острова" : "Карта форта");
     text("chart-location", location(run));
@@ -203,17 +220,25 @@ const scenes = {
   },
   ending: {
     title: "Берег на рассвете",
-    next: "К итогам",
+    next: "Выйти в море",
     lines: [
       { speaker: "pirate", shot: "ending", text: "Король пал. Лианы разошлись, и за руинами показалась бухта. У берега ещё ждёт судно." },
       { speaker: "pirate", shot: "ending", text: "Компас собран. Он больше не тянет меня к берегу. Впервые стрелка смотрит в открытое море." },
+    ],
+  },
+  kraken: {
+    title: "Кракен",
+    next: "К пушкам",
+    lines: [
+      { speaker: "pirate", shot: "kraken", text: "Кракен… Так вот почему флот не смог уйти из этой воды. К пушкам, пока он не утащил нас на дно." },
     ],
   },
 };
 
 function setLine(index, now) {
   const line = cinematic.act.lines[index];
-  Object.assign(cinematic, { index, letters: Array.from(line.text), shown: 0, nextLetter: now + (line.shot === "dark" ? 580 : 200) });
+  const delay = line.shot === "kraken" ? 2050 : line.shot === "dark" ? 580 : 200;
+  Object.assign(cinematic, { index, letters: Array.from(line.text), shown: 0, nextLetter: now + delay });
   $("cinematic").dataset.shot = line.shot;
   $("cinematic").dataset.speaker = line.speaker;
   text("speaker-name", speakers[line.speaker].name);
@@ -263,13 +288,19 @@ function film(now) {
     paint(run, { x: run.arena.left + 2.9 + pan * 4.4, y: run.boss.y + (1 - pan) * 1.75,
       angle: -.23 + pan * .22, pitch: .028, bob: 0, moving: 0, time: run.time + (now - started) / 1000 });
   }
+  if (kind === "kraken") paintSea(voyage, (now - started) / 1000, reducedMotion.matches);
 }
 
 function leaveScene(interactive) {
-  const ending = cinematic.kind === "ending";
+  const kind = cinematic.kind;
   cinematic = null;
-  if (ending) {
-    finish();
+  if (kind === "ending") {
+    embark();
+    return;
+  }
+  if (kind === "kraken") {
+    beginKraken(voyage);
+    show("sea");
     return;
   }
   show("play");
@@ -283,11 +314,17 @@ function lock() {
 }
 
 function resumePlay() {
+  if (voyage) {
+    show("sea");
+    return;
+  }
   show("play");
   lock();
 }
 
 function start() {
+  voyage = null;
+  endingAt = null;
   const seed = crypto.getRandomValues(new Uint32Array(1))[0];
   run = createRun(seed);
   sound.bossPhase(0);
@@ -299,23 +336,86 @@ function start() {
 }
 
 function finish() {
-  const win = run.status === "won";
-  const duration = run.time + run.history.time;
+  const win = voyage ? voyage.phase === "victory" : run.status === "won";
+  const duration = run.time + run.history.time + (voyage?.time ?? 0);
   const minute = Math.floor(duration / 60);
   const seconds = String(Math.floor(duration) % 60).padStart(2, "0");
   $("result").dataset.outcome = win ? "won" : "dead";
   $("death-skull").hidden = win;
   text("result-title", win ? "Конец демо" : "ТЫ ПОГИБ");
-  text("retry", win ? "Новый поход" : "Меня не остановить");
+  text("retry", win ? "Новый поход" : voyage ? "Повторить морской бой" : "Меня не остановить");
   text("result-menu", win ? "В меню игры" : "Мне нужен покой");
   $("win-note").hidden = !win;
-  text("result-location", run.map.title);
+  text("result-location", voyage ? "Открытое море" : run.map.title);
   const secrets = run.history.secrets + run.secrets.filter(secret => secret.open).length;
   const relics = run.history.relics + run.player.relics;
   text("summary", "Осколки " + relics + " / " + (run.history.relics + run.total) + " · Тайники " + secrets
-    + " / " + (run.history.totalSecrets + run.secrets.length) + " · Победы " + (run.history.kills + run.player.kills) + " · " + minute + ":" + seconds);
+    + " / " + (run.history.totalSecrets + run.secrets.length) + " · Победы " + (run.history.kills + run.player.kills)
+    + (voyage ? " · Потоплено " + voyage.sunk + " / " + FLEET_TOTAL : "") + " · " + minute + ":" + seconds);
   show("result");
   $("retry").focus({ preventScroll: true });
+}
+
+function embark() {
+  voyage = newVoyage();
+  endingAt = null;
+  show("sea");
+  updateSeaHud();
+  paintSea(voyage, 0, reducedMotion.matches);
+}
+
+function updateSeaHud() {
+  const { phase, sunk, hull, wave, boss, noticeUntil, time, qte } = voyage;
+  text("sea-sunk", sunk + " / " + FLEET_TOTAL);
+  text("sea-hull", hull + "%");
+  text("sea-wave", phase === "fleet" ? "Волна " + Math.max(1, wave) + " / 4" : "Кракен");
+  $("hull-meter").value = hull;
+  $("fleet-meter").value = sunk;
+  $("kraken-meter").hidden = phase !== "kraken";
+  $("kraken-health").value = boss.hp;
+  text("kraken-stage", "Фаза " + boss.stage + " / 3");
+  $("sea-qte").hidden = !qte;
+  if (qte) {
+    text("sea-threat", qte.label);
+    text("sea-order", (qte.key + 1) + " · " + HELM[qte.key]);
+    $("sea-timer").value = qte.left / qte.span;
+  }
+  $("sea-notice").hidden = !!qte || noticeUntil <= time || phase === "victory";
+  text("sea-notice", voyage.notice);
+  for (const [i, cannon] of broadsides.entries()) {
+    cannon.dataset.aimed = String(!!broadsideTarget(voyage, i * 2 - 1));
+    reloadMeters[i].value = 1 - voyage.reload[i] / .83;
+  }
+}
+
+function seaFrame(dt) {
+  if (voyage.phase === "dead") {
+    for (const cue of voyage.cues.splice(0)) sound.effect(cue);
+    finish();
+    return;
+  }
+  if (voyage.phase === "victory") {
+    endingAt = (endingAt ?? 0) + dt;
+    paintSea(voyage, endingAt, reducedMotion.matches);
+    if (endingAt > 2.6) finish();
+    return;
+  }
+  const axis = (key, arrow) => Number(keys.has(key) || keys.has(arrow));
+  const x = axis("KeyD", "ArrowRight") - axis("KeyA", "ArrowLeft");
+  const y = axis("KeyS", "ArrowDown") - axis("KeyW", "ArrowUp");
+  const magnitude = Math.max(1, Math.hypot(x, y));
+  if (keys.has("KeyQ")) fireBroadside(voyage, -1);
+  if (keys.has("KeyE")) fireBroadside(voyage, 1);
+  stepVoyage(voyage, { x: x / magnitude, y: y / magnitude }, dt);
+  for (const cue of voyage.cues.splice(0)) sound.effect(cue);
+  if (voyage.phase === "reveal") {
+    sound.effect("kraken-rise");
+    beginScene("kraken");
+    return;
+  }
+  if (voyage.phase === "victory") updateScore();
+  updateSeaHud();
+  paintSea(voyage, 0, reducedMotion.matches);
 }
 
 function updateHud() {
@@ -433,7 +533,8 @@ function frame(now) {
         beginScene("crossing");
       } else beginScene("ending");
     }
-  } else if (mode === "cinematic") film(now);
+  } else if (mode === "sea") seaFrame(elapsed);
+  else if (mode === "cinematic") film(now);
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
@@ -473,10 +574,23 @@ document.addEventListener("keydown", event => {
     }
     return;
   }
-  if (!event.repeat && event.code === "Escape" && ["play","chart","pause"].includes(mode)) {
+  if (!event.repeat && event.code === "Escape" && ["play","sea","chart","pause"].includes(mode)) {
     event.preventDefault();
-    if (mode === "play") show("pause");
+    if (mode === "play" || mode === "sea") show("pause");
     else resumePlay();
+    return;
+  }
+  if (mode === "sea") {
+    if (/^Digit[1-3]$/.test(event.code)) {
+      event.preventDefault();
+      if (!event.repeat) answerHelm(voyage, Number(event.code.at(-1)) - 1);
+    } else if (["KeyQ","KeyE","KeyW","KeyA","KeyS","KeyD","ArrowUp","ArrowDown","ArrowLeft","ArrowRight"].includes(event.code)) {
+      event.preventDefault();
+      keys.add(event.code);
+      if (!event.repeat && (event.code === "KeyQ" || event.code === "KeyE")) {
+        fireBroadside(voyage, event.code === "KeyQ" ? -1 : 1);
+      }
+    }
     return;
   }
   if (event.target.matches?.("button,a,input")) return;
@@ -535,8 +649,8 @@ const release = event => {
 };
 document.addEventListener("pointerup", release);
 document.addEventListener("pointercancel", release);
-window.addEventListener("blur", () => { if (mode === "play") show("pause"); else clearInput(); });
-document.addEventListener("visibilitychange", () => { if (document.hidden && mode === "play") show("pause"); });
+window.addEventListener("blur", () => { if (mode === "play" || mode === "sea") show("pause"); else clearInput(); });
+document.addEventListener("visibilitychange", () => { if (document.hidden && (mode === "play" || mode === "sea")) show("pause"); });
 for (const button of document.querySelectorAll(".touch-key")) {
   const action = button.dataset.key;
   button.addEventListener("pointerdown", event => {
@@ -557,7 +671,25 @@ $("touch-weapon").addEventListener("click", () => {
   switchWeapon(run, list[(list.indexOf(run.player.weapon) + 1) % list.length]);
 });
 $("start").addEventListener("click", start);
-$("retry").addEventListener("click", start);
+$("retry").addEventListener("click", () => voyage?.phase === "dead" ? embark() : start());
+for (const [i, button] of broadsides.entries()) button.addEventListener("click", () => {
+  if (mode === "sea") fireBroadside(voyage, i * 2 - 1);
+});
+for (const button of document.querySelectorAll("[data-helm]")) button.addEventListener("click", () => {
+  if (mode === "sea") {
+    answerHelm(voyage, Number(button.dataset.helm));
+    seaView.focus({ preventScroll: true });
+  }
+});
+for (const button of document.querySelectorAll("[data-course]")) {
+  const code = button.dataset.course;
+  button.addEventListener("pointerdown", event => {
+    if (mode !== "sea") return;
+    button.setPointerCapture?.(event.pointerId);
+    keys.add(code);
+  });
+  for (const type of ["pointerup","pointercancel","lostpointercapture"]) button.addEventListener(type, () => keys.delete(code));
+}
 $("skip-scene").addEventListener("click", () => leaveScene(true));
 $("scene-next").addEventListener("click", advanceScene);
 $("continue").addEventListener("click", resumePlay);

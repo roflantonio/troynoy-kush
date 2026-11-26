@@ -49,6 +49,18 @@ const throne = [
 ];
 const ISLAND_BEAT = .263;
 const KING_TICK = 60 / 152 / 4;
+const tides = [
+  [38,[62,65,69]], [38,[72,69,65]], [34,[65,70,74]], [36,[67,72,70]],
+  [38,[69,72,77]], [41,[72,77,81]], [36,[76,72,67]], [33,[69,64,67]],
+  [34,[65,70,74]], [36,[67,70,76]], [38,[69,72,77]], [38,[81,77,72]],
+  [31,[67,70,74]], [34,[74,70,65]], [33,[64,69,73]], [38,[74,69,65]],
+];
+const trench = [
+  [33,[57,58,64]], [33,[69,68,62]], [29,[65,66,60]], [31,[67,68,62]],
+  [33,[69,70,64]], [36,[72,73,67]], [32,[68,65,62]], [31,[67,61,58]],
+  [33,[76,70,69]], [33,[74,70,64]], [30,[66,67,61]], [29,[65,67,60]],
+  [33,[69,70,76]], [34,[77,71,70]], [31,[74,68,62]], [33,[69,64,58]],
+];
 
 const tracks = {
   dock: { bars: shore, duration: 4.4, air: .49, cutoff: 1240, lead: .114 },
@@ -56,6 +68,8 @@ const tracks = {
   watcher: { bars: oath, duration: 32 * WATCHER_TICK },
   island: { bars: jungle, duration: 12 * ISLAND_BEAT },
   king: { bars: throne, duration: 32 * KING_TICK },
+  sea: { bars: tides, duration: 3.2 },
+  kraken: { bars: trench, duration: 2.64 },
 };
 
 const fortKicks = [
@@ -279,6 +293,22 @@ export function pirateSound(enabled) {
     const index = bar++ % part.bars.length;
     const [chord, melody] = part.bars[index];
     const bus = music[track];
+    if (track === "sea" || track === "kraken") {
+      const storm = track === "kraken";
+      const step = part.duration / 8;
+      for (const beat of [0, 2, 3, 5, 6]) {
+        const when = at + beat * step;
+        tone(bus, when, storm ? 153 : 108, 35, .22, .24, "sine");
+        swell(bus, when, chord + (beat === 5 ? 7 : 0), step * .88, .15, storm ? "sawtooth" : "triangle", 620, .04);
+      }
+      for (const beat of [2.5, 5.5, 7]) noise(bus, at + beat * step, .14, storm ? 1550 : 810, .145);
+      for (const [i, pitch] of melody.entries()) {
+        const when = at + (i * 2 + (index % 3) * .3) * step;
+        swell(bus, when, pitch, step * (storm ? 1.9 : 2.65), .13, storm ? "square" : "triangle", storm ? 980 : 1660, .06);
+        swell(bus, when + .085, pitch - 12, step * 2.8, .07, "sawtooth", 640, .11);
+      }
+      return;
+    }
     if (track === "island") {
       islandBar(bus, at, chord, melody, index);
       return;
@@ -439,6 +469,18 @@ export function pirateSound(enabled) {
     if (kind === "pistol" || kind === "scatter" || kind === "musket") {
       noise(bus, at, kind === "scatter" ? .34 : kind === "musket" ? .28 : .21, kind === "musket" ? 920 : 1400, .63);
       tone(bus, at, kind === "musket" ? 181 : 122, 38, .19, .28, "sine");
+    } else if (kind === "sea-cannon" || kind === "sea-enemy-cannon") {
+      const distant = kind === "sea-enemy-cannon";
+      noise(bus, at, .50, distant ? 620 : 880, distant ? .34 : .70);
+      tone(bus, at, 122, 29, .37, distant ? .22 : .40, "sine");
+    } else if (["ship-hit", "ship-sink", "kraken-hit", "kraken-rise", "kraken-fall"].includes(kind)) {
+      const large = kind === "ship-sink" || kind === "kraken-rise" || kind === "kraken-fall";
+      noise(bus, at, large ? .54 : .22, large ? 575 : 1260, large ? .50 : .27);
+      tone(bus, at, large ? 93 : 165, large ? 27 : 60, large ? .75 : .2, .22, "triangle");
+    } else if (kind === "sea-signal" || kind === "ship-warn" || kind === "sea-evade") {
+      const order = kind === "sea-signal";
+      tone(bus, at, order ? 610 : 367, order ? 587 : 412, .20, order ? .21 : .095, "triangle");
+      if (order) tone(bus, at + .18, 697, 570, .22, .17, "triangle");
     } else if (kind === "reload") {
       noise(bus, at, .13, 980, .25);
       tone(bus, at + .17, 720, 341, .071, .074, "triangle");
@@ -482,7 +524,7 @@ export function pirateSound(enabled) {
       tone(bus, at + .29, 920, 330, .24, .14, "triangle", 1360);
     } else if (kind === "skill") {
       tone(bus, at, 370, 544, .27, .18, "triangle", 1220);
-    } else if (kind === "king-bolt" || kind === "king-charge" || kind === "king-stomp" || kind === "king-root") {
+    } else if (kind === "king-charge" || kind === "king-stomp" || kind === "king-root") {
       tone(bus, at, kind === "king-charge" ? 173 : 113, 42, .44, .29, "sawtooth", 610);
       noise(bus, at + .032, .33, kind === "king-root" ? 1750 : 940, .24);
     } else if (kind === "stone-bolt" || kind === "curse-bolt") {

@@ -196,7 +196,7 @@ kbd{font:inherit;font-size:.78em;border:1px solid currentColor;border-radius:2px
 @keyframes eyes-open{from{opacity:0;transform:scale(1.075);filter:blur(11px)}to{opacity:1;transform:scale(1);filter:blur(0)}}
 .cinematic[data-shot="island"]::before,.cinematic[data-shot="ending"]::before{content:"";position:absolute;z-index:-2;inset:-4%;background:linear-gradient(0deg,#101913 2%,transparent 69%),url("./island-arrival.webp") center/cover;animation:eyes-open 1.5s ease-out both}
 .cinematic[data-shot="ending"]::before{background-image:linear-gradient(0deg,#1d1612 1%,transparent 65%),url("./island-ending.webp")}
-.cinematic[data-speaker="king"] .portrait{left:auto;right:clamp(15px,7.5vw,134px);background:var(--king-portrait) center/contain no-repeat;aspect-ratio:1;image-rendering:pixelated;mask-image:none}
+.cinematic[data-speaker="king"] .portrait{left:auto;right:clamp(15px,7.5vw,134px);background:url("./king-portrait.webp") center bottom/contain no-repeat;mask-image:none}
 .cinematic[data-speaker="king"] .speaker-name{left:auto;right:clamp(11px,3vw,39px);background:linear-gradient(110deg,#ac9659,#d7c480);border-color:#ecd187}
 #skills,#chart{grid-template-rows:minmax(0,1fr)}
 #skills{background:radial-gradient(ellipse at 50% 50%,#182e2bf2,#081117fb)}

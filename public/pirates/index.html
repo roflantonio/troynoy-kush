@@ -8,8 +8,9 @@
   <title>Проклятие фортуны</title>
   <link rel="preload" as="image" href="./awakening.webp">
   <link rel="preload" as="image" href="./viewmodels.png?v=11">
-  <link rel="stylesheet" href="./pirates.css?v=8">
-  <script type="module" src="./game.js?v=11"></script>
+  <link rel="stylesheet" href="./pirates.css?v=12">
+  <link rel="stylesheet" href="./sea.css?v=12">
+  <script type="module" src="./game.js?v=12"></script>
 </head>
 <body>
   <main class="cabinet" id="cabinet" data-mode="menu">
@@ -55,6 +56,42 @@
       </div>
     </div>
 
+    <section id="sea" class="sea-screen" aria-label="Морская битва" hidden>
+      <header id="sea-hud" class="sea-hud">
+        <div class="sea-heading"><h2>Открытое море</h2><span id="sea-wave">Волна 1 / 4</span></div>
+        <div class="sea-stat"><label for="fleet-meter">Потоплено <strong id="sea-sunk">0 / 10</strong></label><progress id="fleet-meter" value="0" max="10"></progress></div>
+        <div class="sea-stat"><label for="hull-meter">Корпус <strong id="sea-hull">100%</strong></label><progress id="hull-meter" value="100" max="100"></progress></div>
+      </header>
+      <div class="sea-water">
+        <canvas id="sea-view" width="432" height="244" tabindex="0" aria-label="Корабль капитана и поле боя"></canvas>
+        <div class="kraken-meter" id="kraken-meter" hidden>
+          <label for="kraken-health">Кракен <span id="kraken-stage"></span></label>
+          <progress id="kraken-health" value="182" max="182"></progress>
+        </div>
+        <div class="sea-qte" id="sea-qte" hidden>
+          <p id="sea-threat"></p><strong id="sea-order" aria-live="polite"></strong>
+          <progress id="sea-timer" value="1" max="1" aria-label="Время на манёвр"></progress>
+          <div class="sea-reactions">
+            <button class="utility" type="button" data-helm="0" aria-label="1 — Лево руля">1 <span aria-hidden="true">←</span></button>
+            <button class="utility" type="button" data-helm="1" aria-label="2 — Держать курс">2 <span aria-hidden="true">↑</span></button>
+            <button class="utility" type="button" data-helm="2" aria-label="3 — Право руля">3 <span aria-hidden="true">→</span></button>
+          </div>
+        </div>
+        <p class="field-hint sea-notice" id="sea-notice" role="status"></p>
+      </div>
+      <div class="sea-controls" id="sea-controls">
+        <button class="button sea-fire" id="port-cannon" type="button"><kbd>Q</kbd><span>Левый борт</span><progress value="1" max="1" aria-label="Готовность левого борта"></progress></button>
+        <div class="sea-course" aria-label="Управление кораблём">
+          <p>Курс <kbd>WASD</kbd> / <kbd>↑↓←→</kbd></p>
+          <button class="utility" type="button" data-course="KeyA" aria-label="Плыть влево">←</button>
+          <button class="utility" type="button" data-course="KeyW" aria-label="Плыть вперёд">↑</button>
+          <button class="utility" type="button" data-course="KeyS" aria-label="Плыть назад">↓</button>
+          <button class="utility" type="button" data-course="KeyD" aria-label="Плыть вправо">→</button>
+        </div>
+        <button class="button sea-fire" id="starboard-cannon" type="button"><kbd>E</kbd><span>Правый борт</span><progress value="1" max="1" aria-label="Готовность правого борта"></progress></button>
+      </div>
+    </section>
+
     <section id="menu" class="overlay title-screen" aria-labelledby="game-title">
       <div class="sea-haze" aria-hidden="true"></div>
       <div class="cinders" aria-hidden="true"></div>
@@ -84,7 +121,7 @@
         <p class="chapter" id="result-location"></p>
         <img id="death-skull" src="./death-skull.webp" alt="" decoding="async" hidden>
         <h2 id="result-title"></h2>
-        <p class="win-note" id="win-note" hidden>Король обезьян пал. Компас собран.</p>
+        <p class="win-note" id="win-note" hidden>Флот потоплен. Кракен ушёл на дно.</p>
         <p class="summary" id="summary"></p>
         <div class="menu-buttons">
           <button id="retry" class="button primary" type="button">Новый поход</button>
@@ -160,12 +197,13 @@
       <div><dt>1 / 2 / 3 / 4</dt><dd>Пистолет, мушкетон, сабля и длинный мушкет</dd></div>
       <div><dt>R</dt><dd>Перезарядка. При удержании огня пустое оружие перезаряжается автоматически</dd></div>
       <div><dt>Shift</dt><dd>Рывок по ходу движения. Помогает увернуться от удара или снаряда</dd></div>
-      <div><dt>E</dt><dd>Открыть тайный ход. Подойди к стене с медным знаком и наведи прицел</dd></div>
+      <div><dt>E</dt><dd>Открыть тайный ход. Осматривай стены в поисках неровных швов</dd></div>
       <div><dt>Tab / M</dt><dd>Открыть карту и посмотреть капитанские умения</dd></div>
       <div><dt>Esc</dt><dd>Пауза</dd></div>
     </dl>
     <p>На телефоне вращай камеру свайпом и используй экранные кнопки. Карта заполняется по мере разведки. Краб быстро сближается зигзагом. Щитоносец уязвим во время замаха и после удара.</p>
     <p>На острове макаки-налётчики быстро сближаются, пращники бросают камни, гадюки замедляют укусом, маски идолов выпускают веер снарядов, а гориллы бьют вблизи. При подборе жетона выбери умение из трёх.</p>
+    <p>В море держи корабли вдоль борта. Q и E стреляют из левых и правых пушек. При тревоге нажми 1, 2 или 3 по команде на экране.</p>
   </dialog>
 </body>
 </html>
