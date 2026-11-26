@@ -1,4 +1,4 @@
-import { SEA_WIDTH as W, SEA_HEIGHT as H, broadsideTarget } from "./sea.js?v=12";
+import { SEA_WIDTH as W, SEA_HEIGHT as H, broadsideTarget } from "./sea.js?v=13";
 
 const box = (c, color, x, y, w, h) => {
   c.fillStyle = color;
@@ -151,6 +151,31 @@ function ring(c, color, x, y, w, h) {
   }
 }
 
+function attackWarning(c, attack, time) {
+  const { kind, x, y } = attack;
+  if (kind === "surge") {
+    const band = attack.width;
+    box(c, "#b78f5e35", 0, y - band, W, band * 2);
+    for (let px = 0; px < W; px += 12) {
+      box(c, "#e1b080", px, y - band, 7, 1);
+      box(c, "#e1b080", px, y + band, 7, 1);
+      box(c, "#a99776", px + 3, y + Math.sin(px * .12 + time * 6) * 4, 4, 2);
+    }
+  } else if (kind === "vortex") {
+    for (let i = 0; i < 72; i++) {
+      const angle = i * Math.PI / 12 + time * 1.9;
+      const r = attack.radius * (1 - Math.floor(i / 24) * .28);
+      box(c, i < 24 ? "#e8ba89" : "#8cbcb5", x + Math.cos(angle) * r, y + Math.sin(angle) * r, 3, 2);
+    }
+  } else {
+    const { fromX, fromY } = attack;
+    for (let i = 1; i < 15; i++) {
+      box(c, "#d49abb", fromX + (x - fromX) * i / 15, fromY + (y - fromY) * i / 15, 3, 1);
+    }
+    ring(c, "#dda3bc", x, y, 14, 14);
+  }
+}
+
 export function seaRenderer(canvas) {
   const c = canvas.getContext("2d", { alpha: false });
   return (sea, film, reduced) => {
@@ -168,6 +193,7 @@ export function seaRenderer(canvas) {
     }
     if (sea.phase === "kraken" || sea.phase === "victory") {
       const boss = sea.boss;
+      if (boss.attack) attackWarning(c, boss.attack, reduced ? 0 : time);
       const rise = sea.phase === "victory" ? Math.max(0, 1 - film * .46) : boss.openness;
       monster(c, boss.x, boss.y, .85, rise, time, boss.stage > 1);
     }
@@ -199,12 +225,27 @@ export function seaRenderer(canvas) {
       const x = shot.x + (shot.tx - shot.x) * k, y = shot.y + (shot.ty - shot.y) * k;
       box(c, shot.hostile ? "#f09164" : "#f7d9a0", x - 2, y - 1, 4, 2);
     }
+    for (const glob of sea.ink) {
+      box(c, "#9772a0", glob.x - glob.vx * .021 - 1, glob.y - glob.vy * .021, 3, 2);
+      box(c, "#523454", glob.x - 5, glob.y - 3, 10, 7);
+      box(c, "#a97aa6", glob.x - 3, glob.y - 2, 5, 2);
+    }
     for (const effect of sea.bursts) {
-      const color = effect.kind === "water" ? "#a5c2b2" : "#e6a273";
+      const { kind } = effect;
+      if (kind === "surge") {
+        const y = effect.y - 14 + effect.age * 42;
+        for (let x = 0; x < W; x += 6) {
+          box(c, "#b4d5ca", x, y + Math.sin(x * .14) * 4, 5, 2);
+        }
+        continue;
+      }
+      const color = kind === "ink" ? "#c180a7" : kind === "impact" ? "#e6a273" : "#a5c2b2";
+      const rays = kind === "vortex" ? 25 : 9;
       const spread = 3 + effect.age * 24;
-      for (let i = 0; i < 9; i++) {
+      for (let i = 0; i < rays; i++) {
         const a = i * 2.399;
-        box(c, color, effect.x + Math.cos(a) * spread, effect.y + Math.sin(a) * spread * .65, 2, 2);
+        const radius = kind === "vortex" ? spread * 2.8 : spread;
+        box(c, color, effect.x + Math.cos(a) * radius, effect.y + Math.sin(a) * radius * .65, 2, 2);
       }
     }
     if (sea.damage > 0 && !reduced) box(c, "#b5384a35", 0, 0, W, H);

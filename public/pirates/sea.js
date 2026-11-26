@@ -1,7 +1,6 @@
 export const SEA_WIDTH = 432;
 export const SEA_HEIGHT = 244;
-export const FLEET_TOTAL = 10;
-export const KRAKEN_HP = 182;
+export const KRAKEN_HP = 360;
 export const HELM = ["Лево руля", "Держать курс", "Право руля"];
 
 const FORMATIONS = [
@@ -9,21 +8,38 @@ const FORMATIONS = [
   [[332, 143, 1], [114, 172, 0]],
   [[66, 144, 1], [344, 171, 1], [118, 186, 0]],
   [[319, 136, 2], [61, 162, 1], [363, 183, 1]],
+  [[94, 137, 1], [360, 167, 2], [130, 188, 1]],
+  [[340, 136, 1], [82, 149, 2], [331, 178, 2], [120, 191, 0]],
+  [[72, 135, 2], [338, 151, 2], [129, 177, 1], [367, 195, 1]],
+  [[358, 138, 2], [61, 152, 2], [306, 174, 2], [101, 193, 2]],
 ];
+export const FLEET_WAVES = FORMATIONS.length;
+export const FLEET_TOTAL = FORMATIONS.reduce((total, wave) => total + wave.length, 0);
 const CLASSES = [
   { hp: 2, reload: 5.6 },
   { hp: 3, reload: 5.0 },
   { hp: 4, reload: 4.4 },
 ];
+const KRAKEN_PATTERNS = [
+  ["surge", "helm"],
+  ["ink", "surge", "helm"],
+  ["vortex", "ink", "helm", "surge"],
+];
+const KRAKEN_ATTACKS = {
+  surge: { span: 1.35, hit: 15, width: 17, hint: "Удар волны · выйди из полосы" },
+  ink: { span: 1.04, hit: 9, hint: "Чернильный залп · смени курс" },
+  vortex: { span: 1.83, hit: 22, radius: 55, hint: "Водоворот · уйди из круга" },
+};
+const INK_SPEED = 204;
 const clamp = (n, a, b) => Math.min(b, Math.max(a, n));
 
 export function newVoyage() {
   return {
     phase: "fleet", player: { x: 216, y: 172 }, hull: 100, time: 0,
-    wave: 0, nextWave: .8, sunk: 0, ships: [], shots: [], bursts: [],
+    wave: 0, nextWave: .8, sunk: 0, ships: [], shots: [], ink: [], bursts: [],
     reload: [0, 0], flash: [0, 0], cues: [], qte: null, qteOrder: 0,
     notice: "Держи цель вдоль борта", noticeUntil: 5, damage: 0,
-    boss: { x: 100, y: 142, hp: KRAKEN_HP, stage: 1, age: 0, cycle: 0, openness: 0 },
+    boss: { x: 100, y: 142, hp: KRAKEN_HP, stage: 1, age: 0, cycle: 0, openness: 0, attack: null, move: 0, nextAttack: 0 },
   };
 }
 
@@ -131,7 +147,7 @@ export function answerHelm(sea, key) {
 export function beginKraken(sea) {
   if (sea.phase !== "reveal") return;
   sea.phase = "kraken";
-  sea.volley = sea.time + 3.2;
+  sea.boss.nextAttack = sea.time + 1.65;
   notice(sea, "Целься в Кракена, когда он всплывает", 5);
   sea.cues.push("kraken-rise");
 }
@@ -148,10 +164,66 @@ function kraken(sea, dt) {
   boss.x = (left ? 100 : 332) + Math.sin(sea.time * .78) * 13;
   boss.y = 151 + Math.sin(sea.time * .53 + boss.cycle) * 11;
   boss.openness = clamp(Math.min(boss.age * 2, (length - .64 - boss.age) * 2), 0, 1);
-  if (sea.time >= sea.volley && !sea.qte) {
-    challenge(sea, boss.stage === 3 ? "Водоворот" : "Удар щупальца", 2.6 - boss.stage * .23, 11 + 3 * boss.stage);
-    sea.volley = sea.time + 6.6 - boss.stage * .5;
+  if (boss.attack) {
+    updateKrakenAttack(sea, dt);
+  } else if (sea.time >= boss.nextAttack && !sea.qte) {
+    const pattern = KRAKEN_PATTERNS[boss.stage - 1];
+    const kind = pattern[boss.move++ % pattern.length];
+    if (kind === "helm") {
+      challenge(sea, "Удар щупальца", 2.6 - boss.stage * .23, 11 + 3 * boss.stage);
+    } else {
+      const spec = KRAKEN_ATTACKS[kind];
+      const { x, y } = sea.player;
+      boss.attack = { ...spec, kind, x, y, fromX: boss.x, fromY: boss.y - 8, left: spec.span };
+      notice(sea, spec.hint, spec.span + .5);
+      sea.cues.push("kraken-warn");
+    }
+    boss.nextAttack = sea.time + 3.9 - boss.stage * .25;
   }
+}
+
+function updateKrakenAttack(sea, dt) {
+  const { boss, player } = sea;
+  const attack = boss.attack;
+  attack.left -= dt;
+  const dx = attack.x - player.x;
+  const dy = attack.y - player.y;
+  const distance = Math.hypot(dx, dy);
+  if (attack.kind === "vortex" && distance > 1 && distance < attack.radius) {
+    const pull = (1 - distance / attack.radius) * dt * 47 / distance;
+    player.x += dx * pull;
+    player.y += dy * pull;
+  }
+  if (attack.left > 0) return;
+
+  boss.attack = null;
+  if (attack.kind === "ink") {
+    const angle = Math.atan2(attack.y - attack.fromY, attack.x - attack.fromX);
+    for (const offset of [-.4, -.2, 0, .2, .4]) {
+      sea.ink.push({ x: attack.fromX, y: attack.fromY, vx: Math.cos(angle + offset) * INK_SPEED,
+        vy: Math.sin(angle + offset) * INK_SPEED, hit: attack.hit });
+    }
+    sea.cues.push("kraken-ink");
+    return;
+  }
+  const inDanger = attack.kind === "surge" ? Math.abs(dy) < attack.width : distance < attack.radius;
+  if (inDanger) damage(sea, attack.hit);
+  burst(sea, attack.x, attack.y, attack.kind);
+  sea.cues.push("kraken-splash");
+}
+
+function moveInk(sea, dt) {
+  sea.ink = sea.ink.filter(glob => {
+    glob.x += glob.vx * dt;
+    glob.y += glob.vy * dt;
+    const { x, y } = sea.player;
+    if (Math.hypot(x - glob.x, y - glob.y) < 13) {
+      if (!sea.damage) damage(sea, glob.hit);
+      burst(sea, glob.x, glob.y, "ink");
+      return false;
+    }
+    return glob.x > -16 && glob.x < SEA_WIDTH + 16 && glob.y > 35 && glob.y < SEA_HEIGHT + 16;
+  });
 }
 
 export function broadsideTarget(sea, side) {
@@ -191,10 +263,17 @@ function hitTarget(sea, target) {
   if (!target?.hp) return;
   if (target === sea.boss) {
     target.hp = Math.max(0, target.hp - 18);
-    target.stage = target.hp > 122 ? 1 : target.hp > 60 ? 2 : 3;
+    const stage = target.hp > KRAKEN_HP * 2 / 3 ? 1 : target.hp > KRAKEN_HP / 3 ? 2 : 3;
+    if (stage > target.stage) {
+      target.stage = stage;
+      target.move = 0;
+      target.nextAttack = Math.min(target.nextAttack, sea.time + 1.15);
+    }
     if (target.hp === 0) {
       sea.phase = "victory";
       sea.qte = null;
+      target.attack = null;
+      sea.ink.length = 0;
       sea.cues.push("kraken-fall");
     } else sea.cues.push("kraken-hit");
   } else {
@@ -223,8 +302,11 @@ export function stepVoyage(sea, input, dt) {
     sea.flash[i] = Math.max(0, sea.flash[i] - dt);
   }
   if (sea.phase === "fleet") fleet(sea, dt);
-  else kraken(sea, dt);
-  if (sea.phase === "reveal") return;
+  else {
+    kraken(sea, dt);
+    if (sea.phase === "kraken") moveInk(sea, dt);
+  }
+  if (sea.phase === "reveal" || sea.phase === "dead") return;
 
   if (sea.qte) {
     sea.qte.left -= dt;

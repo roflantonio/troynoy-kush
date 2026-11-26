@@ -1,4 +1,4 @@
-import { ISLAND_TERRAIN, SECRET_PANEL, cast, discovered, seeded, shieldRaised, tileAt } from "./world.js?v=12";
+import { ISLAND_TERRAIN, SECRET_PANEL, cast, discovered, seeded, shieldRaised, tileAt } from "./world.js?v=13";
 
 export const VIEW_W = 432;
 export const VIEW_H = 244;

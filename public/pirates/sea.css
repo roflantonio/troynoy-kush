@@ -1,4 +1,10 @@
 .sea-screen{position:absolute;inset:0;display:grid;grid-template-rows:auto minmax(0,1fr) auto;align-content:center;width:min(100%,165svh);margin:auto;background:#101c23;border-inline:1px solid #5d695c}
+.sea-briefing{width:min(100%,560px);max-height:100%;overflow:auto}
+.sea-briefing>p{color:var(--muted)}
+.sea-briefing dl{display:grid;grid-template-columns:auto 1fr;gap:7px 14px;text-align:left;padding-block:12px;margin-block:10px;border-block:1px solid #8e775b70}
+.sea-briefing dt{color:var(--sea);font-weight:800}
+.sea-briefing dd{font-size:.88rem}
+#sea-briefing{grid-template-rows:minmax(0,1fr)}
 .sea-hud,.sea-controls{display:grid;align-items:center;gap:clamp(8px,2vw,26px);padding:12px clamp(10px,2vw,27px);background:linear-gradient(155deg,#273638,#111b23);border-block:1px solid #8e775b}
 .sea-hud{grid-row:1;grid-template-columns:1.35fr 1fr 1fr;padding-right:clamp(52px,8vw,94px)}
 .sea-heading h2{font:400 clamp(1.1rem,2.7vw,2.45rem)/1 var(--inscription);color:var(--coin)}

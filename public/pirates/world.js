@@ -16,6 +16,10 @@ const ISLAND = {
   key: "island", title: "Остров обезьян", step: 16, origin: 7, arenaRadius: 10, arenaLength: 23,
   wings: ["Берег разбитых мачт", "Мангровые тропы", "Бамбуковое ущелье", "Каменные идолы", "Коронные руины"],
 };
+const DREAM = {
+  key: "dream", title: "Сон о старом трюме", step: 7, origin: 3, arenaLength: 12,
+  wings: ["Трюм из сна"],
+};
 export const TAU = Math.PI * 2;
 
 export const ARMORY = {
@@ -274,6 +278,10 @@ export function createRun(seed) {
   return createLevel(seed, FORT);
 }
 
+export function createDream(seed) {
+  return createLevel(seed, DREAM);
+}
+
 export function nextLevel(world) {
   if (world.map.key !== "fort" || world.status !== "won") return null;
   return createLevel((world.seed ^ 0x3aef9219) >>> 0, ISLAND, world);
@@ -303,7 +311,7 @@ function createLevel(seed, map, previous) {
     relics: 0, reloadLeft: 0, reloadSpan: 0, cooldown: 0, hurt: 0, recoil: 0, bob: 0, moving: 0, stride: 0,
     kills: 0, dash: 0, dashCooldown: 0, dashX: 0, dashY: 0, dashShot: 0, riposte: 0, slowed: 0, charged: false,
     usedWards: new Set(), dashHits: new Set() };
-  const arena = { entrance: arenaX - 1, left: arenaX, active: false, cleared: false, stage: 0, next: 0 };
+  const arena = { entrance: arenaX - 1, left: arenaX, active: false, cleared: false, exitReady: false, stage: 0, next: 0 };
   const world = { seed, map, width, height, wingSpan, midY, total, rand, lootRandom, tiles, floor, player, arena,
     layoutRandom: seeded(seed ^ 0xa1463f3d), secretWalls: new Uint8Array(tiles.length),
     bossName: island ? "Король обезьян" : "Смотритель", acts: island ? KING_ACTS : BOSS_ACTS,
@@ -321,6 +329,11 @@ function createLevel(seed, map, previous) {
       floor[ix(world, x, y)] = style;
     }
   };
+  if (map === DREAM) {
+    buildDream(world, carve);
+    reveal(world);
+    return world;
+  }
   for (let wing = 0; wing < total; wing++) buildWing(world, wing, carve);
   carve(arenaX, midY - map.arenaRadius, arenaX + map.arenaLength, midY + map.arenaRadius, 4);
   for (const x of [arenaX + 5, arenaX + (island ? 16 : 12)]) for (const y of [midY - 4, midY + 3]) {
@@ -360,6 +373,133 @@ function createLevel(seed, map, previous) {
   return world;
 }
 
+function buildDream(world, carve) {
+  carve(2, 7, 9, 14, 1);
+  carve(9, 10, 12, 11, 0);
+  carve(12, 6, 21, 14, 1);
+  carve(16, 2, 19, 4, 3);
+  carve(21, 10, 24, 11, 0);
+  carve(24, 5, 36, 15, 4);
+  world.training = { step: 0, objective: world.start, chart: false, target: null };
+  world.player.hp = 77;
+  world.arena.entrance = 23;
+  setBarrier(world, 10, 8);
+  setBarrier(world, 22, 8);
+  const panel = { x: 17, y: 5 };
+  world.tiles[ix(world, panel.x, panel.y)] = SECRET_PANEL;
+  world.secretWalls[ix(world, panel.x, panel.y)] = 2;
+  world.secrets.push({ panels: [panel], x: 17.5, y: 4.5, open: false,
+    prize: { kind: "upgrade", x: 17.5, y: 4.5 }, supplies: { kind: "ammo", x: 16.5, y: 3.5 } });
+  world.seals.push({ x: 22.5, y: 11, wing: 0 });
+  for (const [x, y] of [[5.5,7.6],[8.6,9.1],[13.2,13.5],[17.5,6.5],[20.4,13.9],[26.7,6.5],[32.1,14.5]]) {
+    world.props.push({ kind: "torch", x, y });
+  }
+  addEnemy(world, "captain", 31.5, 10.5);
+  world.boss = world.enemies.at(-1);
+  Object.assign(world.boss, { hp: 88, max: 88, pattern: 0, charge: 0 });
+  world.bossName = "Тень боцмана";
+  world.acts = [{ ...BOSS_ACTS[0], name: "Учебный залп", floor: 0, wind: 1.25, cooldown: 1.4, damage: 9 }];
+}
+
+const DREAM_LESSONS = [
+  ["Мышь или стрелки · оглянись в трюме", "Проведи по экрану, чтобы оглядеться"],
+  ["WASD · пройдись по трюму", "Кнопки ↑ и ↓ · пройдись по трюму"],
+  ["1 · пистолет. ЛКМ или пробел · выстрели в тень", "Возьми пистолет и выстрели в тень кнопкой «Огонь»"],
+  ["R · пополни магазин из запаса", "Нажми значок патрона, чтобы перезарядить"],
+  ["Shift · сделай рывок, чтобы уйти от удара", "Кнопка ⇢ · сделай рывок, чтобы уйти от удара"],
+  ["Подойди к ящику с патронами и аптечке у решётки"],
+  ["3 · достань саблю, подойди к тени и ударь", "Смени оружие на саблю и ударь тень вблизи"],
+  ["У среднего фонаря есть шов. Подойди и нажми E", "Найди шов за средним фонарём и открой тайник"],
+  ["Возьми жетон в тайнике и выбери капитанское умение"],
+  ["Подбери второй жетон и попробуй повысить ранг умения"],
+  ["Tab · раскрой карту и посмотри свои умения", "Нажми значок карты, чтобы увидеть свои умения"],
+  ["Подбери мушкетон и длинный мушкет · 2 и 4", "Подбери мушкетон и длинный мушкет в соседнем зале"],
+  ["Синяя стрелка ведёт к осколку. Сначала одолей стража"],
+  ["Осколок снял печать. Войди на арену"],
+  ["Уходи с линии залпа и атакуй, пока тень перезаряжается"],
+  ["Ворота открыты. Войди в них, чтобы проснуться"],
+];
+
+export function dreamHint(world, touch) {
+  const lesson = DREAM_LESSONS[world.training.step];
+  return lesson?.[touch ? 1 : 0] ?? lesson?.[0];
+}
+
+function dreamTarget(world, kind, x, y, weapon) {
+  addEnemy(world, kind, x, y);
+  const enemy = world.enemies.at(-1);
+  if (weapon) Object.assign(enemy, { practice: weapon, hp: ARMORY[weapon].damage, max: ARMORY[weapon].damage });
+  world.training.target = enemy;
+  world.training.objective = enemy;
+}
+
+export function advanceDream(world, events) {
+  const { training, player: p } = world;
+  if (!training) return;
+  let done = false;
+  switch (training.step) {
+    case 0:
+      done = Math.abs(Math.sin(p.angle)) > .12 || Math.abs(p.pitch) > .12 || Math.cos(p.angle) < 0;
+      break;
+    case 1:
+      done = Math.hypot(p.x - world.start.x, p.y - world.start.y) > 1.3;
+      if (done) dreamTarget(world, "drowned", 8.5, 10.5, "pistol");
+      break;
+    case 2:
+      done = training.target.hp === 0;
+      if (!p.ammo && p.chambers.pistol === 0) p.ammo = 8;
+      break;
+    case 3: done = events.includes("reload-ready"); break;
+    case 4:
+      done = events.includes("dash");
+      if (done) {
+        setBarrier(world, 10, 0);
+        training.objective = { x: 12.5, y: 10.5 };
+        world.items.push({ kind: "ammo", ...training.objective }, { kind: "heal", x: 14.1, y: 10.5 });
+      }
+      break;
+    case 5:
+      done = !world.items.some(item => item.kind === "ammo" || item.kind === "heal");
+      if (done) dreamTarget(world, "drowned", 16.9, 11.5, "blade");
+      break;
+    case 6:
+      done = training.target.hp === 0;
+      if (done) training.objective = { x: 17.5, y: 5.5 };
+      break;
+    case 7:
+      done = world.secrets[0].open;
+      if (done) training.objective = world.secrets[0].prize;
+      break;
+    case 8:
+      done = p.skills.length > 0;
+      if (done) {
+        training.objective = { x: 18.7, y: 3.2 };
+        world.items.push({ kind: "upgrade", ...training.objective });
+      }
+      break;
+    case 9: done = p.skills.some(skill => skill.rank > 1); break;
+    case 10:
+      done = training.chart;
+      if (done) {
+        training.objective = { x: 19.5, y: 8.5 };
+        world.items.push({ kind: "scatter", ...training.objective }, { kind: "musket", x: 19.5, y: 12.5 });
+      }
+      break;
+    case 11:
+      done = p.arsenal.has("scatter") && p.arsenal.has("musket");
+      if (!done && p.arsenal.has("scatter")) training.objective = { x: 19.5, y: 12.5 };
+      if (done) {
+        dreamTarget(world, "sentinel", 20.5, 9.15);
+        world.items.push({ kind: "relic", x: 20.5, y: 10.5, wing: 0, boon: BOONS[0], guards: [training.target] });
+      }
+      break;
+    case 12: done = p.relics === 1; break;
+    case 13: done = world.arena.active; break;
+    case 14: done = world.arena.cleared; break;
+  }
+  if (done) training.step++;
+}
+
 function setBarrier(world, x, kind) {
   world.tiles[ix(world, x, world.midY)] = kind;
   world.tiles[ix(world, x, world.midY + 1)] = kind;
@@ -368,6 +508,7 @@ function setBarrier(world, x, kind) {
 }
 
 export function location(world) {
+  if (world.training) return world.map.title;
   if (world.arena.active) return world.map.key === "island" ? "Трон обезьян" : "Зал Смотрителя";
   return world.map.wings[sector(world)];
 }
@@ -381,6 +522,7 @@ export function compassObjective(world) {
   if (relic) return { point: relic, label: "Осколок" };
   if (world.arena.cleared) return { point: world.gate, label: "Выход" };
   if (world.arena.active) return { point: world.boss, label: world.bossName };
+  if (world.training && world.player.relics === 0) return { point: world.training.objective, label: "Сон" };
   return { point: { x: world.arena.left + 2, y: world.gate.y }, label: "Арена" };
 }
 
@@ -499,7 +641,7 @@ function damage(world, points) {
     cue(world, "shield");
   }
   if (p.hp < p.max / 3) amount *= 1 - skillPower(p, "thick-hide");
-  p.hp = Math.max(0, p.hp - Math.max(1, Math.round(amount)));
+  p.hp = Math.max(world.training ? 1 : 0, p.hp - Math.max(1, Math.round(amount)));
   p.hurt = .36;
   p.riposte = world.time + 2;
   emit(world, "hurt");
@@ -514,8 +656,9 @@ function damage(world, points) {
 }
 
 function draftSkill(world) {
-  const pool = world.map.key === "island" ? CAPTAIN_SKILLS : UPGRADES;
   const owned = new Map(world.player.skills.map(skill => [skill.id, skill.rank]));
+  const pool = world.training ? UPGRADES.filter(skill => skill.steps && (!owned.size || owned.has(skill.id)))
+    : world.map.key === "island" ? CAPTAIN_SKILLS : UPGRADES;
   const rest = shuffled(pool.map(skill => skillAtRank(skill, (owned.get(skill.id) ?? 0) + 1)).filter(Boolean), world.lootRandom);
   if (!rest.length) return;
   world.skillChoices = rest.slice(0, 3);
@@ -630,16 +773,22 @@ function gather(world) {
     prompt(world, boss.wards?.some(ward => ward.hp > 0) ? "Идолы защищают Короля. Разбей их!" : world.acts[arena.stage].name);
     emit(world, arena.stage === 1 ? "arena-rage" : "arena-fury");
   }
-  if (world.arena.active && !world.arena.cleared && world.boss.hp <= 0) {
-    world.arena.cleared = true;
+  const { arena, gate } = world;
+  const atGate = Math.hypot(p.x - gate.x, p.y - gate.y) < .78;
+  if (arena.active && !arena.cleared && world.boss.hp <= 0) {
+    arena.cleared = true;
+    arena.exitReady = world.map.key === "fort" || !atGate;
     world.bolts.length = 0;
     world.hazards.length = 0;
-    prompt(world, world.bossName + " пал. Выход открыт!");
+    prompt(world, arena.exitReady ? world.bossName + " пал. Войди в ворота." : "Ворота открыты. Отойди и войди снова.");
     emit(world, "victory");
   }
-  if (world.arena.cleared && (world.map.key === "island" || Math.hypot(p.x - world.gate.x, p.y - world.gate.y) < .78)) {
-    world.status = "won";
-    emit(world, "win");
+  if (arena.cleared) {
+    if (!atGate) arena.exitReady = true;
+    else if (arena.exitReady) {
+      world.status = "won";
+      emit(world, "win");
+    }
   }
   const seal = world.seals[p.relics];
   if (seal && Math.hypot(p.x - seal.x, p.y - seal.y) < 1.3) prompt(world, "Печать закрыта. Найди осколок в этом крыле");
@@ -752,6 +901,7 @@ function hurtEnemy(world, target, amount, weapon, parry = false) {
   const p = world.player;
   const boss = target === world.boss;
   if (!target.hp || (boss && (!world.arena.active || world.time < world.arena.next))) return;
+  if (target.practice && weapon !== target.practice) return;
   if (target.leap || target.wards?.some(ward => ward.hp > 0)) {
     if (target.guardPing < world.time) {
       target.guardPing = world.time + .65;
@@ -788,7 +938,7 @@ function hurtEnemy(world, target, amount, weapon, parry = false) {
     p.firearmKills++;
     if (p.traits.has("salvage") && p.firearmKills % 4 === 0) p.ammo = Math.min(p.ammoLimit, p.ammo + 1);
   }
-  if (!boss && world.lootRandom() < RARE_DROP) world.items.push({ kind: "upgrade", x: target.x, y: target.y });
+  if (!boss && !world.training && world.lootRandom() < RARE_DROP) world.items.push({ kind: "upgrade", x: target.x, y: target.y });
   emit(world, "defeat", target, target.kind);
 }
 
@@ -998,6 +1148,7 @@ function updateEnemy(world, enemy, dt) {
   if (!enemy.hp) return;
   enemy.hurt = Math.max(0, enemy.hurt - dt);
   enemy.recover = Math.max(0, enemy.recover - dt);
+  if (enemy.practice) return;
   if (enemy.kind === "king") {
     updateKing(world, enemy, dt);
     return;

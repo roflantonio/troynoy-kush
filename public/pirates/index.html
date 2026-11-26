@@ -8,9 +8,9 @@
   <title>Проклятие фортуны</title>
   <link rel="preload" as="image" href="./awakening.webp">
   <link rel="preload" as="image" href="./viewmodels.png?v=11">
-  <link rel="stylesheet" href="./pirates.css?v=12">
-  <link rel="stylesheet" href="./sea.css?v=12">
-  <script type="module" src="./game.js?v=12"></script>
+  <link rel="stylesheet" href="./pirates.css?v=13">
+  <link rel="stylesheet" href="./sea.css?v=13">
+  <script type="module" src="./game.js?v=13"></script>
 </head>
 <body>
   <main class="cabinet" id="cabinet" data-mode="menu">
@@ -58,15 +58,15 @@
 
     <section id="sea" class="sea-screen" aria-label="Морская битва" hidden>
       <header id="sea-hud" class="sea-hud">
-        <div class="sea-heading"><h2>Открытое море</h2><span id="sea-wave">Волна 1 / 4</span></div>
-        <div class="sea-stat"><label for="fleet-meter">Потоплено <strong id="sea-sunk">0 / 10</strong></label><progress id="fleet-meter" value="0" max="10"></progress></div>
+        <div class="sea-heading"><h2>Открытое море</h2><span id="sea-wave"></span></div>
+        <div class="sea-stat"><label for="fleet-meter">Потоплено <strong id="sea-sunk"></strong></label><progress id="fleet-meter" value="0"></progress></div>
         <div class="sea-stat"><label for="hull-meter">Корпус <strong id="sea-hull">100%</strong></label><progress id="hull-meter" value="100" max="100"></progress></div>
       </header>
       <div class="sea-water">
         <canvas id="sea-view" width="432" height="244" tabindex="0" aria-label="Корабль капитана и поле боя"></canvas>
         <div class="kraken-meter" id="kraken-meter" hidden>
           <label for="kraken-health">Кракен <span id="kraken-stage"></span></label>
-          <progress id="kraken-health" value="182" max="182"></progress>
+          <progress id="kraken-health" value="0"></progress>
         </div>
         <div class="sea-qte" id="sea-qte" hidden>
           <p id="sea-threat"></p><strong id="sea-order" aria-live="polite"></strong>
@@ -92,7 +92,21 @@
       </div>
     </section>
 
+    <section id="sea-briefing" class="overlay modal-screen" hidden aria-labelledby="brief-title">
+      <div class="sheet sea-briefing">
+        <h2 id="brief-title">Перед выходом в море</h2>
+        <p>Потопи 25 кораблей, чтобы пройти сквозь флот.</p>
+        <dl>
+          <dt>Курс</dt><dd id="brief-course">WASD или стрелки ведут корабль. Держи цели вдоль борта.</dd>
+          <dt>Пушки</dt><dd id="brief-fire">Q стреляет с левого борта, E — с правого. Готовая цель подсвечивается.</dd>
+          <dt>Манёвр</dt><dd id="brief-orders">При тревоге нажми 1, 2 или 3 по команде рулевого до конца отсчёта.</dd>
+        </dl>
+        <button class="button primary" id="raise-anchor" type="button">Поднять якорь</button>
+      </div>
+    </section>
+
     <section id="menu" class="overlay title-screen" aria-labelledby="game-title">
+      <canvas class="title-art" id="title-art" aria-hidden="true" hidden></canvas>
       <div class="sea-haze" aria-hidden="true"></div>
       <div class="cinders" aria-hidden="true"></div>
       <div class="title-frame" aria-hidden="true"></div>
@@ -101,6 +115,7 @@
         <h1 id="game-title">Проклятие<br><em>фортуны</em></h1>
         <nav class="title-choices" aria-label="Главное меню">
           <button id="start" class="title-choice" type="button" disabled>Начать поход</button>
+          <button id="menu-settings" class="title-choice" type="button">Настройки</button>
           <button id="guide" class="title-choice" type="button">Управление</button>
           <a class="title-choice title-return" href="../">Вернуться в лаунчер</a>
         </nav>
@@ -111,7 +126,9 @@
         <h2 id="pause-title">Пауза</h2>
         <div class="menu-buttons">
           <button id="continue" class="button primary" type="button">Продолжить</button>
+          <button id="pause-settings" class="button plain" type="button">Настройки</button>
           <button id="pause-guide" class="button plain" type="button">Управление</button>
+          <button id="skip-dream" class="button plain" type="button" hidden>Проснуться и пропустить обучение</button>
           <button id="menu-return" class="button plain" type="button">В меню игры</button>
         </div>
       </div>
@@ -150,7 +167,7 @@
     <section id="skills" class="overlay modal-screen" hidden aria-labelledby="skills-title">
       <div class="sheet skill-sheet">
         <h2 id="skills-title">Капитанские умения</h2>
-        <p>Выбери одно умение</p>
+        <p id="skill-instructions">Выбери одно умение</p>
         <div class="skill-options" id="skill-options"></div>
       </div>
     </section>
@@ -168,7 +185,6 @@
     </section>
 
     <div class="toolbar">
-      <button id="audio" type="button" aria-pressed="true" class="utility"><span class="emblem bell-mark" aria-hidden="true"></span> Звук</button>
       <button id="map-toggle" type="button" class="utility game-tool" aria-label="Карта (Tab)" title="Карта" hidden><span class="emblem chart-mark" aria-hidden="true"></span><kbd aria-hidden="true">Tab</kbd></button>
       <button id="pause-toggle" type="button" class="utility game-tool" aria-label="Пауза (Esc)" title="Пауза" hidden><span class="pause-mark" aria-hidden="true"></span><kbd aria-hidden="true">Esc</kbd></button>
     </div>
@@ -188,6 +204,18 @@
     </div>
   </main>
 
+  <dialog id="settings" class="settings" aria-labelledby="settings-title">
+    <div class="help-head"><h2 id="settings-title">Настройки</h2><button id="settings-close" type="button" class="utility" aria-label="Закрыть настройки">×</button></div>
+    <div class="volume-control">
+      <label for="music-volume">Музыка</label><output id="music-percent" for="music-volume">100%</output>
+      <input id="music-volume" type="range" min="0" max="100" value="100">
+    </div>
+    <div class="volume-control">
+      <label for="effects-volume">Звуки игры</label><output id="effects-percent" for="effects-volume">100%</output>
+      <input id="effects-volume" type="range" min="0" max="100" value="100">
+    </div>
+  </dialog>
+
   <dialog id="help">
     <div class="help-head"><h2>Управление</h2><button id="help-close" type="button" class="utility" aria-label="Закрыть управление">×</button></div>
     <dl>
@@ -203,7 +231,8 @@
     </dl>
     <p>На телефоне вращай камеру свайпом и используй экранные кнопки. Карта заполняется по мере разведки. Краб быстро сближается зигзагом. Щитоносец уязвим во время замаха и после удара.</p>
     <p>На острове макаки-налётчики быстро сближаются, пращники бросают камни, гадюки замедляют укусом, маски идолов выпускают веер снарядов, а гориллы бьют вблизи. При подборе жетона выбери умение из трёх.</p>
-    <p>В море держи корабли вдоль борта. Q и E стреляют из левых и правых пушек. При тревоге нажми 1, 2 или 3 по команде на экране.</p>
+    <p>В море потопи 25 кораблей. Держи цели вдоль борта. Q и E стреляют из левых и правых пушек. При тревоге нажми 1, 2 или 3 по команде на экране.</p>
+    <button class="button plain" id="dream-replay" type="button">Сон-обучение</button>
   </dialog>
 </body>
 </html>

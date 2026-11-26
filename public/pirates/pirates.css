@@ -15,6 +15,7 @@ h1,h2,p,dl,dd{margin:0}
 .cabinet{position:relative;min-height:100svh;display:grid;place-items:center;overflow:hidden;background:radial-gradient(ellipse at 50% 40%,#182e31,#0c1317 76%)}
 .view{width:min(100%,calc(100svh * 1.78));aspect-ratio:432/244;max-height:100svh;position:relative;isolation:isolate;background:#122328;border-inline:1px solid #2a4243}
 #scene{width:100%;height:100%;display:block;image-rendering:pixelated;touch-action:none;outline-offset:-3px}
+[data-dream] .view::after{content:"";position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 0 42px #689d9a60,inset 0 0 110px #223947b0;background:linear-gradient(0deg,#3757771a,#4c9a9b19)}
 .crosshair{position:absolute;top:50%;left:50%;width:10px;height:10px;transform:translate(-50%,-50%);pointer-events:none;color:#e5dfbf;filter:drop-shadow(0 1px #151c1d)}
 .crosshair::before,.crosshair::after{content:"";position:absolute;top:4px;left:0;width:10px;height:2px;background:currentColor}
 .crosshair::after{transform:rotate(90deg)}
@@ -26,11 +27,11 @@ h1,h2,p,dl,dd{margin:0}
 .overlay{position:absolute;inset:0;z-index:2}
 .title-screen{isolation:isolate;display:grid;align-items:center;background:#0b1419;overflow:hidden}
 .title-screen::before,.title-screen::after,.sea-haze,.cinders{content:"";position:absolute;inset:0;pointer-events:none}
-.title-screen::before{z-index:-3;inset:-3%;background:url("./fort.webp") center/cover;animation:ebb 23s ease-in-out infinite alternate}
-.title-screen::after{z-index:-2;background:radial-gradient(ellipse at 46% 47%,#0a141dd4 8%,#09151ab8 30%,#0811186b 60%,#070e16a8 100%),linear-gradient(0deg,#080f16 0%,#0d182550 46%,#050c15a8 100%)}
+.title-screen::before{z-index:-4;background:url("./fort.webp") center/cover}
+.title-art{position:absolute;inset:0;z-index:-3;width:100%;height:100%;object-fit:cover;pointer-events:none}
+.title-screen::after{z-index:-2;background:radial-gradient(ellipse at 42% 49%,#0a141dd8 9%,#09151a9e 32%,#08111838 66%,#070e1690 100%),linear-gradient(0deg,#080f16 0%,#0d182533 43%,#050c1555 100%)}
 .sea-haze{z-index:-1;inset:44% -15% -30%;opacity:.57;background:radial-gradient(ellipse at 77% 48%,#77b6ac4a,transparent 58%),radial-gradient(ellipse at 18% 68%,#70a6a660,transparent 62%);filter:blur(15px);animation:drift 14s ease-in-out infinite alternate}
 .cinders{z-index:-1;inset:30% 0 -15% 35%;opacity:.62;background:radial-gradient(circle at 28% 68%,#e9b574 0 1px,transparent 3px),radial-gradient(circle at 48% 78%,#fbd7a6 0 1px,transparent 3px),radial-gradient(circle at 58% 38%,#a6d1c9 0 1px,transparent 2px),radial-gradient(circle at 67% 70%,#ebb476 0 1px,transparent 2px),radial-gradient(circle at 85% 51%,#c0ddd3 0 1px,transparent 2px);animation:embers 7s ease-in-out infinite alternate}
-@keyframes ebb{from{transform:scale(1) translateX(0)}to{transform:scale(1.1) translateX(-1.2%)}}
 @keyframes drift{from{transform:translate(-6%,3%)}to{transform:translate(6%,-7%)}}
 @keyframes embers{from{transform:translateY(2%);opacity:.25}to{transform:translate(2%,-9%);opacity:.8}}
 .title-frame{position:absolute;inset:clamp(12px,2.4vw,39px);pointer-events:none;border:1px solid #c791594d;box-shadow:inset 0 0 0 4px #10121634}
@@ -120,6 +121,11 @@ h1,h2,p,dl,dd{margin:0}
 .win-note{color:#ffe7b3;margin-bottom:8px}
 dialog{width:min(510px,94vw);background:#19282b;border:1px solid #708b7e;color:var(--ink);border-radius:9px;padding:17px}
 dialog::backdrop{background:#070d12d9}
+.settings{padding:clamp(17px,4vw,32px);border-color:#9a7d57;border-radius:3px;background:linear-gradient(145deg,#253940,#121e25);box-shadow:inset 0 0 0 4px #16252a,inset 0 0 0 5px #977b5844}
+.volume-control{display:grid;grid-template-columns:1fr auto;gap:3px 1em;padding-block:11px;border-bottom:1px solid #74847766}
+.volume-control label{font:400 1.25rem var(--inscription)}
+.volume-control output{font-size:.9rem;color:var(--coin);font-variant-numeric:tabular-nums}
+.volume-control input{grid-column:1/-1;width:100%;min-height:34px;accent-color:var(--coin);cursor:pointer;margin:0}
 .help-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
 .help-head h2{font-size:2.2rem}
 #help dl{display:grid;gap:5px;margin-bottom:12px}
@@ -127,6 +133,7 @@ dialog::backdrop{background:#070d12d9}
 #help dt{color:var(--sea);font-weight:800}
 #help p{color:var(--muted);font-size:.88rem}
 #help p + p{margin-top:8px}
+#dream-replay{margin-top:12px}
 .emblem{display:inline-block;flex:none;width:var(--emblem,24px);height:var(--emblem,24px);background:url("./instruments.png") var(--mark,0%) center/700% 100% no-repeat;vertical-align:middle}
 .heart-mark{--mark:16.6667%}
 .dash-mark{--mark:33.3333%}
@@ -175,6 +182,7 @@ dialog::backdrop{background:#070d12d9}
 .boss-phase{display:block;color:#cfada1;font-size:clamp(.5rem,1.24vw,.72rem);margin-block:2px 4px}
 .boss-seals{display:flex;justify-content:center;gap:8px;margin-top:6px}
 .boss-seals i{width:5px;height:5px}
+[data-dream] .boss-seals i + i{display:none}
 .boss-hud[data-stage="1"] i:first-child,.boss-hud[data-stage="2"] i:nth-child(2),.boss-hud[data-stage="3"] i:nth-child(3){background:#f4c189;box-shadow:0 0 8px #d59070}
 .boss-hud[data-stage="2"] progress{--fill:#d58cca}
 .boss-hud[data-stage="3"] progress{--fill:#f46d62}
@@ -182,6 +190,7 @@ kbd{font:inherit;font-size:.78em;border:1px solid currentColor;border-radius:2px
 .cinematic{overflow:hidden;display:grid;align-content:end;isolation:isolate;background:#04060a}
 .cinematic[data-shot="fort"]::before{content:"";position:absolute;z-index:-2;inset:-4%;background:linear-gradient(0deg,#091217 3%,transparent 69%),url("./awakening.webp") center/cover;animation:eyes-open 2s ease-out both}
 .cinematic[data-shot="arena"]{background:linear-gradient(0deg,#070e13 0%,#08131794 38%,#070c103b 85%)}
+.cinematic[data-shot="dream"]{background:radial-gradient(ellipse at 50% 33%,#70b6b51c,#0a131cb8 80%),linear-gradient(0deg,#071018,transparent 72%)}
 .scene-title{position:absolute;top:clamp(17px,4.2vh,50px);left:clamp(17px,5.6vw,105px);color:#f1cc9d;text-shadow:0 2px 12px #02060b;font:400 clamp(1rem,4vw,3.07rem)/1 var(--inscription)}
 .cinematic[data-shot="dark"] .scene-title{opacity:0}
 .portrait{position:absolute;z-index:-1;width:min(43vw,390px,61svh);aspect-ratio:3/4;bottom:clamp(105px,15svh,148px);left:clamp(16px,9vw,145px);background:url("./portraits.webp") left center/200% 100% no-repeat;mask-image:radial-gradient(ellipse 61% 72% at 50% 52%,#000 53%,transparent 86%);filter:drop-shadow(0 0 30px #111f28)}
@@ -203,6 +212,7 @@ kbd{font:inherit;font-size:.78em;border:1px solid currentColor;border-radius:2px
 .skill-sheet{width:min(100%,900px);max-height:100%;overflow-y:auto;padding:clamp(12px,3vw,36px);border-color:#aa8b60}
 .skill-sheet>p{color:#c5b991;font-size:.95rem;margin:-2px 0 17px}
 .skill-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:clamp(5px,1.65vw,20px);justify-items:stretch}
+.skill-options:has(.skill-card:only-child){grid-template-columns:minmax(0,235px);justify-content:center}
 .skill-card{position:relative;display:grid;grid-template-rows:auto 1fr auto;justify-items:center;align-items:start;min-height:clamp(164px,31vh,256px);padding:clamp(9px,2vw,22px);border:1px solid #96825b;border-radius:3px;background:radial-gradient(ellipse at 50% 12%,#34483a,#152529 67%);box-shadow:inset 0 0 0 3px #131d20,inset 0 0 0 4px #9f83573b;color:#fae1ae}
 .skill-card:hover,.skill-card:focus-visible{border-color:#e3be7d;background:radial-gradient(ellipse at 50% 12%,#4a5b3f,#203337 70%)}
 .skill-icon{display:inline-block;flex:none;width:var(--skill-icon,60px);aspect-ratio:1;background:url("./skill-icons.png") 0 0/600% 500% no-repeat;image-rendering:pixelated}
@@ -219,7 +229,7 @@ kbd{font:inherit;font-size:.78em;border:1px solid currentColor;border-radius:2px
 #learned-skills .skill-icon{--skill-icon:34px}
 #learned-skills li>span:nth-child(2){gap:2px}
 @media(max-width:620px){
-  .title-screen::before,.cinematic[data-shot="fort"]::before{background-position:63% center}
+  .cinematic[data-shot="fort"]::before{background-position:63% center}
   .title-content{padding:44px 23px 23px}
   .title-content h1{font-size:clamp(2.55rem,11.65vw,5.8rem)}
   .touch{bottom:14px}
@@ -269,6 +279,11 @@ kbd{font:inherit;font-size:.78em;border:1px solid currentColor;border-radius:2px
   #skip-scene{bottom:6px;min-height:31px}
 }
 
+@media(max-aspect-ratio:1/1){
+  .title-screen::before{background-position:88% center}
+  .title-art{object-position:88% center}
+}
 @media(prefers-reduced-motion:reduce){
-  .title-screen::before,.sea-haze,.cinders,.cinematic[data-shot="fort"]::before,.cinematic[data-shot="island"]::before,.cinematic[data-shot="ending"]::before{animation:none}
+  .title-art{display:none}
+  .sea-haze,.cinders,.cinematic[data-shot="fort"]::before,.cinematic[data-shot="island"]::before,.cinematic[data-shot="ending"]::before{animation:none}
 }

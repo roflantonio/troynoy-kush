@@ -1,12 +1,14 @@
-import { ARMORY, cast, chooseSkill, compassObjective, createRun, location, nextLevel, secretAhead, stepRun, switchWeapon, weaponCapacity } from "./world.js?v=12";
-import { createRenderer, mapDraw } from "./render.js?v=12";
-import { pirateSound } from "./sound.js?v=12";
-import { FLEET_TOTAL, HELM, answerHelm, beginKraken, broadsideTarget, fireBroadside, newVoyage, stepVoyage } from "./sea.js?v=12";
-import { seaRenderer } from "./sea-render.js?v=12";
+import { ARMORY, advanceDream, cast, chooseSkill, compassObjective, createDream, createRun, dreamHint, location, nextLevel, secretAhead, stepRun, switchWeapon, weaponCapacity } from "./world.js?v=13";
+import { createRenderer, mapDraw } from "./render.js?v=13";
+import { pirateSound } from "./sound.js?v=13";
+import { FLEET_TOTAL, FLEET_WAVES, KRAKEN_HP, HELM, answerHelm, beginKraken, broadsideTarget, fireBroadside, newVoyage, stepVoyage } from "./sea.js?v=13";
+import { seaRenderer } from "./sea-render.js?v=13";
+import { animateFortMenu } from "./menu-scene.js?v=13";
 
 const $ = id => document.getElementById(id);
 const scene = $("scene");
 const paint = createRenderer(scene);
+const paintMenu = animateFortMenu($("title-art"));
 const seaView = $("sea-view");
 const paintSea = seaRenderer(seaView);
 const broadsides = [$("port-cannon"), $("starboard-cannon")];
@@ -17,11 +19,22 @@ const held = new Set();
 const relicMarks = [...document.querySelectorAll(".compass-gems i")];
 const roundMarks = [...document.querySelectorAll(".chambers i")];
 const titleChoices = [...document.querySelectorAll(".title-choice")];
-const screens = ["menu", "pause", "result", "chart", "cinematic", "skills"];
-const storageKey = "fortune-sound";
-let soundOn = true;
-try { soundOn = localStorage.getItem(storageKey) !== "off"; } catch { /* Use the default. */ }
-const sound = pirateSound(soundOn);
+const screens = ["menu", "pause", "result", "chart", "cinematic", "skills", "sea-briefing"];
+const storageKey = "fortune-volumes";
+const dreamKey = "fortune-dream";
+const volumeChannels = ["music", "effects"];
+const volumes = { music: 1, effects: 1 };
+let dreamed = false;
+try {
+  const saved = JSON.parse(localStorage.getItem(storageKey));
+  for (const channel of volumeChannels) {
+    const value = saved?.[channel];
+    if (Number.isFinite(value)) volumes[channel] = Math.max(0, Math.min(1, value));
+    else if (localStorage.getItem("fortune-sound") === "off") volumes[channel] = 0;
+  }
+} catch { /* Use the default. */ }
+try { dreamed = localStorage.getItem(dreamKey) === "done"; } catch { /* Keep the default. */ }
+const sound = pirateSound(volumes);
 let mode = "menu";
 let run = createRun(1249);
 let voyage = null;
@@ -52,19 +65,20 @@ function clearInput() {
   drag = null;
 }
 
-function setSound(on) {
-  soundOn = on;
-  $("audio").setAttribute("aria-pressed", String(on));
-  $("audio").setAttribute("aria-label", on ? "Выключить звук" : "Включить звук");
-  sound.active(on);
+for (const channel of volumeChannels) {
+  const slider = $(channel + "-volume");
+  const output = $(channel + "-percent");
+  slider.value = Math.round(volumes[channel] * 100);
+  output.value = slider.value + "%";
+  slider.addEventListener("input", () => {
+    volumes[channel] = slider.valueAsNumber / 100;
+    output.value = slider.value + "%";
+    sound.volume(channel, volumes[channel]);
+    sound.unlock();
+    try { localStorage.setItem(storageKey, JSON.stringify(volumes)); } catch { /* Keep the settings for this session. */ }
+  });
 }
-setSound(soundOn);
-$("audio").addEventListener("click", () => {
-  setSound(!soundOn);
-  if (soundOn) sound.unlock();
-  try { localStorage.setItem(storageKey, soundOn ? "on" : "off"); } catch { /* Keep the in-game setting. */ }
-});
-document.addEventListener("pointerdown", event => { if (!$("audio").contains(event.target)) sound.unlock(); }, { passive: true });
+document.addEventListener("pointerdown", () => sound.unlock(), { passive: true });
 document.addEventListener("keydown", () => sound.unlock(), { once: true });
 
 function text(id, value) {
@@ -75,7 +89,7 @@ function text(id, value) {
 
 function updateScore() {
   const calmScene = mode === "cinematic" && ["arrival", "ending"].includes(cinematic.kind);
-  if (mode === "menu" || calmScene) sound.track("dock");
+  if (mode === "menu" || calmScene || run.training) sound.track("dock");
   else if (voyage) sound.track(voyage.phase === "fleet" ? "sea"
     : ["reveal", "kraken"].includes(voyage.phase) ? "kraken" : voyage.phase === "dead" ? "silence" : "dock");
   else if (run.status === "won" || run.arena.cleared) sound.track("dock");
@@ -115,6 +129,7 @@ function showSkills() {
     return button;
   });
   $("skill-options").replaceChildren(...choices);
+  text("skill-instructions", choices.length === 1 && run.training ? "Повысь ранг выбранного умения" : "Выбери одно умение");
   show("skills");
   choices[0]?.focus({ preventScroll: true });
 }
@@ -137,9 +152,10 @@ function showLearnedSkills() {
 function show(next) {
   mode = next;
   $("cabinet").dataset.mode = next;
+  $("cabinet").toggleAttribute("data-dream", !!run.training);
   clearInput();
   for (const screen of screens) $(screen).hidden = next !== screen;
-  const seaVisible = !!voyage && (["sea", "pause"].includes(next) || (next === "cinematic" && cinematic.kind === "kraken"));
+  const seaVisible = !!voyage && (["sea", "pause", "sea-briefing"].includes(next) || (next === "cinematic" && cinematic.kind === "kraken"));
   $("sea").hidden = !seaVisible;
   $("sea-hud").hidden = $("sea-controls").hidden = next !== "sea";
   if (next !== "sea") {
@@ -150,10 +166,11 @@ function show(next) {
   $("crosshair").hidden = next !== "play";
   $("signal").hidden = next !== "play" || run.hintUntil < run.time || !run.hint;
   $("interaction").hidden = next !== "play" || !secretAhead(run);
-  $("audio").hidden = !["menu", "pause"].includes(next);
   $("touch").hidden = !touch || next !== "play";
   $("map-toggle").hidden = next !== "play";
   $("pause-toggle").hidden = next !== "play" && next !== "sea";
+  $("skip-dream").hidden = !run.training || next !== "pause";
+  $("dream-replay").hidden = next !== "menu";
   updateScore();
   if (next !== "play") sound.combat(0);
   if (next !== "play" && document.pointerLockElement === scene) {
@@ -163,7 +180,8 @@ function show(next) {
   if (next === "play") scene.focus({ preventScroll: true });
   if (next === "sea") seaView.focus({ preventScroll: true });
   if (next === "chart") {
-    text("chart-title", run.map.key === "island" ? "Карта острова" : "Карта форта");
+    if (run.training?.step === 10) run.training.chart = true;
+    text("chart-title", run.training ? "Карта сна" : run.map.key === "island" ? "Карта острова" : "Карта форта");
     text("chart-location", location(run));
     text("chart-secrets", "Тайные ходы " + run.secrets.filter(secret => secret.open).length + " / " + run.secrets.length);
     showLearnedSkills();
@@ -185,6 +203,30 @@ const speakers = {
 };
 
 const scenes = {
+  "dream-start": {
+    title: "До шторма",
+    next: "Встать с лежанки",
+    lines: [
+      { speaker: "pirate", shot: "dark", text: "Опять снится старый трюм. Боцман будил меня до рассвета, чтобы я повторил всё, что может спасти жизнь в походе." },
+      { speaker: "pirate", shot: "dream", text: "Кажется, я ещё помню его уроки. Сначала надо оглядеться. Прервать сон можно через паузу." },
+    ],
+  },
+  "dream-guard": {
+    title: "Последний урок",
+    next: "На арену",
+    lines: [
+      { speaker: "pirate", shot: "dream", text: "Боцман всегда говорил: следи за замахом, уходи с линии залпа и отвечай, пока враг не готов атаковать снова." },
+      { speaker: "pirate", shot: "dream", text: "У разных противников свои слабости. Щит опускается во время замаха, а отмеченные круги и полосы опасны, пока не минует удар. После победы войду в ворота." },
+    ],
+  },
+  "dream-end": {
+    title: "Перед пробуждением",
+    next: "Проснуться",
+    lines: [
+      { speaker: "pirate", shot: "dream", text: "Мушкетон хорош вблизи, а длинный мушкет — на расстоянии. Патроны кончатся, если стрелять без разбора. Сабля всегда со мной." },
+      { speaker: "pirate", shot: "dark", text: "В настоящем походе карта заполнится по мере разведки, а капитанские умения останутся со мной на следующем острове. Кажется, это уже шум настоящих волн…" },
+    ],
+  },
   arrival: {
     title: "Форт проклятых",
     lines: [
@@ -289,13 +331,21 @@ function film(now) {
       angle: -.23 + pan * .22, pitch: .028, bob: 0, moving: 0, time: run.time + (now - started) / 1000 });
   }
   if (kind === "kraken") paintSea(voyage, (now - started) / 1000, reducedMotion.matches);
+  if (run.training && act.lines[index].shot === "dream") paint(run, { ...run.player });
 }
 
 function leaveScene(interactive) {
   const kind = cinematic.kind;
   cinematic = null;
   if (kind === "ending") {
-    embark();
+    prepareVoyage();
+    show("sea-briefing");
+    paintSea(voyage, 0, reducedMotion.matches);
+    $("raise-anchor").focus({ preventScroll: true });
+    return;
+  }
+  if (kind === "dream-end") {
+    wakeDream();
     return;
   }
   if (kind === "kraken") {
@@ -322,10 +372,21 @@ function resumePlay() {
   lock();
 }
 
-function start() {
+function start(forceDream = false) {
   voyage = null;
   endingAt = null;
   const seed = crypto.getRandomValues(new Uint32Array(1))[0];
+  if (!dreamed || forceDream) {
+    run = createDream(seed);
+    updateHud();
+    beginScene("dream-start");
+    sound.unlock();
+    return;
+  }
+  startFort(seed);
+}
+
+function startFort(seed) {
   run = createRun(seed);
   sound.bossPhase(0);
   run.hint = touch ? "Синяя стрелка укажет путь к осколку" : "Синяя стрелка — к осколку. E — тайные ходы";
@@ -333,6 +394,12 @@ function start() {
   updateHud();
   beginScene("arrival");
   sound.unlock();
+}
+
+function wakeDream() {
+  dreamed = true;
+  try { localStorage.setItem(dreamKey, "done"); } catch { /* Remember within the session. */ }
+  startFort(run.seed);
 }
 
 function finish() {
@@ -356,9 +423,14 @@ function finish() {
   $("retry").focus({ preventScroll: true });
 }
 
-function embark() {
+function prepareVoyage() {
   voyage = newVoyage();
   endingAt = null;
+  $("fleet-meter").max = FLEET_TOTAL;
+  $("kraken-health").max = KRAKEN_HP;
+}
+
+function embark() {
   show("sea");
   updateSeaHud();
   paintSea(voyage, 0, reducedMotion.matches);
@@ -368,7 +440,7 @@ function updateSeaHud() {
   const { phase, sunk, hull, wave, boss, noticeUntil, time, qte } = voyage;
   text("sea-sunk", sunk + " / " + FLEET_TOTAL);
   text("sea-hull", hull + "%");
-  text("sea-wave", phase === "fleet" ? "Волна " + Math.max(1, wave) + " / 4" : "Кракен");
+  text("sea-wave", phase === "fleet" ? "Волна " + Math.max(1, wave) + " / " + FLEET_WAVES : "Кракен");
   $("hull-meter").value = hull;
   $("fleet-meter").value = sunk;
   $("kraken-meter").hidden = phase !== "kraken";
@@ -463,9 +535,9 @@ function updateHud() {
   $("boss-meter").setAttribute("aria-label", "Здоровье · " + run.bossName);
   text("boss-phase", run.acts[run.arena.stage].name);
   $("boss-hud").hidden = mode !== "play" || !run.arena.active || run.arena.cleared;
-  const signal = mode === "play" && run.hint && run.hintUntil >= run.time;
-  $("signal").hidden = !signal;
-  if (signal) text("signal", run.hint);
+  const hint = run.training ? dreamHint(run, touch) : run.hintUntil >= run.time && run.hint;
+  $("signal").hidden = mode !== "play" || !hint;
+  if (hint) text("signal", hint);
   $("interaction").hidden = mode !== "play" || !secretAhead(run);
 }
 
@@ -491,7 +563,7 @@ function control(dt) {
 }
 
 function playCue({ kind, x, y, color }) {
-  if (!soundOn) return;
+  if (!volumes.effects) return;
   if (x === undefined) {
     sound.effect(kind, color);
     return;
@@ -515,8 +587,10 @@ function frame(now) {
     for (const cue of run.cues.splice(0)) playCue(cue);
     sound.combat(Math.min(1, run.pressure / 3));
     sound.bossPhase(run.arena.stage);
-    for (const event of run.events.splice(0)) {
-      if (event === "arena") beginScene(run.map.key === "island" ? "king" : "watcher");
+    const events = run.events.splice(0);
+    advanceDream(run, events);
+    for (const event of events) {
+      if (event === "arena") beginScene(run.training ? "dream-guard" : run.map.key === "island" ? "king" : "watcher");
       if (event === "skill") showSkills();
       if (event === "victory") updateScore();
     }
@@ -531,9 +605,10 @@ function frame(now) {
         run.hintUntil = 4.2;
         sound.bossPhase(0);
         beginScene("crossing");
-      } else beginScene("ending");
+      } else beginScene(run.training ? "dream-end" : "ending");
     }
-  } else if (mode === "sea") seaFrame(elapsed);
+  } else if (mode === "menu" && !reducedMotion.matches) paintMenu(now);
+  else if (mode === "sea") seaFrame(elapsed);
   else if (mode === "cinematic") film(now);
   requestAnimationFrame(frame);
 }
@@ -541,7 +616,7 @@ requestAnimationFrame(frame);
 
 const moves = new Set(["KeyW","KeyA","KeyS","KeyD","ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Space","PageUp","PageDown","KeyR","KeyE","ShiftLeft","ShiftRight"]);
 document.addEventListener("keydown", event => {
-  if ($("help").open) return;
+  if ($("help").open || $("settings").open) return;
   if (mode === "menu" && ["ArrowUp", "ArrowDown"].includes(event.code)) {
     event.preventDefault();
     const current = titleChoices.indexOf(document.activeElement);
@@ -670,8 +745,24 @@ $("touch-weapon").addEventListener("click", () => {
   const list = [...run.player.arsenal];
   switchWeapon(run, list[(list.indexOf(run.player.weapon) + 1) % list.length]);
 });
-$("start").addEventListener("click", start);
-$("retry").addEventListener("click", () => voyage?.phase === "dead" ? embark() : start());
+$("start").addEventListener("click", () => start());
+$("retry").addEventListener("click", () => {
+  if (voyage?.phase === "dead") {
+    prepareVoyage();
+    embark();
+  } else start();
+});
+$("raise-anchor").addEventListener("click", embark);
+$("skip-dream").addEventListener("click", wakeDream);
+$("dream-replay").addEventListener("click", () => {
+  $("help").close();
+  start(true);
+});
+if (touch) {
+  text("brief-course", "Кнопки со стрелками ведут корабль. Держи цели вдоль борта.");
+  text("brief-fire", "Нажимай «Левый борт» или «Правый борт», когда цель отмечена.");
+  text("brief-orders", "При тревоге нажми кнопку с указанным номером, пока идёт отсчёт.");
+}
 for (const [i, button] of broadsides.entries()) button.addEventListener("click", () => {
   if (mode === "sea") fireBroadside(voyage, i * 2 - 1);
 });
@@ -708,5 +799,7 @@ $("touch-interact").addEventListener("click", () => {
 });
 for (const id of ["guide","pause-guide"]) $(id).addEventListener("click", () => $("help").showModal());
 $("help-close").addEventListener("click", () => $("help").close());
+for (const id of ["menu-settings", "pause-settings"]) $(id).addEventListener("click", () => $("settings").showModal());
+$("settings-close").addEventListener("click", () => $("settings").close());
 show("menu");
 $("start").disabled = false;

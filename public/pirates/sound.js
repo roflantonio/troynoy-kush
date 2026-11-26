@@ -104,9 +104,9 @@ const floorTimbres = {
   "forest-stone": { foot: 105, grit: 1830, decay: .17, weight: .12 },
 };
 
-export function pirateSound(enabled) {
+export function pirateSound(volumes) {
   let context;
-  let master;
+  let musicBus;
   let music;
   let effects;
   let pursuit;
@@ -117,7 +117,8 @@ export function pirateSound(enabled) {
   let track = "dock";
   let danger = 0;
   let watcherPhase = 0;
-  let active = enabled;
+  let musicLevel = volumes.music;
+  let effectsLevel = volumes.effects;
 
   function tone(bus, at, from, to, span, strength, type = "triangle", cutoff = 5400) {
     const oscillator = context.createOscillator();
@@ -338,7 +339,7 @@ export function pirateSound(enabled) {
   }
 
   function score() {
-    if (!active || !tracks[track] || document.hidden || context.state !== "running") return;
+    if (!musicLevel || !tracks[track] || document.hidden || context.state !== "running") return;
     if (next < context.currentTime) next = context.currentTime + .05;
     if (next < context.currentTime + .22) {
       const part = tracks[track];
@@ -352,7 +353,10 @@ export function pirateSound(enabled) {
     grit = context.createBuffer(1, Math.round(context.sampleRate * .56), context.sampleRate);
     const data = grit.getChannelData(0);
     for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
-    master = context.createGain();
+    const master = context.createGain();
+    musicBus = context.createGain();
+    musicBus.gain.value = musicLevel;
+    musicBus.connect(master);
     const reverb = context.createConvolver();
     const impulse = context.createBuffer(2, Math.round(context.sampleRate * 2.35), context.sampleRate);
     for (let channel = 0; channel < impulse.numberOfChannels; channel++) {
@@ -364,11 +368,11 @@ export function pirateSound(enabled) {
     reverb.buffer = impulse;
     const wet = context.createGain();
     wet.gain.value = .32;
-    reverb.connect(wet).connect(master);
+    reverb.connect(wet).connect(musicBus);
     music = Object.fromEntries(Object.keys(tracks).map(name => {
       const channel = context.createGain();
       channel.gain.value = name === track ? .31 : 0;
-      channel.connect(master);
+      channel.connect(musicBus);
       channel.connect(reverb);
       return [name, channel];
     }));
@@ -376,8 +380,8 @@ export function pirateSound(enabled) {
     pursuit.gain.value = danger;
     pursuit.connect(music.fort);
     effects = context.createGain();
-    effects.gain.value = .50;
-    master.gain.value = active ? .6 : 0;
+    effects.gain.value = .50 * effectsLevel;
+    master.gain.value = .6;
     effects.connect(master);
     const limiter = context.createDynamicsCompressor();
     limiter.threshold.value = -17;
@@ -389,7 +393,7 @@ export function pirateSound(enabled) {
   }
 
   async function unlock() {
-    if (!active) return;
+    if (!musicLevel && !effectsLevel) return;
     try {
       if (!context) prepare();
       if (context.state !== "running") await context.resume();
@@ -397,13 +401,13 @@ export function pirateSound(enabled) {
   }
 
   function voice(kind) {
-    if (!active || !context || context.state !== "running" || document.hidden) return;
+    if (!effectsLevel || !context || context.state !== "running" || document.hidden) return;
     const at = context.currentTime + .007;
     const pirate = kind === "pirate";
     const pitches = pirate ? [230, 256, 240, 278, 252] : kind === "king" ? [151, 167, 139, 186, 157] : [103, 118, 109, 92, 121];
     const pitch = pitches[syllable++ % pitches.length];
     tone(effects, at, pitch, pitch * (pirate ? .82 : .69), pirate ? .059 : .082,
-      pirate ? .10 : .138, pirate ? "triangle" : "sawtooth", pirate ? 1420 : 670);
+      pirate ? .18 : .23, pirate ? "triangle" : "sawtooth", pirate ? 1420 : 670);
   }
 
   function spatialBus(position) {
@@ -459,7 +463,7 @@ export function pirateSound(enabled) {
   }
 
   function effect(kind, color, position) {
-    if (!active || !context || context.state !== "running" || document.hidden) return;
+    if (!effectsLevel || !context || context.state !== "running" || document.hidden) return;
     const at = context.currentTime + .01;
     const bus = spatialBus(position);
     if (kind.startsWith("enemy-") || kind === "defeat") {
@@ -477,6 +481,10 @@ export function pirateSound(enabled) {
       const large = kind === "ship-sink" || kind === "kraken-rise" || kind === "kraken-fall";
       noise(bus, at, large ? .54 : .22, large ? 575 : 1260, large ? .50 : .27);
       tone(bus, at, large ? 93 : 165, large ? 27 : 60, large ? .75 : .2, .22, "triangle");
+    } else if (kind === "kraken-warn" || kind === "kraken-ink" || kind === "kraken-splash") {
+      const warning = kind === "kraken-warn";
+      tone(bus, at, warning ? 215 : 133, warning ? 295 : 41, .36, warning ? .17 : .28, "triangle", 1050);
+      noise(bus, at, warning ? .24 : .49, kind === "kraken-ink" ? 1410 : 685, warning ? .11 : .42);
     } else if (kind === "sea-signal" || kind === "ship-warn" || kind === "sea-evade") {
       const order = kind === "sea-signal";
       tone(bus, at, order ? 610 : 367, order ? 587 : 412, .20, order ? .21 : .095, "triangle");
@@ -566,9 +574,14 @@ export function pirateSound(enabled) {
   }
   return {
     unlock, effect, voice,
-    active(on) {
-      active = on;
-      if (master) master.gain.setTargetAtTime(on ? .6 : 0, context.currentTime, .045);
+    volume(channel, level) {
+      if (channel === "music") {
+        musicLevel = level;
+        musicBus?.gain.setTargetAtTime(level, context.currentTime, .045);
+      } else {
+        effectsLevel = level;
+        effects?.gain.setTargetAtTime(.50 * level, context.currentTime, .045);
+      }
     },
     combat(level) {
       if (danger === level) return;
