@@ -33,10 +33,10 @@ const KRAKEN_ATTACKS = {
 const INK_SPEED = 204;
 const clamp = (n, a, b) => Math.min(b, Math.max(a, n));
 
-export function newVoyage() {
+export function newVoyage(coinRandom = Math.random) {
   return {
     phase: "fleet", player: { x: 216, y: 172 }, hull: 100, time: 0,
-    wave: 0, nextWave: .8, sunk: 0, ships: [], shots: [], ink: [], bursts: [],
+    wave: 0, nextWave: .8, sunk: 0, coins: 0, coinRandom, ships: [], shots: [], ink: [], bursts: [],
     reload: [0, 0], flash: [0, 0], cues: [], qte: null, qteOrder: 0,
     notice: "Держи цель вдоль борта", noticeUntil: 5, damage: 0,
     boss: { x: 100, y: 142, hp: KRAKEN_HP, stage: 1, age: 0, cycle: 0, openness: 0, attack: null, move: 0, nextAttack: 0 },
@@ -280,6 +280,10 @@ function hitTarget(sea, target) {
     target.hp--;
     if (!target.hp) {
       sea.sunk++;
+      if (sea.coinRandom() < .34) {
+        sea.coins += 3 + Math.floor(sea.coinRandom() * 4);
+        sea.cues.push("coin");
+      }
       target.aim = null;
       sea.cues.push("ship-sink");
       return;

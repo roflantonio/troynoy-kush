@@ -64,3 +64,13 @@ export function skillAtRank(skill, rank) {
 }
 
 export const skillPower = (player, id) => (player.skills.find(skill => skill.id === id)?.power ?? 0) / 100;
+
+export function learnSkill(player, skill) {
+  const index = player.skills.findIndex(entry => entry.id === skill.id);
+  const current = player.skills[index]?.rank ?? 0;
+  if (skill.rank !== current + 1 || skill.rank > skill.maxRank) return false;
+  skill.apply(player);
+  if (index < 0) player.skills.push(skill);
+  else player.skills[index] = skill;
+  return true;
+}

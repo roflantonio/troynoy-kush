@@ -93,6 +93,11 @@ const enemyTimbres = {
   mask: { pitch: 198, cutoff: 770, type: "sine", scrape: 880 },
   gorilla: { pitch: 87, cutoff: 505, type: "sawtooth", scrape: 690 },
   king: { pitch: 111, cutoff: 885, type: "square", scrape: 835 },
+  "vault-cutlass": { pitch: 178, cutoff: 1380, type: "triangle", scrape: 1430 },
+  "vault-gunner": { pitch: 167, cutoff: 1260, type: "triangle", scrape: 1680 },
+  "vault-shield": { pitch: 137, cutoff: 1110, type: "triangle", scrape: 1730 },
+  "vault-brute": { pitch: 102, cutoff: 805, type: "triangle", scrape: 1040 },
+  "rust-hook": { pitch: 121, cutoff: 978, type: "triangle", scrape: 1530 },
 };
 const floorTimbres = {
   wood: { foot: 142, grit: 825, decay: .145, weight: .16 },
@@ -102,6 +107,15 @@ const floorTimbres = {
   sand: { foot: 92, grit: 2360, decay: .16, weight: .08 },
   leaves: { foot: 133, grit: 1960, decay: .14, weight: .10 },
   "forest-stone": { foot: 105, grit: 1830, decay: .17, weight: .12 },
+};
+const voices = {
+  pirate: { pitches: [230, 256, 240, 278, 252], fall: .82, span: .059, gain: .18, wave: "triangle", cutoff: 1420 },
+  watcher: { pitches: [103, 118, 109, 92, 121], fall: .69, span: .082, gain: .23, wave: "sawtooth", cutoff: 670 },
+  king: { pitches: [151, 167, 139, 186, 157], fall: .69, span: .082, gain: .23, wave: "sawtooth", cutoff: 670 },
+  runa: { pitches: [465, 527, 492, 595, 553, 514], fall: .91, span: .081, gain: .20, wave: "triangle", cutoff: 2250 },
+  brann: { pitches: [88, 101, 92, 106], fall: .67, span: .14, gain: .30, wave: "sawtooth", cutoff: 480 },
+  shkiv: { pitches: [710, 930, 1150, 790, 1070], fall: .60, span: .107, gain: .15, wave: "sine", cutoff: 3000 },
+  rust: { pitches: [128, 149, 121, 157, 138], fall: .72, span: .093, gain: .24, wave: "sawtooth", cutoff: 900 },
 };
 
 export function pirateSound(volumes) {
@@ -400,14 +414,17 @@ export function pirateSound(volumes) {
     } catch { /* A browser can decline audio playback while the game continues. */ }
   }
 
-  function voice(kind) {
+  function voice(kind, reply = false) {
     if (!effectsLevel || !context || context.state !== "running" || document.hidden) return;
     const at = context.currentTime + .007;
-    const pirate = kind === "pirate";
-    const pitches = pirate ? [230, 256, 240, 278, 252] : kind === "king" ? [151, 167, 139, 186, 157] : [103, 118, 109, 92, 121];
-    const pitch = pitches[syllable++ % pitches.length];
-    tone(effects, at, pitch, pitch * (pirate ? .82 : .69), pirate ? .059 : .082,
-      pirate ? .18 : .23, pirate ? "triangle" : "sawtooth", pirate ? 1420 : 670);
+    const { pitches, fall, span, gain, wave, cutoff } = voices[kind] ?? voices.pirate;
+    const count = reply ? (kind === "runa" ? 5 : kind === "shkiv" ? 4 : 2) : 1;
+    for (let i = 0; i < count; i++) {
+      const pitch = pitches[syllable++ % pitches.length];
+      const when = at + i * (kind === "brann" ? .24 : .114);
+      tone(effects, when, pitch, pitch * fall, span, gain, wave, cutoff);
+      if (kind === "shkiv") tone(effects, when + .036, pitch * .79, pitch * 1.35, .079, gain * .56, "triangle", cutoff);
+    }
   }
 
   function spatialBus(position) {
@@ -436,7 +453,7 @@ export function pirateSound(volumes) {
       noise(bus, at + .09, .37, lunge ? 850 : 2190, .23);
       return;
     }
-    const timbre = enemyTimbres[color];
+    const timbre = enemyTimbres[color] ?? enemyTimbres.drowned;
     const { pitch, cutoff, type, scrape } = timbre;
     const varied = pitch * (.89 + Math.random() * .22);
     if (kind === "enemy-step") {
@@ -473,6 +490,12 @@ export function pirateSound(volumes) {
     if (kind === "pistol" || kind === "scatter" || kind === "musket") {
       noise(bus, at, kind === "scatter" ? .34 : kind === "musket" ? .28 : .21, kind === "musket" ? 920 : 1400, .63);
       tone(bus, at, kind === "musket" ? 181 : 122, 38, .19, .28, "sine");
+    } else if (kind === "coin") {
+      tone(bus, at, 1060, 1590, .15, .19, "triangle", 2700);
+      tone(bus, at + .05, 1630, 2190, .15, .12, "sine");
+    } else if (kind === "chain-hook") {
+      noise(bus, at, .32, 1850, .29);
+      tone(bus, at + .015, 740, 176, .27, .20, "triangle", 1860);
     } else if (kind === "sea-cannon" || kind === "sea-enemy-cannon") {
       const distant = kind === "sea-enemy-cannon";
       noise(bus, at, .50, distant ? 620 : 880, distant ? .34 : .70);

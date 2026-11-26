@@ -1,7 +1,8 @@
-import { ARMORY, advanceDream, cast, chooseSkill, compassObjective, createDream, createRun, dreamHint, location, nextLevel, secretAhead, stepRun, switchWeapon, weaponCapacity } from "./world.js?v=13";
-import { createRenderer, mapDraw } from "./render.js?v=13";
-import { pirateSound } from "./sound.js?v=13";
-import { FLEET_TOTAL, FLEET_WAVES, KRAKEN_HP, HELM, answerHelm, beginKraken, broadsideTarget, fireBroadside, newVoyage, stepVoyage } from "./sea.js?v=13";
+import { ARMORY, advanceDream, cast, chooseSkill, compassObjective, createDream, createPort, createRun, dreamHint, location, nextLevel, portInteraction, secretAhead, seeded, stepRun, switchWeapon, weaponCapacity } from "./world.js?v=16";
+import { createRenderer, mapDraw } from "./render.js?v=16";
+import { pirateSound } from "./sound.js?v=16";
+import { FLEET_TOTAL, FLEET_WAVES, KRAKEN_HP, HELM, answerHelm, beginKraken, broadsideTarget, fireBroadside, newVoyage, stepVoyage } from "./sea.js?v=16";
+import { TRADERS, offers, purchase } from "./trade.js?v=16";
 import { seaRenderer } from "./sea-render.js?v=13";
 import { animateFortMenu } from "./menu-scene.js?v=13";
 
@@ -19,7 +20,8 @@ const held = new Set();
 const relicMarks = [...document.querySelectorAll(".compass-gems i")];
 const roundMarks = [...document.querySelectorAll(".chambers i")];
 const titleChoices = [...document.querySelectorAll(".title-choice")];
-const screens = ["menu", "pause", "result", "chart", "cinematic", "skills", "sea-briefing"];
+const screens = ["menu", "pause", "result", "chart", "cinematic", "skills", "sea-briefing", "shop"];
+const traderVoices = { skills: "runa", arms: "brann", chests: "shkiv" };
 const storageKey = "fortune-volumes";
 const dreamKey = "fortune-dream";
 const volumeChannels = ["music", "effects"];
@@ -39,6 +41,8 @@ let mode = "menu";
 let run = createRun(1249);
 let voyage = null;
 let endingAt = null;
+let vendor = null;
+let sales = {};
 let previous = performance.now();
 let look = 0;
 let tilt = 0;
@@ -89,7 +93,7 @@ function text(id, value) {
 
 function updateScore() {
   const calmScene = mode === "cinematic" && ["arrival", "ending"].includes(cinematic.kind);
-  if (mode === "menu" || calmScene || run.training) sound.track("dock");
+  if (mode === "menu" || calmScene || run.training || run.map.key === "port") sound.track("dock");
   else if (voyage) sound.track(voyage.phase === "fleet" ? "sea"
     : ["reveal", "kraken"].includes(voyage.phase) ? "kraken" : voyage.phase === "dead" ? "silence" : "dock");
   else if (run.status === "won" || run.arena.cleared) sound.track("dock");
@@ -149,6 +153,93 @@ function showLearnedSkills() {
   $("skills-empty").hidden = entries.length > 0;
 }
 
+function renderShop(message = "", focusId = null) {
+  const items = $("shop-catalog");
+  const cards = offers(run.player, vendor).map(offer => {
+    const row = document.createElement("li");
+    const icon = offer.skill ? skillIcon(offer.skill) : document.createElement("span");
+    if (!offer.skill) {
+      icon.className = "trade-icon";
+      icon.dataset.icon = offer.icon;
+      icon.setAttribute("aria-hidden", "true");
+    }
+    const details = document.createElement("div");
+    const title = document.createElement("h3");
+    const description = document.createElement("p");
+    const button = document.createElement("button");
+    title.textContent = offer.title + (offer.price && offer.maxRank > 1 ? " · " + ["I", "II", "III"][offer.rank - 1] : "");
+    description.textContent = offer.price ? offer.detail : vendor === "chests" ? "Все умения уже освоены" : "Максимальный ранг";
+    button.className = "button plain trade-buy";
+    button.type = "button";
+    button.dataset.offer = offer.id;
+    button.textContent = offer.price ? (vendor === "chests" ? "Открыть за " : "Купить за ") + offer.price
+      : vendor === "chests" ? "Пустая лавка" : "Улучшено";
+    button.disabled = !offer.price || run.player.coins < offer.price;
+    if (offer.price) button.setAttribute("aria-label", title.textContent + ". " + button.textContent + " дублонов");
+    button.addEventListener("click", () => trade(offer.id));
+    details.append(title, description);
+    row.append(icon, details, button);
+    return row;
+  });
+  if (!cards.length) {
+    const empty = document.createElement("li");
+    empty.className = "trade-empty";
+    empty.textContent = "Доступные умения уже освоены.";
+    cards.push(empty);
+  }
+  const scroll = items.scrollTop;
+  items.replaceChildren(...cards);
+  items.scrollTop = scroll;
+  text("shop-coins", run.player.coins);
+  text("shop-acquired", message);
+  if (focusId) {
+    const button = Array.from(items.querySelectorAll("button")).find(entry => entry.dataset.offer === focusId);
+    (button && !button.disabled ? button : $("shop-close")).focus({ preventScroll: true });
+  }
+}
+
+function openShop(id) {
+  vendor = id;
+  const trader = TRADERS[id];
+  $("shop").dataset.vendor = id;
+  $("shop-portrait").src = "./" + traderVoices[id] + "-shop.webp";
+  $("shop-portrait").alt = trader.name + " в полный рост";
+  text("shop-name", trader.name);
+  text("shop-title", trader.title);
+  text("shop-reaction", trader.greeting);
+  show("shop");
+  renderShop();
+  $("shop-close").focus({ preventScroll: true });
+  sound.voice(traderVoices[id], true);
+}
+
+function trade(id) {
+  if (mode !== "shop") return;
+  const reward = purchase(run, vendor, id);
+  if (!reward) return;
+  const replies = TRADERS[vendor].replies;
+  const index = sales[vendor] ?? 0;
+  sales[vendor] = index + 1;
+  text("shop-reaction", replies[index % replies.length]);
+  renderShop(reward.label + " · " + reward.detail, id);
+  sound.effect("coin");
+  sound.voice(traderVoices[vendor], true);
+}
+
+function updateInteraction() {
+  if (mode !== "play") {
+    $("interaction").hidden = true;
+    return;
+  }
+  const target = portInteraction(run);
+  const label = target?.name ?? (secretAhead(run) ? "Открыть тайный ход" : "");
+  $("interaction").hidden = !label;
+  if (label) {
+    text("interact-hint", "E · " + label);
+    text("touch-interact", label);
+  }
+}
+
 function show(next) {
   mode = next;
   $("cabinet").dataset.mode = next;
@@ -165,7 +256,7 @@ function show(next) {
   $("boss-hud").hidden = next !== "play" || !run.arena.active || run.arena.cleared;
   $("crosshair").hidden = next !== "play";
   $("signal").hidden = next !== "play" || run.hintUntil < run.time || !run.hint;
-  $("interaction").hidden = next !== "play" || !secretAhead(run);
+  updateInteraction();
   $("touch").hidden = !touch || next !== "play";
   $("map-toggle").hidden = next !== "play";
   $("pause-toggle").hidden = next !== "play" && next !== "sea";
@@ -181,14 +272,15 @@ function show(next) {
   if (next === "sea") seaView.focus({ preventScroll: true });
   if (next === "chart") {
     if (run.training?.step === 10) run.training.chart = true;
-    text("chart-title", run.training ? "Карта сна" : run.map.key === "island" ? "Карта острова" : "Карта форта");
+    const chartTitles = { dream: "Карта сна", island: "Карта острова", port: "Карта порта", vault: "Карта сокровищницы" };
+    text("chart-title", chartTitles[run.map.key] ?? "Карта форта");
     text("chart-location", location(run));
     text("chart-secrets", "Тайные ходы " + run.secrets.filter(secret => secret.open).length + " / " + run.secrets.length);
     showLearnedSkills();
     const map = $("map");
     map.width = 28 + run.width * 6;
     map.height = 28 + run.height * 6;
-    map.style.minWidth = run.map.key === "island" ? Math.round(run.width * 4.1) + "px" : "";
+    map.style.minWidth = ["island", "vault"].includes(run.map.key) ? Math.round(run.width * 4.1) + "px" : "";
     const position = mapDraw(map, run);
     const paper = $("chart-scroll");
     paper.scrollLeft = paper.scrollWidth * position - paper.clientWidth / 2;
@@ -200,6 +292,10 @@ const speakers = {
   pirate: { name: "Моряк", pace: 32 },
   watcher: { name: "Смотритель", pace: 43 },
   king: { name: "Король обезьян", pace: 38 },
+  runa: { name: "Руна", pace: 29 },
+  brann: { name: "Бранн", pace: 48 },
+  shkiv: { name: "Шкив", pace: 43 },
+  rust: { name: "Капитан Ржавый Крюк", pace: 42 },
 };
 
 const scenes = {
@@ -275,6 +371,48 @@ const scenes = {
       { speaker: "pirate", shot: "kraken", text: "Кракен… Так вот почему флот не смог уйти из этой воды. К пушкам, пока он не утащил нас на дно." },
     ],
   },
+  "port-arrival": {
+    title: "Порт мошенников",
+    next: "Сойти на причал",
+    lines: [
+      { speaker: "pirate", shot: "port", text: "Кракен ушёл на дно. Вдали зажглись огни. Если компас верен, это Порт мошенников." },
+      { speaker: "pirate", shot: "port", text: "Поставлю корабль у причала. Надо спросить у местных, кто запер проход за рынком." },
+    ],
+  },
+  "port-market": {
+    title: "Торговые причалы",
+    next: "Осмотреть порт",
+    lines: [
+      { speaker: "pirate", shot: "port", text: "Добрый вечер. Куда ведут ворота в конце причала? И где тут можно потратить дублоны?" },
+      { speaker: "runa", shot: "port", text: "В казну Ржавого Крюка, красавец. Дверь открывается с этой стороны. Если хочешь вернуться живым, загляни ко мне. Научу паре хитростей." },
+      { speaker: "brann", shot: "port", text: "Бранн. Кузница справа. Подтягиваю металл, чиню стволы." },
+      { speaker: "shkiv", shot: "port", text: "У-у? И-и-и! Ук-ук!" },
+      { speaker: "pirate", shot: "port", text: "Шкив показывает на сундуки. Выбор наугад, судя по его улыбке. Сначала осмотрюсь." },
+    ],
+  },
+  "vault-arrival": {
+    title: "Сокровищница капитана Ржавого Крюка",
+    next: "Войти в казну",
+    lines: [
+      { speaker: "pirate", shot: "vault", text: "За дверью ещё восемь печатей. В каждом крыле есть осколок, а у осколков люди капитана. Придётся идти за синей стрелкой." },
+    ],
+  },
+  rust: {
+    title: "Зал Ржавого Крюка",
+    next: "В бой",
+    lines: [
+      { speaker: "pirate", shot: "arena", text: "Последняя печать упала. Это твоя казна, Ржавый Крюк?" },
+      { speaker: "rust", shot: "arena", text: "Моя. И дублоны в твоём кошеле тоже мои. Положи их на пол. Я посчитаю после выстрела." },
+      { speaker: "pirate", shot: "arena", text: "Давай сначала посчитаем, сколько шагов до твоего крюка." },
+    ],
+  },
+  "vault-end": {
+    title: "Казна открыта",
+    next: "К итогам похода",
+    lines: [
+      { speaker: "pirate", shot: "vault", text: "Крюк замолчал. За последними воротами свет. До корабля я успею, пока не начался прилив." },
+    ],
+  },
 };
 
 function setLine(index, now) {
@@ -325,18 +463,31 @@ function film(now) {
     cinematic.nextLetter = now + speakers[speaker].pace + (/[.!?…]/u.test(glyph) ? 155 : /[,«»]/u.test(glyph) ? 65 : 0);
     if (cinematic.shown === letters.length) text("scene-next", dialogueLabel());
   }
-  if (kind === "watcher" || kind === "king") {
+  if (["watcher", "king", "rust"].includes(kind)) {
     const pan = reducedMotion.matches ? 0 : Math.min(1, (now - started) / 8000);
     paint(run, { x: run.arena.left + 2.9 + pan * 4.4, y: run.boss.y + (1 - pan) * 1.75,
       angle: -.23 + pan * .22, pitch: .028, bob: 0, moving: 0, time: run.time + (now - started) / 1000 });
   }
   if (kind === "kraken") paintSea(voyage, (now - started) / 1000, reducedMotion.matches);
+  if (act.lines[index].shot === "vault") paint(run, { ...run.player });
   if (run.training && act.lines[index].shot === "dream") paint(run, { ...run.player });
 }
 
 function leaveScene(interactive) {
   const kind = cinematic.kind;
   cinematic = null;
+  if (kind === "port-arrival") {
+    beginScene("port-market");
+    return;
+  }
+  if (kind === "port-market") {
+    run.hint = touch ? "Подойди к торговцу и нажми его имя" : "Подойди к торговцу · E откроет лавку";
+    run.hintUntil = run.time + 7;
+  }
+  if (kind === "vault-end") {
+    finish();
+    return;
+  }
   if (kind === "ending") {
     prepareVoyage();
     show("sea-briefing");
@@ -354,6 +505,7 @@ function leaveScene(interactive) {
     return;
   }
   show("play");
+  updateHud();
   paint(run);
   if (interactive) lock();
 }
@@ -416,15 +568,16 @@ function finish() {
   text("result-location", voyage ? "Открытое море" : run.map.title);
   const secrets = run.history.secrets + run.secrets.filter(secret => secret.open).length;
   const relics = run.history.relics + run.player.relics;
+  const sunk = run.history.sunk + (voyage?.sunk ?? 0);
   text("summary", "Осколки " + relics + " / " + (run.history.relics + run.total) + " · Тайники " + secrets
     + " / " + (run.history.totalSecrets + run.secrets.length) + " · Победы " + (run.history.kills + run.player.kills)
-    + (voyage ? " · Потоплено " + voyage.sunk + " / " + FLEET_TOTAL : "") + " · " + minute + ":" + seconds);
+    + (sunk ? " · Потоплено " + sunk + " / " + FLEET_TOTAL : "") + " · Дублоны " + run.player.coins + " · " + minute + ":" + seconds);
   show("result");
   $("retry").focus({ preventScroll: true });
 }
 
 function prepareVoyage() {
-  voyage = newVoyage();
+  voyage = newVoyage(seeded(run.seed ^ 0x3640baba));
   endingAt = null;
   $("fleet-meter").max = FLEET_TOTAL;
   $("kraken-health").max = KRAKEN_HP;
@@ -440,6 +593,7 @@ function updateSeaHud() {
   const { phase, sunk, hull, wave, boss, noticeUntil, time, qte } = voyage;
   text("sea-sunk", sunk + " / " + FLEET_TOTAL);
   text("sea-hull", hull + "%");
+  text("sea-coins", "+" + voyage.coins + " дубл.");
   text("sea-wave", phase === "fleet" ? "Волна " + Math.max(1, wave) + " / " + FLEET_WAVES : "Кракен");
   $("hull-meter").value = hull;
   $("fleet-meter").value = sunk;
@@ -469,7 +623,13 @@ function seaFrame(dt) {
   if (voyage.phase === "victory") {
     endingAt = (endingAt ?? 0) + dt;
     paintSea(voyage, endingAt, reducedMotion.matches);
-    if (endingAt > 2.6) finish();
+    if (endingAt > 2.6) {
+      run = createPort(run, voyage);
+      voyage = null;
+      sales = {};
+      updateHud();
+      beginScene("port-arrival");
+    }
     return;
   }
   const axis = (key, arrow) => Number(keys.has(key) || keys.has(arrow));
@@ -492,6 +652,7 @@ function seaFrame(dt) {
 
 function updateHud() {
   const player = run.player;
+  text("doubloons", player.coins);
   text("hp", player.hp);
   const health = $("health-meter");
   health.max = player.max;
@@ -522,14 +683,17 @@ function updateHud() {
     meter.value = player.reloadLeft ? 1 - player.reloadLeft / player.reloadSpan : 0;
     $("reload-label").hidden = !player.reloadLeft;
   }
-  text("weapon", weapon.name);
+  const level = player.weaponRanks[player.weapon];
+  text("weapon", weapon.name + (level ? " · " + ["I", "II", "III"][level - 1] : ""));
   text("relics", player.relics + " / " + run.total);
   const dash = $("dash-meter");
   dash.max = player.dashReset;
   dash.value = player.dashReset - player.dashCooldown;
   dash.parentElement.dataset.ready = String(player.dashCooldown === 0);
-  $("boss-meter").max = run.boss.max;
-  $("boss-meter").value = run.boss.hp;
+  if (run.boss) {
+    $("boss-meter").max = run.boss.max;
+    $("boss-meter").value = run.boss.hp;
+  }
   $("boss-hud").dataset.stage = run.arena.stage + 1;
   text("boss-name", run.bossName);
   $("boss-meter").setAttribute("aria-label", "Здоровье · " + run.bossName);
@@ -538,7 +702,7 @@ function updateHud() {
   const hint = run.training ? dreamHint(run, touch) : run.hintUntil >= run.time && run.hint;
   $("signal").hidden = mode !== "play" || !hint;
   if (hint) text("signal", hint);
-  $("interaction").hidden = mode !== "play" || !secretAhead(run);
+  updateInteraction();
 }
 
 function control(dt) {
@@ -590,9 +754,10 @@ function frame(now) {
     const events = run.events.splice(0);
     advanceDream(run, events);
     for (const event of events) {
-      if (event === "arena") beginScene(run.training ? "dream-guard" : run.map.key === "island" ? "king" : "watcher");
+      if (event === "arena") beginScene(run.training ? "dream-guard" : ({ island: "king", vault: "rust" })[run.map.key] ?? "watcher");
       if (event === "skill") showSkills();
       if (event === "victory") updateScore();
+      if (event.startsWith("shop-")) openShop(event.slice(5));
     }
     updateHud();
     if (mode === "play") paint(run);
@@ -601,11 +766,12 @@ function frame(now) {
       const upcoming = nextLevel(run);
       if (upcoming) {
         run = upcoming;
-        run.hint = touch ? "Пять осколков · умения на карте" : "Пять осколков · карта и умения на Tab";
+        run.hint = run.map.key === "vault" ? "Восемь осколков · следуй за синей стрелкой"
+          : touch ? "Пять осколков · умения на карте" : "Пять осколков · карта и умения на Tab";
         run.hintUntil = 4.2;
         sound.bossPhase(0);
-        beginScene("crossing");
-      } else beginScene(run.training ? "dream-end" : "ending");
+        beginScene(run.map.key === "vault" ? "vault-arrival" : "crossing");
+      } else beginScene(run.training ? "dream-end" : run.map.key === "vault" ? "vault-end" : "ending");
     }
   } else if (mode === "menu" && !reducedMotion.matches) paintMenu(now);
   else if (mode === "sea") seaFrame(elapsed);
@@ -617,6 +783,11 @@ requestAnimationFrame(frame);
 const moves = new Set(["KeyW","KeyA","KeyS","KeyD","ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Space","PageUp","PageDown","KeyR","KeyE","ShiftLeft","ShiftRight"]);
 document.addEventListener("keydown", event => {
   if ($("settings").open) return;
+  if (mode === "shop" && event.code === "Escape" && !event.repeat) {
+    event.preventDefault();
+    resumePlay();
+    return;
+  }
   if (mode === "menu" && ["ArrowUp", "ArrowDown"].includes(event.code)) {
     event.preventDefault();
     const current = titleChoices.indexOf(document.activeElement);
@@ -784,6 +955,7 @@ for (const button of document.querySelectorAll("[data-course]")) {
 $("skip-scene").addEventListener("click", () => leaveScene(true));
 $("scene-next").addEventListener("click", advanceScene);
 $("continue").addEventListener("click", resumePlay);
+$("shop-close").addEventListener("click", resumePlay);
 $("menu-return").addEventListener("click", () => show("menu"));
 $("result-menu").addEventListener("click", () => show("menu"));
 $("pause-toggle").addEventListener("click", () => show("pause"));

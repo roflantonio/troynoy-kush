@@ -4,13 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#111a1c">
-  <meta name="description" content="Проклятие фортуны — пиратский шутер-рогалик. Пройди форт и Остров обезьян, собери восемь осколков компаса.">
+  <meta name="description" content="Проклятие фортуны — пиратский шутер-рогалик. Пройди форт и остров, сразись с Кракеном и найди казну Ржавого Крюка.">
   <title>Проклятие фортуны</title>
   <link rel="preload" as="image" href="./awakening.webp">
   <link rel="preload" as="image" href="./viewmodels.png?v=11">
   <link rel="stylesheet" href="./pirates.css?v=15">
   <link rel="stylesheet" href="./sea.css?v=13">
-  <script type="module" src="./game.js?v=14"></script>
+  <link rel="stylesheet" href="./port.css?v=16">
+  <script type="module" src="./game.js?v=16"></script>
 </head>
 <body>
   <main class="cabinet" id="cabinet" data-mode="menu">
@@ -29,12 +30,15 @@
         <div class="boss-seals" aria-hidden="true"><i></i><i></i><i></i></div>
       </div>
       <div class="instruments" id="deck" hidden>
-        <div id="compass" class="compass instrument" data-filled="0">
-          <span class="compass-dial" aria-hidden="true"><span id="compass-needle"></span></span>
-          <div><span class="instrument-label" id="compass-target">Осколок</span>
-            <div class="compass-gems" aria-hidden="true"><i></i><i></i><i></i><i hidden></i><i hidden></i></div>
-            <span class="sr-only" id="relics">0 / 3</span>
+        <div class="navigation-hud">
+          <div id="compass" class="compass instrument" data-filled="0">
+            <span class="compass-dial" aria-hidden="true"><span id="compass-needle"></span></span>
+            <div><span class="instrument-label" id="compass-target">Осколок</span>
+              <div class="compass-gems" aria-hidden="true"><i></i><i></i><i></i><i hidden></i><i hidden></i><i hidden></i><i hidden></i><i hidden></i></div>
+              <span class="sr-only" id="relics">0 / 3</span>
+            </div>
           </div>
+          <div class="doubloon-hud instrument" aria-label="Пиратские дублоны"><span class="trade-icon" data-icon="coin" aria-hidden="true"></span><strong id="doubloons">0</strong></div>
         </div>
         <div class="vital instrument">
           <div class="vital-face">
@@ -58,7 +62,7 @@
 
     <section id="sea" class="sea-screen" aria-label="Морская битва" hidden>
       <header id="sea-hud" class="sea-hud">
-        <div class="sea-heading"><h2>Открытое море</h2><span id="sea-wave"></span></div>
+        <div class="sea-heading"><h2>Открытое море</h2><span id="sea-wave"></span><span class="sea-doubloons" id="sea-coins"></span></div>
         <div class="sea-stat"><label for="fleet-meter">Потоплено <strong id="sea-sunk"></strong></label><progress id="fleet-meter" value="0"></progress></div>
         <div class="sea-stat"><label for="hull-meter">Корпус <strong id="sea-hull">100%</strong></label><progress id="hull-meter" value="100" max="100"></progress></div>
       </header>
@@ -136,7 +140,7 @@
         <p class="chapter" id="result-location"></p>
         <img id="death-skull" src="./death-skull.webp" alt="" decoding="async" hidden>
         <h2 id="result-title"></h2>
-        <p class="win-note" id="win-note" hidden>Флот потоплен. Кракен ушёл на дно.</p>
+        <p class="win-note" id="win-note" hidden>Казна Ржавого Крюка открыта.</p>
         <p class="summary" id="summary"></p>
         <div class="menu-buttons">
           <button id="retry" class="button primary" type="button">Новый поход</button>
@@ -167,6 +171,24 @@
         <h2 id="skills-title">Капитанские умения</h2>
         <p id="skill-instructions">Выбери одно умение</p>
         <div class="skill-options" id="skill-options"></div>
+      </div>
+    </section>
+
+    <section id="shop" class="overlay trade-screen" hidden aria-labelledby="shop-title">
+      <div class="trade-panel">
+        <header class="trade-header">
+          <div><p class="trade-trader" id="shop-name"></p><h2 id="shop-title"></h2></div>
+          <div class="trade-purse"><span class="trade-icon" data-icon="coin" aria-hidden="true"></span><strong id="shop-coins">0</strong><span class="sr-only">дублонов</span></div>
+          <button id="shop-close" class="utility" type="button" aria-label="Закрыть магазин">Закрыть <kbd>Esc</kbd></button>
+        </header>
+        <div class="trade-body">
+          <figure class="trade-character">
+            <img id="shop-portrait" alt="">
+            <figcaption id="shop-reaction" aria-live="polite"></figcaption>
+          </figure>
+          <ul id="shop-catalog" class="trade-catalog" aria-label="Товары"></ul>
+        </div>
+        <p id="shop-acquired" class="trade-acquired" role="status"></p>
       </div>
     </section>
 

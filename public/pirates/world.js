@@ -1,4 +1,4 @@
-import { CAPTAIN_SKILLS, UPGRADES, skillAtRank, skillPower } from "./skills.js?v=12";
+import { CAPTAIN_SKILLS, UPGRADES, learnSkill, skillAtRank, skillPower } from "./skills.js?v=16";
 export { UPGRADES };
 
 const SIDE = 3;
@@ -7,6 +7,7 @@ export const HEIGHT = 43;
 export const DASH_COOLDOWN = 1.35;
 export const SECRET_PANEL = 10;
 export const ISLAND_TERRAIN = { jungle: 11, basalt: 12, root: 13, sand: 14, shrine: 15 };
+export const VAULT_WALL = 16;
 
 const FORT = {
   key: "fort", title: "Форт проклятых", step: 15, origin: 6, arenaRadius: 7, arenaLength: 18,
@@ -19,6 +20,15 @@ const ISLAND = {
 const DREAM = {
   key: "dream", title: "Сон о старом трюме", step: 7, origin: 3, arenaLength: 12,
   wings: ["Трюм из сна"],
+};
+const PORT = {
+  key: "port", title: "Порт мошенников", step: 8, origin: 5, arenaLength: 15,
+  wings: ["Торговые причалы"],
+};
+const VAULT = {
+  key: "vault", title: "Сокровищница капитана Ржавого Крюка", step: 20, origin: 8, arenaRadius: 11, arenaLength: 26,
+  wings: ["Ворота контрабандистов", "Весовые склады", "Пороховые штольни", "Галереи чистого серебра",
+    "Чёрные сейфы", "Кессоны прилива", "Капитанская казна", "Склеп флагманов"],
 };
 export const TAU = Math.PI * 2;
 
@@ -45,6 +55,11 @@ const ENEMIES = {
   mask: { hp: 59, speed: 1.15, reach: 8.3, wind: .79, cooldown: 1.32, damage: 13, ranged: true },
   gorilla: { hp: 78, speed: 1.23, reach: 1.18, wind: .65, cooldown: 1, damage: 23 },
   king: { hp: 795 },
+  "vault-cutlass": { hp: 51, speed: 1.87, reach: .96, wind: .40, cooldown: .66, damage: 17, agile: true },
+  "vault-gunner": { hp: 48, speed: 1.18, reach: 9.2, wind: .68, cooldown: 1.42, damage: 18, ranged: true },
+  "vault-shield": { hp: 65, speed: 1.27, reach: 1.12, wind: .53, cooldown: .95, damage: 21 },
+  "vault-brute": { hp: 84, speed: 1.32, reach: 1.3, wind: .67, cooldown: 1.1, damage: 26 },
+  "rust-hook": { hp: 1080, speed: 1.75, reach: 16.8, ranged: true },
 };
 export const BOSS_ACTS = [
   { name: "Картечь", floor: 400, wind: .78, cooldown: .98, speed: 1.48, damage: 20 },
@@ -56,7 +71,13 @@ export const KING_ACTS = [
   { name: "Печать идолов", floor: 265, wind: 1.04, cooldown: 1.4, damage: 24 },
   { name: "Раскол трона", floor: 0, wind: .75, cooldown: .92, damage: 27 },
 ];
+const RUST_ACTS = [
+  { name: "Крюк на цепи", floor: 720, wind: .86, cooldown: 1.24, speed: 1.79, damage: 21 },
+  { name: "Пороховая казна", floor: 360, wind: .92, cooldown: 1.11, speed: 2.0, damage: 24 },
+  { name: "Багровый абордаж", floor: 0, wind: .69, cooldown: .91, speed: 2.56, damage: 29 },
+];
 const ISLAND_ENEMIES = ["macaque", "slinger", "viper", "mask", "gorilla"];
+const VAULT_ENEMIES = ["vault-cutlass", "vault-gunner", "vault-shield", "vault-brute"];
 const RARE_DROP = .01;
 const AMMO_BOX = 9;
 const MEDICINE = 23;
@@ -65,7 +86,7 @@ const STEP_SPACING = .95;
 const ENEMY_STEP_SPACING = .82;
 
 export function shieldRaised(enemy) {
-  return enemy.kind === "sentinel" && !enemy.attack && enemy.wait <= .35;
+  return (enemy.kind === "sentinel" || enemy.kind === "vault-shield") && !enemy.attack && enemy.wait <= .35;
 }
 
 export function seeded(seed) {
@@ -158,7 +179,7 @@ function planSecret(world, rooms, links, wing) {
   const horizontal = a.y === b.y;
   const from = horizontal ? { x: a.x + a.w + 1, y: a.y } : { x: a.x, y: a.y + a.h + 1 };
   const to = horizontal ? { x: b.x - b.w - 1, y: b.y } : { x: b.x, y: b.y - b.h - 1 };
-  const style = world.map.key === "island" ? 6 : wing === 0 ? 1 : 3;
+  const style = world.map.key === "island" ? 6 : world.map.key === "vault" ? 4 : wing === 0 ? 1 : 3;
   const centerX = Math.floor((from.x + to.x) / 2), centerY = Math.floor((from.y + to.y) / 2);
   const x = centerX + .5, y = centerY + .5;
   const dx = horizontal ? 0 : .86, dy = horizontal ? .86 : 0;
@@ -176,12 +197,14 @@ function addEnemy(world, kind, x, y) {
 function buildWing(world, wing, carve) {
   const { rand, map, wingSpan, midY } = world;
   const island = map.key === "island";
+  const vault = map.key === "vault";
+  const roomSize = vault ? 5 : island ? 4 : 3;
   const rooms = Array.from({ length: SIDE * SIDE }, (_, id) => ({
     id, x: map.origin + wing * wingSpan + id % SIDE * map.step, y: map.origin + Math.floor(id / SIDE) * map.step,
-    w: (island ? 4 : 3) + Number(rand() > .46), h: (island ? 4 : 3) + Number(rand() > .46),
-    floor: (island ? 5 : 1) + (wing + id) % 3,
+    w: roomSize + Number(rand() > .46), h: roomSize + Number(rand() > .46),
+    floor: vault ? 4 : (island ? 5 : 1) + (wing + id) % 3,
   }));
-  const { links, distance } = topology(rooms, rand, island ? 2 : 1);
+  const { links, distance } = topology(rooms, rand, vault ? 1 : island ? 2 : 1);
   const order = shuffled(rooms.filter(r => r.id !== startRoom), rand).sort((a, b) => distance[a.id] - distance[b.id]);
   const shrine = order.at(-1);
   for (const room of rooms) {
@@ -195,6 +218,7 @@ function buildWing(world, wing, carve) {
 
   planSecret(world, rooms, links, wing);
   if (island) fillIslandWing(world, rooms, order, shrine, wing);
+  else if (vault) fillVaultWing(world, rooms, order, shrine, wing);
   else fillFortWing(world, rooms, order, shrine, wing);
 
   const exit = rooms[endRoom];
@@ -274,6 +298,39 @@ function fillIslandWing(world, rooms, order, shrine, wing) {
     guards: world.enemies.filter(e => Math.abs(e.x - shrine.x) < 4 && Math.abs(e.y - shrine.y) < 4) });
 }
 
+function fillVaultWing(world, rooms, order, shrine, wing) {
+  const drops = (kind, room, x, y, amount) => world.items.push({ kind, x: room.x + x, y: room.y + y, amount });
+  const positions = [[3.05,.95],[-2.65,2.4],[.85,-3.05],[-2.8,-2.8],[3.65,-3.5],[3.5,3.65]];
+  let guards;
+  for (const room of rooms) {
+    world.props.push(
+      { kind: "torch", x: room.x - room.w + .5, y: room.y - room.h + .6 },
+      { kind: "barrel", x: room.x + room.w - .55, y: room.y + room.h - .55 },
+      { kind: "chest", x: room.x + room.w - .6, y: room.y - room.h + .7 },
+    );
+    if (room.id === startRoom) {
+      drops("ammo", room, .75, -1.35, 16);
+      drops("heal", room, -1.35, 1.5);
+      if (wing > 0) addEnemy(world, "vault-cutlass", room.x + 3.1, room.y + 2.4);
+      continue;
+    }
+    const rank = order.indexOf(room);
+    const count = room === shrine ? 6 : rank > 4 || wing > 3 ? 5 : 4;
+    const first = world.enemies.length;
+    for (const [i, [x, y]] of positions.slice(0, count).entries()) {
+      const kind = i === 0 ? "vault-cutlass" : i === 1 ? "vault-gunner" : VAULT_ENEMIES[(rank + wing + i) % VAULT_ENEMIES.length];
+      addEnemy(world, kind, room.x + x, room.y + y);
+    }
+    if (room === shrine) guards = world.enemies.slice(first);
+    drops("ammo", room, 1.6, -1.5, room === shrine ? 18 : 13);
+    if (rank % 2 === 0 || room === shrine) drops("heal", room, -1.85, -.6);
+    if (rank === 4 || room === shrine) drops("upgrade", room, -.85, 3.35);
+  }
+  const backup = wing === 1 ? "scatter" : wing === 3 ? "musket" : null;
+  if (backup && !world.player.arsenal.has(backup)) drops(backup, order[2], 1.45, 3.8);
+  world.items.push({ kind: "relic", x: shrine.x + .5, y: shrine.y + .5, wing, guards });
+}
+
 export function createRun(seed) {
   return createLevel(seed, FORT);
 }
@@ -283,17 +340,30 @@ export function createDream(seed) {
 }
 
 export function nextLevel(world) {
-  if (world.map.key !== "fort" || world.status !== "won") return null;
-  return createLevel((world.seed ^ 0x3aef9219) >>> 0, ISLAND, world);
+  if (world.status !== "won") return null;
+  if (world.map.key === "fort") return createLevel((world.seed ^ 0x3aef9219) >>> 0, ISLAND, world);
+  if (world.map.key === "port") return createLevel((world.seed ^ 0x191a6105) >>> 0, VAULT, world);
+  return null;
+}
+
+export function createPort(previous, voyage) {
+  const world = createLevel((previous.seed ^ 0x5ba41947) >>> 0, PORT, previous);
+  world.history.time += voyage.time;
+  world.history.sunk += voyage.sunk;
+  world.player.coins += voyage.coins ?? 0;
+  world.player.hp = world.player.max;
+  world.player.ammo = Math.max(world.player.ammo, 36);
+  return world;
 }
 
 function createLevel(seed, map, previous) {
   const island = map.key === "island";
+  const vault = map.key === "vault";
   const rand = seeded(seed);
   const wingSpan = SIDE * map.step;
   const midY = map.step + map.origin;
-  const total = map.wings.length;
-  const arenaX = total * wingSpan + 3;
+  const total = map === PORT ? 0 : map.wings.length;
+  const arenaX = map.wings.length * wingSpan + 3;
   const width = arenaX + map.arenaLength + 3;
   const height = 2 * map.step + map.origin * 2 + 1;
   const lootRandom = seeded(seed ^ 0x62c8f1d5);
@@ -307,19 +377,23 @@ function createLevel(seed, map, previous) {
   const inherited = previous?.player ?? newPlayer;
   const player = { ...inherited, arsenal: new Set(inherited.arsenal), traits: new Set(inherited.traits),
     chambers: { ...inherited.chambers }, capacityBonus: { ...inherited.capacityBonus },
+    coins: inherited.coins ?? 0, boxes: inherited.boxes ?? 0, weaponRanks: { ...inherited.weaponRanks },
     perks: [...inherited.perks], skills: [...inherited.skills], x: island ? 3.95 : 3.65, y: midY + .5, angle: 0, pitch: 0,
     relics: 0, reloadLeft: 0, reloadSpan: 0, cooldown: 0, hurt: 0, recoil: 0, bob: 0, moving: 0, stride: 0,
     kills: 0, dash: 0, dashCooldown: 0, dashX: 0, dashY: 0, dashShot: 0, riposte: 0, slowed: 0, charged: false,
-    usedWards: new Set(), dashHits: new Set() };
+    usedWards: new Set(), dashHits: new Set(), pullUntil: 0 };
   const arena = { entrance: arenaX - 1, left: arenaX, active: false, cleared: false, exitReady: false, stage: 0, next: 0 };
   const world = { seed, map, width, height, wingSpan, midY, total, rand, lootRandom, tiles, floor, player, arena,
-    layoutRandom: seeded(seed ^ 0xa1463f3d), secretWalls: new Uint8Array(tiles.length),
-    bossName: island ? "Король обезьян" : "Смотритель", acts: island ? KING_ACTS : BOSS_ACTS,
+    layoutRandom: seeded(seed ^ 0xa1463f3d), coinRandom: seeded(seed ^ 0xd2bc15b3), secretWalls: new Uint8Array(tiles.length),
+    bossName: vault ? "Капитан Ржавый Крюк" : island ? "Король обезьян" : "Смотритель",
+    acts: vault ? RUST_ACTS : island ? KING_ACTS : BOSS_ACTS,
     discovery: new Uint8Array(tiles.length), history: previous ? {
-      time: previous.time, kills: previous.player.kills, relics: previous.player.relics,
-      secrets: previous.secrets.filter(secret => secret.open).length, totalSecrets: previous.secrets.length,
-    } : { time: 0, kills: 0, relics: 0, secrets: 0, totalSecrets: 0 },
-    enemies: [], items: [], props: [], bolts: [], hazards: [], flashes: [], events: [], cues: [], seals: [], secrets: [],
+      time: previous.history.time + previous.time, kills: previous.history.kills + previous.player.kills,
+      relics: previous.history.relics + previous.player.relics, sunk: previous.history.sunk,
+      secrets: previous.history.secrets + previous.secrets.filter(secret => secret.open).length,
+      totalSecrets: previous.history.totalSecrets + previous.secrets.length,
+    } : { time: 0, kills: 0, relics: 0, sunk: 0, secrets: 0, totalSecrets: 0 },
+    enemies: [], items: [], props: [], bolts: [], hazards: [], flashes: [], blood: new Map(), events: [], cues: [], seals: [], secrets: [],
     skillChoices: [], pressure: 0, nextAmbience: 2.4, nextImpact: 0,
     gate: { x: arenaX + map.arenaLength - .5, y: midY + .5 }, flow: null, nextFlow: -1,
     start: { x: player.x, y: player.y }, time: 0, status: "play", hint: "", hintUntil: 0 };
@@ -334,6 +408,11 @@ function createLevel(seed, map, previous) {
     reveal(world);
     return world;
   }
+  if (map === PORT) {
+    buildPort(world, carve);
+    reveal(world);
+    return world;
+  }
   for (let wing = 0; wing < total; wing++) buildWing(world, wing, carve);
   carve(arenaX, midY - map.arenaRadius, arenaX + map.arenaLength, midY + map.arenaRadius, 4);
   for (const x of [arenaX + 5, arenaX + (island ? 16 : 12)]) for (const y of [midY - 4, midY + 3]) {
@@ -344,8 +423,10 @@ function createLevel(seed, map, previous) {
     { kind: "ammo", x: arenaX + 2.5, y: midY - 2.1 },
     { kind: "heal", x: arenaX + 14.4, y: midY - 5.3 },
   );
-  if (island) world.items.push({ kind: "ammo", x: arenaX + 3.7, y: midY + 5.6 }, { kind: "heal", x: arenaX + 20.5, y: midY + 6.5 });
-  addEnemy(world, island ? "king" : "captain", arenaX + (island ? 14.5 : 11.5), midY + .5);
+  if (island || vault) world.items.push({ kind: "ammo", x: arenaX + 3.7, y: midY + 5.6 }, { kind: "heal", x: arenaX + 20.5, y: midY + 6.5 });
+  if (vault) world.items.push({ kind: "ammo", x: arenaX + 20.2, y: midY - 7.35, amount: 22 },
+    { kind: "heal", x: arenaX + 7.5, y: midY + 7.55 });
+  addEnemy(world, vault ? "rust-hook" : island ? "king" : "captain", arenaX + (island || vault ? 14.5 : 11.5), midY + .5);
   world.boss = world.enemies.at(-1);
   world.boss.pattern = 0;
   world.boss.charge = 0;
@@ -355,6 +436,7 @@ function createLevel(seed, map, previous) {
     const chance = rand();
     if (island) tiles[ix(world, x, y)] = x >= arenaX ? ISLAND_TERRAIN.shrine
       : chance < .18 ? ISLAND_TERRAIN.root : chance < .44 ? ISLAND_TERRAIN.basalt : ISLAND_TERRAIN.jungle;
+    else if (vault) tiles[ix(world, x, y)] = chance < .72 ? VAULT_WALL : chance < .87 ? 8 : 2;
     else tiles[ix(world, x, y)] = chance < (x >= arenaX ? .27 : .13) ? 4 : chance < .32 ? 3 : chance < .52 ? 2 : 1;
   }
   for (const seal of world.seals) setBarrier(world, Math.floor(seal.x), 8);
@@ -371,6 +453,38 @@ function createLevel(seed, map, previous) {
   }
   reveal(world);
   return world;
+}
+
+function buildPort(world, carve) {
+  const y = world.midY;
+  carve(2, y - 2, 40, y + 2, 1);
+  carve(7, y - 8, 13, y - 2, 1);
+  carve(15, y + 2, 22, y + 8, 1);
+  carve(24, y - 8, 31, y - 2, 1);
+  carve(34, y - 4, 40, y + 4, 4);
+  world.gate = { x: 39.5, y: y + .5 };
+  world.merchants = [
+    { id: "skills", kind: "vendor-skills", name: "Руна · умения", x: 10.5, y: y - 4.5 },
+    { id: "arms", kind: "vendor-arms", name: "Бранн · оружие", x: 18.5, y: y + 4.5 },
+    { id: "chests", kind: "vendor-chests", name: "Шкив · сундуки", x: 27.5, y: y - 4.5 },
+  ];
+  world.props.push(...world.merchants);
+  for (const merchant of world.merchants) {
+    world.props.push({ kind: "torch", x: merchant.x - 1.55, y: merchant.y - .8 },
+      { kind: "stall-" + merchant.id, x: merchant.x, y: merchant.y + (merchant.id === "arms" ? 1.2 : -1.2) },
+      { kind: merchant.id === "chests" ? "chest" : "barrel", x: merchant.x + 1.45, y: merchant.y - .65 });
+  }
+  for (const x of [5.5, 14.6, 23.2, 33.25, 37.4]) world.props.push({ kind: "torch", x, y: y + 2.25 });
+  for (let i = 0; i < world.tiles.length; i++) if (world.tiles[i]) world.tiles[i] = 7;
+}
+
+export function portInteraction(world) {
+  if (world.map.key !== "port") return null;
+  const p = world.player;
+  if (Math.hypot(p.x - world.gate.x, p.y - world.gate.y) < 1.65) {
+    return { id: "vault", name: "Войти в сокровищницу" };
+  }
+  return world.merchants.find(merchant => visible(world, p.x, p.y, merchant, 2.25)) ?? null;
 }
 
 function buildDream(world, carve) {
@@ -509,7 +623,9 @@ function setBarrier(world, x, kind) {
 
 export function location(world) {
   if (world.training) return world.map.title;
-  if (world.arena.active) return world.map.key === "island" ? "Трон обезьян" : "Зал Смотрителя";
+  if (world.map.key === "port") return world.map.wings[0];
+  if (world.arena.active) return world.map.key === "vault" ? "Зал Ржавого Крюка"
+    : world.map.key === "island" ? "Трон обезьян" : "Зал Смотрителя";
   return world.map.wings[sector(world)];
 }
 
@@ -518,6 +634,7 @@ function sector(world) {
 }
 
 export function compassObjective(world) {
+  if (world.map.key === "port") return { point: world.gate, label: "Сокровищница" };
   const relic = world.items.find(item => item.kind === "relic" && item.wing === world.player.relics);
   if (relic) return { point: relic, label: "Осколок" };
   if (world.arena.cleared) return { point: world.gate, label: "Выход" };
@@ -658,7 +775,7 @@ function damage(world, points) {
 function draftSkill(world) {
   const owned = new Map(world.player.skills.map(skill => [skill.id, skill.rank]));
   const pool = world.training ? UPGRADES.filter(skill => skill.steps && (!owned.size || owned.has(skill.id)))
-    : world.map.key === "island" ? CAPTAIN_SKILLS : UPGRADES;
+    : ["island", "vault"].includes(world.map.key) ? CAPTAIN_SKILLS : UPGRADES;
   const rest = shuffled(pool.map(skill => skillAtRank(skill, (owned.get(skill.id) ?? 0) + 1)).filter(Boolean), world.lootRandom);
   if (!rest.length) return;
   world.skillChoices = rest.slice(0, 3);
@@ -679,12 +796,8 @@ function draftSkill(world) {
 export function chooseSkill(world, id) {
   if (world.status !== "play") return false;
   const skill = world.skillChoices.find(option => option.id === id);
-  if (!skill) return false;
+  if (!skill || !learnSkill(world.player, skill)) return false;
   world.skillChoices = [];
-  skill.apply(world.player);
-  const learned = world.player.skills.findIndex(entry => entry.id === id);
-  if (learned < 0) world.player.skills.push(skill);
-  else world.player.skills[learned] = skill;
   world.lastReveal = -1;
   prompt(world, skill.name + " · " + skill.effect);
   cue(world, "upgrade");
@@ -695,6 +808,12 @@ function gather(world) {
   const p = world.player;
   world.items = world.items.filter(item => {
     if (Math.hypot(p.x - item.x, p.y - item.y) > .59) return true;
+    if (item.kind === "coin") {
+      p.coins += item.amount;
+      prompt(world, "+" + item.amount + " дубл. · Кошель " + p.coins);
+      cue(world, "coin");
+      return false;
+    }
     if (item.kind === "ammo") {
       const gained = Math.min(item.amount ?? AMMO_BOX, p.ammoLimit - p.ammo);
       if (!gained) return true;
@@ -765,6 +884,9 @@ function gather(world) {
         addEnemy(world, "mask", arena.left + 18.5, world.midY + 6.5);
         boss.wards = world.enemies.slice(-2);
         for (const ward of boss.wards) ward.kingWard = true;
+      } else if (world.map.key === "vault") {
+        addEnemy(world, "vault-gunner", arena.left + 7.3, world.midY - 7.65);
+        addEnemy(world, "vault-shield", arena.left + 21.1, world.midY + 6.85);
       } else {
         addEnemy(world, "crab", arena.left + 9.3, world.midY - 4.9);
         addEnemy(world, "corsair", arena.left + 14.8, world.midY + 4.9);
@@ -814,7 +936,8 @@ export function reloadWeapon(world) {
   const spec = ARMORY[p.weapon];
   const capacity = weaponCapacity(p);
   if (world.status !== "play" || !capacity || p.reloadLeft || !p.ammo || p.chambers[p.weapon] === capacity) return false;
-  p.reloadLeft = p.reloadSpan = spec.reload * p.reloadScale;
+  const rank = p.weaponRanks?.[p.weapon] ?? 0;
+  p.reloadLeft = p.reloadSpan = spec.reload * p.reloadScale * (1 - rank * .07);
   emit(world, "reload");
   return true;
 }
@@ -848,7 +971,8 @@ export function shoot(world) {
     p.chambers[weapon]--;
   }
   const blade = weapon === "blade";
-  let damage = spec.damage * (blade ? p.bladeDamage : p.gunDamage);
+  const rank = p.weaponRanks?.[weapon] ?? 0;
+  let damage = spec.damage * (1 + rank * .13) * (blade ? p.bladeDamage : p.gunDamage);
   if (p.dashShot > world.time) damage *= 1 + skillPower(p, "dash-shot");
   p.dashShot = 0;
   if (blade && p.riposte > world.time) damage *= 1 + skillPower(p, "riposte");
@@ -857,7 +981,7 @@ export function shoot(world) {
     if (p.charged) damage *= 1 + skillPower(p, "reload-shot");
     p.charged = false;
   }
-  const range = spec.range * (blade ? p.bladeReach : 1);
+  const range = spec.range * (blade ? p.bladeReach * (1 + rank * .07) : 1);
   p.cooldown = spec.cadence * (blade ? 1 : p.gunCadence);
   p.recoil = weapon === "scatter" || weapon === "musket" ? .29 : .195;
   emit(world, weapon);
@@ -927,6 +1051,7 @@ function hurtEnemy(world, target, amount, weapon, parry = false) {
     return;
   }
   target.down = world.time;
+  if (target.kind.startsWith("vault-") || target.kind === "rust-hook") leaveBlood(world, target);
   if (target.kingWard && !world.boss.wards.some(ward => ward.hp > 0)) {
     prompt(world, "Печать разбита. Король открыт!");
     cue(world, "seal-open", target);
@@ -939,7 +1064,23 @@ function hurtEnemy(world, target, amount, weapon, parry = false) {
     if (p.traits.has("salvage") && p.firearmKills % 4 === 0) p.ammo = Math.min(p.ammoLimit, p.ammo + 1);
   }
   if (!boss && !world.training && world.lootRandom() < RARE_DROP) world.items.push({ kind: "upgrade", x: target.x, y: target.y });
+  if (!world.training && world.coinRandom() < (boss ? .80 : .32)) {
+    const amount = (boss ? 8 : 2) + Math.floor(world.coinRandom() * (boss ? 9 : 4));
+    world.items.push({ kind: "coin", x: target.x, y: target.y, amount });
+  }
   emit(world, "defeat", target, target.kind);
+}
+
+function leaveBlood(world, enemy) {
+  const stain = { x: enemy.x, y: enemy.y, time: world.time, radius: enemy === world.boss ? .78 : .51 };
+  for (let y = Math.floor(stain.y - stain.radius); y <= Math.floor(stain.y + stain.radius); y++) {
+    for (let x = Math.floor(stain.x - stain.radius); x <= Math.floor(stain.x + stain.radius); x++) {
+      const tile = ix(world, x, y);
+      const marks = world.blood.get(tile) ?? [];
+      marks.push(stain);
+      world.blood.set(tile, marks);
+    }
+  }
 }
 
 function deflect(world) {
@@ -1036,6 +1177,45 @@ function captainAttack(world, boss, act, clear) {
     const angles = quick ? [-.105, 0, .105] : [-.55, -.37, -.18, 0, .18, .37, .55];
     volley(world, boss, angles.map(turn => facing + turn), quick ? 8.0 : 5.1, act.damage);
   }
+}
+
+const RUST_PATTERNS = [
+  ["hook", "pistol", "hook"],
+  ["powder", "pistol", "hook"],
+  ["lunge", "crossfire", "hook", "powder"],
+];
+const rustMove = (stage, pattern) => RUST_PATTERNS[stage][pattern % RUST_PATTERNS[stage].length];
+
+function rustAttack(world, boss, act, clear) {
+  const { arena, player, time } = world;
+  const move = rustMove(arena.stage, boss.pattern++);
+  const { facing } = boss;
+  if (move === "lunge") {
+    boss.charge = .68;
+    boss.hitCharge = false;
+    cue(world, "boss-charge", boss);
+  } else if (move === "powder" || move === "crossfire") {
+    const { x, y } = boss.mark;
+    const crossfire = move === "crossfire";
+    for (const [i, offset] of [-4.9, -2.45, 0, 2.45, 4.9].entries()) {
+      const cx = x - Math.sin(facing) * offset;
+      const cy = y + Math.cos(facing) * offset;
+      if (cx < arena.left || tileAt(world, Math.floor(cx), Math.floor(cy))) continue;
+      const strike = time + (crossfire ? .91 + i * .135 : .94 + Math.abs(offset) * .08);
+      world.hazards.push({ x: cx, y: cy, radius: 1.55, strike, end: strike + .35, hurt: act.damage + 3 });
+    }
+    cue(world, "powder-mark", boss.mark);
+    if (crossfire && clear) volley(world, boss, [-.28, 0, .28].map(a => a + facing), 8.6, act.damage);
+  } else if (move === "hook" && clear) {
+    if (Math.hypot(player.x - boss.x, player.y - boss.y) < 1.8) {
+      const angle = Math.atan2(player.y - boss.y, player.x - boss.x);
+      if (Math.cos(angle - facing) > .32) damage(world, act.damage + 4);
+    } else {
+      world.bolts.push({ kind: "chain-hook", x: boss.x, y: boss.y, dx: Math.cos(facing) * 10.7,
+        dy: Math.sin(facing) * 10.7, hurt: act.damage, end: time + 1.65, pull: true });
+    }
+    cue(world, "chain-hook", boss);
+  } else if (clear) volley(world, boss, [-.17, 0, .17].map(a => a + facing), 8.4, act.damage);
 }
 
 const LEAP_SPAN = .57;
@@ -1156,6 +1336,7 @@ function updateEnemy(world, enemy, dt) {
   const p = world.player;
   const spec = ENEMIES[enemy.kind];
   const boss = enemy === world.boss;
+  const rust = enemy.kind === "rust-hook";
   if (boss && (!world.arena.active || world.time < world.arena.next)) return;
   const act = boss ? world.acts[world.arena.stage] : spec;
   const distance = Math.hypot(p.x - enemy.x, p.y - enemy.y);
@@ -1166,7 +1347,7 @@ function updateEnemy(world, enemy, dt) {
   if (clear && distance < 10) world.pressure++;
   if (boss && enemy.charge > 0) {
     enemy.charge = Math.max(0, enemy.charge - dt);
-    const speed = 9;
+    const speed = rust ? 11.4 : 9;
     moveBody(world, enemy, Math.cos(enemy.facing) * speed * dt, Math.sin(enemy.facing) * speed * dt, .28);
     if (!enemy.hitCharge && Math.hypot(p.x - enemy.x, p.y - enemy.y) < 1.1 && visible(world, enemy.x, enemy.y, p, 1.15)) {
       enemy.hitCharge = true;
@@ -1180,7 +1361,8 @@ function updateEnemy(world, enemy, dt) {
     if (enemy.attack > 0) return;
     enemy.recover = .23;
     enemy.wait = act.cooldown;
-    if (boss) captainAttack(world, enemy, act, clear);
+    if (rust) rustAttack(world, enemy, act, clear);
+    else if (boss) captainAttack(world, enemy, act, clear);
     else if (!spec.ranged) {
       cue(world, "enemy-strike", enemy, enemy.kind);
       if (clear && distance < spec.reach + .31 && damage(world, spec.damage) && enemy.kind === "viper") {
@@ -1193,12 +1375,15 @@ function updateEnemy(world, enemy, dt) {
     return;
   }
   enemy.wait = Math.max(0, enemy.wait - dt);
-  const charge = boss && world.arena.stage === 2 && enemy.pattern % 2 === 0;
+  const rustAttackKind = rust ? rustMove(world.arena.stage, enemy.pattern) : null;
+  const charge = rust ? rustAttackKind === "lunge" : boss && world.arena.stage === 2 && enemy.pattern % 2 === 0;
   if (clear && distance <= (charge ? 8.3 : spec.reach) && enemy.wait <= 0) {
     enemy.attackSpan = enemy.attack = act.wind;
     if (boss) enemy.mark = { x: p.x, y: p.y };
-    const powder = boss && world.arena.stage === 1 && enemy.pattern % 2 === 0;
+    const powder = rust ? ["powder", "crossfire"].includes(rustAttackKind) : boss && world.arena.stage === 1 && enemy.pattern % 2 === 0;
     cue(world, "enemy-windup", enemy, charge ? "charge" : powder ? "powder" : enemy.kind);
+    if (rustAttackKind === "hook") prompt(world, "Крюк на цепи · уйди с линии броска");
+    else if (rust && powder) prompt(world, "Пороховые заряды · следи за метками на полу");
     return;
   }
   if (enemy.kingWard || (distance < (spec.ranged ? 3.1 : .55) && clear)) return;
@@ -1283,6 +1468,9 @@ export function stepRun(world, input, dt) {
   if (p.dash > 0) {
     vx = p.dashX * p.dashSpeed;
     vy = p.dashY * p.dashSpeed;
+  } else if (p.pullUntil > world.time) {
+    vx += p.pullX;
+    vy += p.pullY;
   }
   moveBody(world, p, vx * dt, vy * dt, .23);
   if (p.dash > 0) dashWake(world);
@@ -1290,6 +1478,14 @@ export function stepRun(world, input, dt) {
   p.moving += (Number(travelled > .0001) - p.moving) * Math.min(1, dt * 13);
   moveSounds(world, travelled);
   p.bob += dt * (p.dash > 0 ? 16 : 10) * p.moving;
+  if (world.map.key === "port") {
+    const target = input.interact ? portInteraction(world) : null;
+    if (target?.id === "vault") world.status = "won";
+    else if (target) emit(world, "shop-" + target.id);
+    p.dash = Math.max(0, p.dash - dt);
+    reveal(world);
+    return;
+  }
   if (input.interact) openSecret(world);
   reveal(world);
   const wasInArena = world.arena.active;
@@ -1311,7 +1507,15 @@ export function stepRun(world, input, dt) {
       }
       return false;
     }
-    if (Math.hypot(p.x - bolt.x, p.y - bolt.y) < .31) { damage(world, bolt.hurt); return false; }
+    if (Math.hypot(p.x - bolt.x, p.y - bolt.y) < (bolt.pull ? .44 : .31)) {
+      if (damage(world, bolt.hurt) && bolt.pull) {
+        const distance = Math.hypot(bolt.dx, bolt.dy);
+        p.pullUntil = world.time + .52;
+        p.pullX = -bolt.dx * 6.3 / distance;
+        p.pullY = -bolt.dy * 6.3 / distance;
+      }
+      return false;
+    }
     return true;
   });
   updateHazards(world);
