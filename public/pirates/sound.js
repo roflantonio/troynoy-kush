@@ -1,4 +1,4 @@
-import { scoreUrl } from "./score.js?v=17";
+import { scoreUrl } from "./score.js?v=18";
 
 const note = midi => 440 * 2 ** ((midi - 69) / 12);
 const enemyTimbres = {

@@ -1,6 +1,6 @@
 import { ARMORY, advanceDream, cast, chooseSkill, compassObjective, createDream, createPort, createRun, dreamHint, learnRescueCode, location, nextLevel, portInteraction, rescueInteraction, secretAhead, seeded, stepRun, switchWeapon, unlockRescue, weaponCapacity } from "./world.js?v=17";
 import { createRenderer, mapDraw } from "./render.js?v=17";
-import { pirateSound } from "./sound.js?v=17";
+import { pirateSound } from "./sound.js?v=18";
 import { FLEET_TOTAL, FLEET_WAVES, KRAKEN_HP, HELM, answerHelm, beginKraken, broadsideTarget, fireBroadside, newVoyage, stepVoyage } from "./sea.js?v=17";
 import { TRADERS, offers, purchase } from "./trade.js?v=17";
 import { seaRenderer } from "./sea-render.js?v=17";

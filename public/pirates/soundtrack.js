@@ -1,4 +1,4 @@
-import { SCORE, scoreUrl } from "./score.js?v=17";
+import { SCORE, scoreUrl } from "./score.js?v=18";
 
 const audio = document.getElementById("score-audio");
 const playing = document.getElementById("playing-track");

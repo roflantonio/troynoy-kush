@@ -41,4 +41,4 @@ export const SCORE = [
   ] },
 ];
 
-export const scoreUrl = key => new URL("./music/" + key + ".mp3?v=17", import.meta.url);
+export const scoreUrl = key => new URL("./music/" + key + ".mp3?v=18", import.meta.url);
