@@ -8,9 +8,9 @@
   <title>Проклятие фортуны</title>
   <link rel="preload" as="image" href="./awakening.webp">
   <link rel="preload" as="image" href="./viewmodels.png?v=11">
-  <link rel="stylesheet" href="./pirates.css?v=13">
+  <link rel="stylesheet" href="./pirates.css?v=14">
   <link rel="stylesheet" href="./sea.css?v=13">
-  <script type="module" src="./game.js?v=13"></script>
+  <script type="module" src="./game.js?v=14"></script>
 </head>
 <body>
   <main class="cabinet" id="cabinet" data-mode="menu">
@@ -116,7 +116,6 @@
         <nav class="title-choices" aria-label="Главное меню">
           <button id="start" class="title-choice" type="button" disabled>Начать поход</button>
           <button id="menu-settings" class="title-choice" type="button">Настройки</button>
-          <button id="guide" class="title-choice" type="button">Управление</button>
           <a class="title-choice title-return" href="../">Вернуться в лаунчер</a>
         </nav>
       </div>
@@ -127,7 +126,6 @@
         <div class="menu-buttons">
           <button id="continue" class="button primary" type="button">Продолжить</button>
           <button id="pause-settings" class="button plain" type="button">Настройки</button>
-          <button id="pause-guide" class="button plain" type="button">Управление</button>
           <button id="skip-dream" class="button plain" type="button" hidden>Проснуться и пропустить обучение</button>
           <button id="menu-return" class="button plain" type="button">В меню игры</button>
         </div>
@@ -214,25 +212,24 @@
       <label for="effects-volume">Звуки игры</label><output id="effects-percent" for="effects-volume">100%</output>
       <input id="effects-volume" type="range" min="0" max="100" value="100">
     </div>
-  </dialog>
-
-  <dialog id="help">
-    <div class="help-head"><h2>Управление</h2><button id="help-close" type="button" class="utility" aria-label="Закрыть управление">×</button></div>
-    <dl>
-      <div><dt>WASD</dt><dd>Движение и шаг вбок</dd></div>
-      <div><dt>Мышь / стрелки</dt><dd>Клик по экрану захватывает мышь. Стрелки поворачивают, Page Up и Page Down двигают взгляд вверх и вниз</dd></div>
-      <div><dt>ЛКМ / пробел</dt><dd>Атака</dd></div>
-      <div><dt>1 / 2 / 3 / 4</dt><dd>Пистолет, мушкетон, сабля и длинный мушкет</dd></div>
-      <div><dt>R</dt><dd>Перезарядка. При удержании огня пустое оружие перезаряжается автоматически</dd></div>
-      <div><dt>Shift</dt><dd>Рывок по ходу движения. Помогает увернуться от удара или снаряда</dd></div>
-      <div><dt>E</dt><dd>Открыть тайный ход. Осматривай стены в поисках неровных швов</dd></div>
-      <div><dt>Tab / M</dt><dd>Открыть карту и посмотреть капитанские умения</dd></div>
-      <div><dt>Esc</dt><dd>Пауза</dd></div>
-    </dl>
-    <p>На телефоне вращай камеру свайпом и используй экранные кнопки. Карта заполняется по мере разведки. Краб быстро сближается зигзагом. Щитоносец уязвим во время замаха и после удара.</p>
-    <p>На острове макаки-налётчики быстро сближаются, пращники бросают камни, гадюки замедляют укусом, маски идолов выпускают веер снарядов, а гориллы бьют вблизи. При подборе жетона выбери умение из трёх.</p>
-    <p>В море потопи 25 кораблей. Держи цели вдоль борта. Q и E стреляют из левых и правых пушек. При тревоге нажми 1, 2 или 3 по команде на экране.</p>
     <button class="button plain" id="dream-replay" type="button">Сон-обучение</button>
+    <details id="controls-reference">
+      <summary>Справка по управлению</summary>
+      <dl>
+        <div><dt>WASD</dt><dd>Движение и шаг вбок</dd></div>
+        <div><dt>Мышь / стрелки</dt><dd>Клик по экрану захватывает мышь. Стрелки поворачивают, Page Up и Page Down двигают взгляд вверх и вниз</dd></div>
+        <div><dt>ЛКМ / пробел</dt><dd>Атака</dd></div>
+        <div><dt>1 / 2 / 3 / 4</dt><dd>Пистолет, мушкетон, сабля и длинный мушкет</dd></div>
+        <div><dt>R</dt><dd>Перезарядка. При удержании огня пустое оружие перезаряжается автоматически</dd></div>
+        <div><dt>Shift</dt><dd>Рывок по ходу движения. Помогает увернуться от удара или снаряда</dd></div>
+        <div><dt>E</dt><dd>Открыть тайный ход. Осматривай стены в поисках неровных швов</dd></div>
+        <div><dt>Tab / M</dt><dd>Открыть карту и посмотреть капитанские умения</dd></div>
+        <div><dt>Esc</dt><dd>Пауза</dd></div>
+      </dl>
+      <p>На телефоне вращай камеру свайпом и используй экранные кнопки. Карта заполняется по мере разведки. Краб быстро сближается зигзагом. Щитоносец уязвим во время замаха и после удара.</p>
+      <p>На острове макаки-налётчики быстро сближаются, пращники бросают камни, гадюки замедляют укусом, маски идолов выпускают веер снарядов, а гориллы бьют вблизи. При подборе жетона выбери умение из трёх.</p>
+      <p>В море потопи 25 кораблей. Держи цели вдоль борта. Q и E стреляют из левых и правых пушек. При тревоге нажми 1, 2 или 3 по команде на экране.</p>
+    </details>
   </dialog>
 </body>
 </html>

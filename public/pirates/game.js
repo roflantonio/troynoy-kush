@@ -616,7 +616,7 @@ requestAnimationFrame(frame);
 
 const moves = new Set(["KeyW","KeyA","KeyS","KeyD","ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Space","PageUp","PageDown","KeyR","KeyE","ShiftLeft","ShiftRight"]);
 document.addEventListener("keydown", event => {
-  if ($("help").open || $("settings").open) return;
+  if ($("settings").open) return;
   if (mode === "menu" && ["ArrowUp", "ArrowDown"].includes(event.code)) {
     event.preventDefault();
     const current = titleChoices.indexOf(document.activeElement);
@@ -755,7 +755,7 @@ $("retry").addEventListener("click", () => {
 $("raise-anchor").addEventListener("click", embark);
 $("skip-dream").addEventListener("click", wakeDream);
 $("dream-replay").addEventListener("click", () => {
-  $("help").close();
+  $("settings").close();
   start(true);
 });
 if (touch) {
@@ -797,8 +797,6 @@ $("touch-interact").addEventListener("click", () => {
     scene.focus({ preventScroll: true });
   }
 });
-for (const id of ["guide","pause-guide"]) $(id).addEventListener("click", () => $("help").showModal());
-$("help-close").addEventListener("click", () => $("help").close());
 for (const id of ["menu-settings", "pause-settings"]) $(id).addEventListener("click", () => $("settings").showModal());
 $("settings-close").addEventListener("click", () => $("settings").close());
 show("menu");

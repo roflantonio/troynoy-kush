@@ -128,11 +128,13 @@ dialog::backdrop{background:#070d12d9}
 .volume-control input{grid-column:1/-1;width:100%;min-height:34px;accent-color:var(--coin);cursor:pointer;margin:0}
 .help-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
 .help-head h2{font-size:2.2rem}
-#help dl{display:grid;gap:5px;margin-bottom:12px}
-#help dl div{display:grid;grid-template-columns:125px 1fr;gap:9px;padding:4px;border-bottom:1px solid #435956;font-size:.9rem}
-#help dt{color:var(--sea);font-weight:800}
-#help p{color:var(--muted);font-size:.88rem}
-#help p + p{margin-top:8px}
+#controls-reference{margin-top:12px}
+#controls-reference summary{padding-block:6px;cursor:pointer;color:var(--sea)}
+#controls-reference dl{display:grid;gap:5px;margin-bottom:12px}
+#controls-reference dl div{display:grid;grid-template-columns:125px 1fr;gap:9px;padding:4px;border-bottom:1px solid #435956;font-size:.9rem}
+#controls-reference dt{color:var(--sea);font-weight:800}
+#controls-reference p{color:var(--muted);font-size:.88rem}
+#controls-reference p + p{margin-top:8px}
 #dream-replay{margin-top:12px}
 .emblem{display:inline-block;flex:none;width:var(--emblem,24px);height:var(--emblem,24px);background:url("./instruments.png") var(--mark,0%) center/700% 100% no-repeat;vertical-align:middle}
 .heart-mark{--mark:16.6667%}
@@ -255,7 +257,7 @@ kbd{font:inherit;font-size:.78em;border:1px solid currentColor;border-radius:2px
   .cinematic[data-speaker="king"] .portrait{right:2vw}
   .toolbar{top:7px;right:7px}
   .sheet{padding:13px}
-  #help dl div{grid-template-columns:102px 1fr}
+  #controls-reference dl div{grid-template-columns:102px 1fr}
 }
 @media(max-height:490px){
   #result[data-outcome="dead"] .sheet{padding-block:10px}
