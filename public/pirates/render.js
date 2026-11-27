@@ -930,29 +930,18 @@ export function createRenderer(canvas) {
 }
 
 export function mapDraw(canvas, world) {
-  const ctx = canvas.getContext("2d");
   const { width, height } = world;
-  const scale = Math.floor(Math.min((canvas.width - 28) / width, (canvas.height - 28) / height));
-  const left = Math.floor((canvas.width - width * scale) / 2);
-  const top = Math.floor((canvas.height - height * scale) / 2);
-  const shade = ctx.createRadialGradient(canvas.width * .5, canvas.height * .42, 10, canvas.width * .5, canvas.height * .5, canvas.width * .61);
-  shade.addColorStop(0, "#efdbad");
-  shade.addColorStop(.80, "#d4b078");
-  shade.addColorStop(1, "#a77c4c");
-  rect(ctx, shade, 0, 0, canvas.width, canvas.height);
-  const rand = seeded(20572);
-  for (let i = 0; i < 1900; i++) rect(ctx, i % 2 ? "#71472327" : "#fff7cc50",
-    rand() * canvas.width, rand() * canvas.height, 1 + rand() * 4, 1);
-
-  const cell = (color, x, y, inset = 0) => rect(ctx, color, left + x * scale + inset, top + y * scale + inset, scale - inset * 2, scale - inset * 2);
+  const scale = Math.min(8, Math.floor(3800 / width));
+  const left = 16, top = 16;
+  canvas.width = width * scale + 2 * left;
+  canvas.height = height * scale + 2 * top;
+  const ctx = canvas.getContext("2d");
+  const cell = (color, x, y) => rect(ctx, color, left + x * scale, top + y * scale, scale, scale);
   const ink = (x, y) => !tileAt(world, x, y) && discovered(world, x, y);
-  ctx.strokeStyle = "#794e2a8c";
-  ctx.lineWidth = 1;
-  ctx.strokeRect(8.5, 8.5, canvas.width - 17, canvas.height - 17);
   for (let y = 1; y < height - 1; y++) for (let x = 1; x < width - 1; x++) {
     if (!ink(x, y)) continue;
     const style = world.floor[y * width + x];
-    cell(style === 4 ? "#a079645e" : style >= 5 ? "#7a865d64" : "#9e74504b", x, y);
+    cell(style === 4 ? "#88563b82" : style >= 5 ? "#65764d8f" : "#90694775", x, y);
     const px = left + x * scale, py = top + y * scale;
     if (!ink(x - 1, y)) rect(ctx, "#624025", px, py, 1, scale);
     if (!ink(x + 1, y)) rect(ctx, "#624025", px + scale - 1, py, 1, scale);
@@ -979,7 +968,7 @@ export function mapDraw(canvas, world) {
     else rect(ctx, item.kind === "heal" ? "#9c4032" : "#8d5e21", x - 1, y - 1, 3, 3);
   }
   if (discovered(world, world.gate.x, world.gate.y)) {
-    cell(world.arena.cleared || world.map.key === "port" ? "#216957" : "#8e4534", Math.floor(world.gate.x), Math.floor(world.gate.y), 0);
+    cell(world.arena.cleared || world.map.key === "port" ? "#216957" : "#8e4534", Math.floor(world.gate.x), Math.floor(world.gate.y));
   }
   for (const trader of world.merchants ?? []) {
     if (discovered(world, trader.x, trader.y)) cell("#92622b", Math.floor(trader.x), Math.floor(trader.y));
@@ -997,5 +986,5 @@ export function mapDraw(canvas, world) {
   poly(ctx, "#e5cf9d", [[12, 0], [-6, -6], [-3, 0], [-6, 6]]);
   poly(ctx, "#3c2723", [[9, 0], [-4, -4], [-1, 0], [-4, 4]]);
   ctx.restore();
-  return x / canvas.width;
+  return { x, y };
 }

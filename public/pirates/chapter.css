@@ -54,7 +54,6 @@
 }
 .skill-rarity{color:var(--tier);font:750 clamp(.62rem,1.4vw,.76rem)/1.2 var(--body)}
 #learned-skills li[data-rarity]{border-left:3px solid color-mix(in srgb,var(--tier) 70%,#44404b);padding-left:4px}
-#learned-skills .skill-rarity{color:color-mix(in srgb,var(--tier) 28%,#30323b)}
 .trade-catalog [data-rarity] h3{color:var(--tier)}
 .boss-hud[data-stage="guard"] .boss-seals{display:none}
 .boss-hud[data-stage="guard"] progress{--fill:#e6a960}

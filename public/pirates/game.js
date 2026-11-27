@@ -1,17 +1,20 @@
 import { ARMORY, advanceDream, cast, chooseSkill, compassObjective, createDream, createPort, createRun, dreamHint, learnRescueCode, location, nextLevel, portInteraction, rescueInteraction, secretAhead, seeded, stepRun, switchWeapon, unlockRescue, weaponCapacity } from "./world.js?v=20";
-import { createRenderer, mapDraw } from "./render.js?v=20";
+import { createRenderer, mapDraw } from "./render.js?v=21";
 import { pirateSound } from "./sound.js?v=18";
 import { FLEET_TOTAL, FLEET_WAVES, KRAKEN_HP, HELM, answerHelm, beginKraken, broadsideTarget, fireBroadside, newVoyage, stepVoyage } from "./sea.js?v=17";
 import { TRADERS, offers, purchase } from "./trade.js?v=20";
 import { seaRenderer } from "./sea-render.js?v=19";
 import { SPEAKERS as speakers, sceneFor } from "./story.js?v=17";
 import { RARITIES } from "./skills.js?v=17";
+import { chartView } from "./chart-view.js?v=21";
+import { setupOfflineMenu } from "./offline.js?v=21";
 import { animateFortMenu } from "./menu-scene.js?v=13";
 
 const $ = id => document.getElementById(id);
 const cabinet = $("cabinet");
 const scene = $("scene");
 const paint = createRenderer(scene);
+const chart = chartView($("chart-window"), $("map"), mapDraw, $("chart-zoom-in"), $("chart-zoom-out"));
 const paintMenu = animateFortMenu($("title-art"));
 const seaView = $("sea-view");
 const paintSea = seaRenderer(seaView);
@@ -19,6 +22,14 @@ const broadsides = [$("port-cannon"), $("starboard-cannon")];
 const reloadMeters = broadsides.map(button => button.querySelector("progress"));
 const touch = matchMedia("(pointer: coarse), (any-pointer: coarse) and (any-hover: none)").matches;
 cabinet.toggleAttribute("data-touch", touch);
+document.documentElement.toggleAttribute("data-game-touch", touch);
+if (touch) {
+  for (const name of ["gesturestart", "gesturechange", "dragstart", "contextmenu"]) {
+    document.addEventListener(name, event => {
+      if (name !== "contextmenu" || !event.target.closest?.("input, textarea")) event.preventDefault();
+    }, { passive: false });
+  }
+}
 const touchCannons = [$("touch-port"), $("touch-starboard")];
 const touchReloads = touchCannons.map(button => button.querySelector("progress"));
 const useButton = $("touch-interact");
@@ -32,7 +43,7 @@ let displayedSkills = [];
 let skillButtons = [];
 const roundMarks = [...document.querySelectorAll(".chambers i")];
 const titleChoices = [...document.querySelectorAll(".title-choice")];
-const screens = ["menu", "chapters", "pause", "result", "chart", "cinematic", "skills", "sea-briefing", "shop", "rescue-lock"];
+const screens = ["menu", "chapters", "pause", "result", "chart", "pirate-skills", "cinematic", "skills", "sea-briefing", "shop", "rescue-lock"];
 const traderVoices = { skills: "runa", arms: "brann", chests: "shkiv" };
 const storageKey = "fortune-volumes";
 const dreamKey = "fortune-dream";
@@ -429,6 +440,8 @@ function updateRescueJournal() {
 }
 
 function show(next) {
+  const previousMode = mode;
+  if (previousMode === "chart") chart.cancel();
   mode = next;
   cabinet.dataset.mode = next;
   cabinet.toggleAttribute("data-dream", !!run.training);
@@ -468,15 +481,11 @@ function show(next) {
     text("chart-location", location(run));
     text("chart-secrets", "Тайные ходы " + run.secrets.filter(secret => secret.open).length + " / " + run.secrets.length);
     updateRescueJournal();
+    chart.open(run, previousMode === "pirate-skills");
+    $(previousMode === "pirate-skills" ? "show-pirate-skills" : "chart-window").focus({ preventScroll: true });
+  } else if (next === "pirate-skills") {
     showLearnedSkills();
-    const map = $("map");
-    map.width = 28 + run.width * 6;
-    map.height = 28 + run.height * 6;
-    map.style.minWidth = ["island", "vault"].includes(run.map.key) ? Math.round(run.width * 4.1) + "px" : "";
-    const position = mapDraw(map, run);
-    const paper = $("chart-scroll");
-    paper.scrollLeft = paper.scrollWidth * position - paper.clientWidth / 2;
-    $("chart-close").focus({ preventScroll: true });
+    $("pirate-skills-back").focus({ preventScroll: true });
   }
 }
 
@@ -930,6 +939,11 @@ document.addEventListener("keydown", event => {
     else resumePlay();
     return;
   }
+  if (mode === "pirate-skills" && event.code === "Escape" && !event.repeat) {
+    event.preventDefault();
+    show("chart");
+    return;
+  }
   if (mode === "shop" && event.code === "Escape" && !event.repeat) {
     event.preventDefault();
     resumePlay();
@@ -937,10 +951,11 @@ document.addEventListener("keydown", event => {
   }
   if (mode === "menu" && ["ArrowUp", "ArrowDown"].includes(event.code)) {
     event.preventDefault();
-    const current = titleChoices.indexOf(document.activeElement);
+    const enabledChoices = titleChoices.filter(choice => !choice.disabled);
+    const current = enabledChoices.indexOf(document.activeElement);
     const offset = event.code === "ArrowUp" ? -1 : 1;
-    const target = current === -1 ? 0 : (current + offset + titleChoices.length) % titleChoices.length;
-    titleChoices[target].focus();
+    const target = current === -1 ? 0 : (current + offset + enabledChoices.length) % enabledChoices.length;
+    enabledChoices[target].focus();
     return;
   }
   if (mode === "skills" && /^Digit[1-3]$/.test(event.code)) {
@@ -1093,6 +1108,7 @@ $("dream-replay").addEventListener("click", () => {
 if (touch) {
   $("map-toggle").setAttribute("aria-label", "Карта");
   $("pause-toggle").setAttribute("aria-label", "Пауза");
+  text("chart-instructions", "Сдвигай карту пальцем · зум двумя пальцами");
   text("brief-course", "Коснись экрана слева и веди корабль появившимся джойстиком. Держи цели вдоль борта.");
   text("brief-fire", "«Огонь» стреляет по подсвеченным целям. Стрелки рядом стреляют с выбранного борта.");
   text("brief-orders", "При тревоге нажми кнопку с указанным номером, пока идёт отсчёт.");
@@ -1117,7 +1133,9 @@ $("menu-return").addEventListener("click", () => show("menu"));
 $("result-menu").addEventListener("click", () => show("menu"));
 tapAction($("pause-toggle"), () => { if (mode === "play" || mode === "sea") show("pause"); });
 tapAction($("map-toggle"), () => { if (mode === "play") show("chart"); });
-$("chart-close").addEventListener("click", resumePlay);
+tapAction($("chart-close"), () => { if (mode === "chart") resumePlay(); });
+tapAction($("show-pirate-skills"), () => { if (mode === "chart") show("pirate-skills"); });
+tapAction($("pirate-skills-back"), () => { if (mode === "pirate-skills") show("chart"); });
 tapAction(useButton, () => {
   if (mode === "play") {
     interactPressed = true;
@@ -1128,3 +1146,4 @@ for (const id of ["menu-settings", "pause-settings"]) $(id).addEventListener("cl
 $("settings-close").addEventListener("click", () => $("settings").close());
 show("menu");
 $("start").disabled = false;
+setupOfflineMenu();

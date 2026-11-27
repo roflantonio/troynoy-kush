@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#111a1c">
   <meta name="description" content="Проклятие фортуны — пиратский шутер-рогалик. Пройди форт и остров, сразись с Кракеном и найди казну Ржавого Крюка.">
   <title>Проклятие фортуны</title>
@@ -12,12 +12,13 @@
   <link rel="preload" as="image" href="./awakening.webp">
   <link rel="preload" as="image" href="./portraits/pirate-tense.webp">
   <link rel="preload" as="image" href="./viewmodels.png?v=11">
-  <link rel="stylesheet" href="./pirates.css?v=19">
+  <link rel="stylesheet" href="./pirates.css?v=21">
   <link rel="stylesheet" href="./sea.css?v=19">
   <link rel="stylesheet" href="./port.css?v=16">
-  <link rel="stylesheet" href="./chapter.css?v=20">
-  <link rel="stylesheet" href="./touch.css?v=20">
-  <script type="module" src="./game.js?v=20"></script>
+  <link rel="stylesheet" href="./chapter.css?v=21">
+  <link rel="stylesheet" href="./touch.css?v=21">
+  <link rel="stylesheet" href="./chart.css?v=21">
+  <script type="module" src="./game.js?v=21"></script>
 </head>
 <body>
   <main class="cabinet" id="cabinet" data-mode="menu">
@@ -123,9 +124,12 @@
         <nav class="title-choices" aria-label="Главное меню">
           <button id="start" class="title-choice" type="button" disabled>Начать поход</button>
           <button id="chapter-select" class="title-choice" type="button">Выбрать главу</button>
+          <button id="download-game" class="title-choice" type="button">Загрузить игру</button>
           <button id="menu-settings" class="title-choice" type="button">Настройки</button>
           <a class="title-choice title-return" href="../">Вернуться в лаунчер</a>
         </nav>
+        <progress id="offline-progress" max="1" value="0" aria-label="Загрузка файлов игры" hidden></progress>
+        <p id="offline-status" role="status" hidden></p>
       </div>
     </section>
     <section id="chapters" class="overlay modal-screen" hidden aria-labelledby="chapters-title">
@@ -167,20 +171,39 @@
     </section>
     <section id="chart" class="overlay modal-screen" hidden aria-labelledby="chart-title">
       <div class="sheet chart-box">
-        <h2 id="chart-title">Карта форта</h2>
-        <div class="chart-subtitle" id="chart-location">Форт проклятых</div>
-        <div class="chart-scroll" id="chart-scroll" tabindex="0" aria-label="Исследованные участки форта">
-          <canvas id="map" width="988" height="290" aria-label="Открытые проходы текущего уровня"></canvas>
+        <header class="chart-header">
+          <div><h2 id="chart-title">Карта форта</h2><p class="chart-subtitle" id="chart-location">Форт проклятых</p></div>
+          <p id="chart-instructions" class="chart-instructions">Перетащи карту · зум колёсиком</p>
+        </header>
+        <div class="chart-plate">
+          <div class="chart-window" id="chart-window" tabindex="0" aria-label="Исследованные участки уровня" aria-describedby="chart-instructions">
+            <canvas id="map" width="988" height="290" aria-label="Открытые проходы текущего уровня"></canvas>
+          </div>
+          <div class="chart-zoom" aria-label="Масштаб карты">
+            <button class="utility" id="chart-zoom-in" type="button" aria-label="Приблизить карту">+</button>
+            <button class="utility" id="chart-zoom-out" type="button" aria-label="Отдалить карту">−</button>
+          </div>
         </div>
-        <p class="map-legend"><span>◆ Осколок</span><span>▮ Печать</span><span>▣ Выход</span><span class="secret-legend">✦ Тайный ход</span><span>➤ Ты</span></p>
-        <p class="chart-secrets" id="chart-secrets">Тайные ходы 0 / 3</p>
-        <p id="rescue-journal" class="rescue-journal" hidden></p>
-        <details class="chart-skills" open>
-          <summary>Капитанские умения</summary>
+        <div class="chart-details">
+          <p class="map-legend"><span>◆ Осколок</span><span>▮ Печать</span><span>▣ Выход</span><span class="secret-legend">✦ Тайный ход</span><span>➤ Ты</span></p>
+          <p class="chart-secrets" id="chart-secrets">Тайные ходы 0 / 3</p>
+          <p id="rescue-journal" class="rescue-journal" hidden></p>
+        </div>
+        <footer class="chart-actions">
+          <button id="show-pirate-skills" class="button plain" type="button">Пиратские умения</button>
+          <button id="chart-close" class="button plain" type="button">Закрыть карту</button>
+        </footer>
+      </div>
+    </section>
+
+    <section id="pirate-skills" class="overlay modal-screen" hidden aria-labelledby="pirate-skills-title">
+      <div class="sheet learned-sheet">
+        <h2 id="pirate-skills-title">Пиратские умения</h2>
+        <div class="learned-book">
           <p id="skills-empty">Найди жетон, чтобы выбрать первое умение.</p>
           <ul id="learned-skills"></ul>
-        </details>
-        <button id="chart-close" class="button plain" type="button">Закрыть карту</button>
+        </div>
+        <button id="pirate-skills-back" class="button plain" type="button">К карте</button>
       </div>
     </section>
 

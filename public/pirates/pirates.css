@@ -24,7 +24,7 @@ h1,h2,p,dl,dd{margin:0}
 .signal{top:21%;z-index:1}
 .interaction{top:56%;z-index:1}
 .overlay{position:absolute;inset:0;z-index:2}
-.title-screen{isolation:isolate;display:grid;align-items:center;background:#0b1419;overflow:hidden}
+.title-screen{isolation:isolate;display:grid;align-items:center;background:#0b1419;overflow:auto;overscroll-behavior:contain}
 .title-screen::before,.title-screen::after,.sea-haze,.cinders{content:"";position:absolute;inset:0;pointer-events:none}
 .title-screen::before{z-index:-4;background:url("./fort.webp") center/cover}
 .title-art{position:absolute;inset:0;z-index:-3;width:100%;height:100%;object-fit:cover;pointer-events:none}
@@ -53,6 +53,9 @@ h1,h2,p,dl,dd{margin:0}
 .title-choices:has(.title-choice:is(:hover,:focus-visible):not(:first-child)) .title-choice:first-child{background:none;border-color:transparent}
 .title-choices:has(.title-choice:is(:hover,:focus-visible):not(:first-child)) .title-choice:first-child::before{opacity:0}
 .title-return{font-size:clamp(.9rem,1.75vw,1.17rem);color:#cbc2ac}
+#offline-progress{width:min(100%,272px);height:8px;margin-top:9px;accent-color:#e3b475}
+#offline-status{max-width:min(100%,310px);font-size:.76rem;color:#e8d9b8;margin-top:6px;line-height:1.3}
+#download-game:disabled{color:#b7caba;opacity:.85}
 .menu-buttons{display:flex;flex-direction:column;gap:8px;width:min(100%,290px)}
 .button{min-height:44px;display:inline-flex;align-items:center;justify-content:center;padding:9px 13px;border-radius:2px;border:1px solid transparent;font-weight:800;font-size:.94rem;line-height:1.2}
 .primary{color:#22181a;background:linear-gradient(110deg,#ce9b5d,#f2c385 48%,#d3a569);border-color:#f1cea2;box-shadow:inset 0 0 0 2px #261c1830}
@@ -96,19 +99,6 @@ h1,h2,p,dl,dd{margin:0}
 #result[data-outcome="dead"] .primary:hover{background:#9a424a}
 #result[data-outcome="dead"] .plain{color:#ead1c1;border-color:#825a57;background:#251a24}
 #result[data-outcome="dead"] .plain:hover{border-color:#c68c79;background:#38242d}
-.chart-box{position:relative;min-width:0;width:min(100%,960px);padding:21px 19px 17px;color:#482b1a;background:radial-gradient(ellipse at 45% 33%,#f4deab,#d2a475 68%,#916842);border:1px solid #ad7d4b;box-shadow:inset 0 0 20px #63341eaa,0 20px 65px #02080d}
-.chart-box h2{margin-bottom:2px;font-size:clamp(1.45rem,5vw,2.85rem);color:#492816}
-.chart-subtitle{margin:0 0 12px;color:#754d30;font:400 .9rem var(--inscription);text-transform:uppercase;letter-spacing:.18em}
-.chart-scroll{overflow:auto;max-height:51svh;border:1px solid #775335;background:#ba8e5b;scrollbar-color:#835831 #dec598}
-.chart-scroll:focus-visible{outline-color:#662f20}
-#map{display:block;width:100%;min-width:610px;height:auto;image-rendering:pixelated}
-.map-legend{display:flex;justify-content:center;gap:14px;flex-wrap:wrap;margin:8px 0 11px;font-size:.82rem;color:#583821}
-.map-legend span:first-child{color:#18564a}
-.map-legend span:nth-child(2){color:#78322b}
-.secret-legend{color:#354e78}
-.chart-secrets{margin:0 0 10px;color:#63452c;font:400 1rem var(--inscription)}
-.chart-box .button{color:#f9e6b9;background:#47301e;border-color:#5f3a24}
-.chart-box .button:hover{background:#5c3b24}
 .win-note{color:#ffe7b3;margin-bottom:8px}
 dialog{width:min(510px,94vw);background:#19282b;border:1px solid #708b7e;color:var(--ink);border-radius:9px;padding:17px}
 dialog::backdrop{background:#070d12d9}
@@ -206,14 +196,6 @@ kbd{font:inherit;font-size:.78em;border:1px solid currentColor;border-radius:2px
 .skill-card strong,#learned-skills strong{font:400 clamp(.81rem,1.85vw,1.25rem)/1.12 var(--inscription)}
 .skill-card>span:nth-child(2)>span{color:#e4dcc3;font-size:clamp(.69rem,1.4vw,.84rem);line-height:1.35}
 .skill-card kbd{margin:7px 0 0;font-size:.73rem;color:#d9b57e}
-.chart-box{max-height:100%;overflow-y:auto}
-.chart-skills{margin:0 0 12px;padding:5px 8px;border-block:1px solid #9c734a88;color:#563522}
-.chart-skills summary{cursor:pointer;font:400 1.06rem var(--inscription)}
-.chart-skills p{margin:5px 0;color:#684d35;font-size:.8rem}
-#learned-skills{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px 12px;max-height:18svh;overflow-y:auto;list-style:none;padding:0;margin:4px 0;text-align:left}
-#learned-skills li{display:flex;align-items:center;gap:7px;font-size:.76rem;line-height:1.25}
-#learned-skills .skill-icon{--skill-icon:34px}
-#learned-skills li>span:nth-child(2){gap:2px}
 @media(max-width:620px){
   .cinematic[data-shot="fort"]::before{background-position:63% center}
   .title-content{padding-block:44px 23px}
@@ -230,11 +212,9 @@ kbd{font:inherit;font-size:.78em;border:1px solid currentColor;border-radius:2px
   .cinematic[data-speaker="watcher"] .portrait{right:2vw}
   .dialogue{min-height:168px}
   .toolbar{gap:4px}
-  .chart-box{padding:17px 12px 14px}
   .skill-card{padding:8px 5px}
   .skill-card .skill-icon{--skill-icon:clamp(31px,11vw,48px)}
   .skill-sheet>p{margin-bottom:10px}
-  #learned-skills{grid-template-columns:1fr}
   .cinematic[data-speaker="king"] .portrait{right:2vw}
   .toolbar{top:7px;right:7px}
   .sheet{padding:13px}
@@ -251,7 +231,6 @@ kbd{font:inherit;font-size:.78em;border:1px solid currentColor;border-radius:2px
   .menu-buttons{gap:5px}
   .menu-buttons .button{min-height:34px}
   .sheet h2{margin-bottom:5px}
-  .chart-scroll{max-height:34svh}
   .skill-card{min-height:144px}
   .skill-card .skill-icon{--skill-icon:40px}
   .dialogue{min-height:105px;padding-top:18px;padding-bottom:41px;margin-bottom:44px}
@@ -260,6 +239,11 @@ kbd{font:inherit;font-size:.78em;border:1px solid currentColor;border-radius:2px
   #skip-scene{bottom:6px;min-height:31px}
 }
 
+@media(max-height:390px){
+  .title-content{padding-block:10px}
+  .title-content h1{font-size:clamp(2rem,10svh,3.6rem)}
+  .title-choice{min-height:28px;padding-block:3px}
+}
 @media(max-aspect-ratio:1/1){
   .title-screen::before{background-position:88% center}
   .title-art{object-position:88% center}

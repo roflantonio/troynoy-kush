@@ -1,0 +1,126 @@
+#chart, #pirate-skills { grid-template-rows: minmax(0, 1fr) }
+#chart { padding: clamp(8px, 2.2vmin, 22px) }
+.chart-box {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  gap: clamp(5px, 1.6vmin, 13px);
+  width: min(100%, 1080px);
+  height: min(100%, 780px);
+  min-width: 0;
+  min-height: 0;
+  padding: clamp(8px, 2vmin, 22px);
+  color: #f2e1be;
+  background: linear-gradient(145deg,#293c3d,#101c23);
+  border-color: #b39063;
+}
+.chart-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 8px 14px;
+  text-align: left;
+}
+.chart-box h2 { margin-bottom: 2px; font-size: clamp(1.28rem, 4.5vmin, 2.8rem); color: #ebc28b }
+.chart-subtitle { color: #cbb89a; font: 400 clamp(.72rem, 2.4vmin, 1rem) var(--inscription) }
+.chart-instructions { align-self: center; text-align: right; color: #e5d2af; font-size: clamp(.67rem, 1.55vmin, .85rem) }
+
+.chart-plate {
+  position: relative;
+  overflow: hidden;
+  min-height: 0;
+  background: #cfa478 url("./chart-paper.webp") center/100% 100% no-repeat;
+  border: 1px solid #7e5636;
+  box-shadow: inset 0 0 15px #593c2390;
+}
+.chart-window {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  overscroll-behavior: none;
+  outline-offset: -4px;
+}
+.chart-window[data-grabbing] { cursor: grabbing }
+.chart-window:focus-visible { outline-color: #75402a }
+#map { position: absolute; top: 0; left: 0; transform-origin: 0 0; display: block; pointer-events: none }
+.chart-zoom { position: absolute; top: 8px; right: 8px; display: grid; gap: 5px }
+.chart-zoom .utility {
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  border-radius: 50%;
+  border-color: #a68055;
+  background: #241c18e8;
+  color: #ffedc7;
+  font-size: 1.3rem;
+  touch-action: manipulation;
+}
+.chart-zoom .utility:disabled { opacity: .62 }
+
+.chart-details {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 12px;
+  text-align: left;
+  align-items: center;
+  font-size: clamp(.66rem, 1.65vmin, .83rem);
+}
+.map-legend { display: flex; gap: 2px clamp(6px,1.5vw,16px); flex-wrap: wrap; color: #e4d5b9 }
+.map-legend span { white-space: nowrap }
+.map-legend span:first-child { color: #99dabe }
+.map-legend span:nth-child(2) { color: #f0a886 }
+.secret-legend { color: #afc8ff }
+.chart-secrets { color: #d8c3a5 }
+.chart-details .rescue-journal {
+  grid-column: 1/-1;
+  margin: 0;
+  padding: 3px 6px;
+  color: #e9d5b9;
+  background: #1a2628;
+  border-color: #8a725563;
+  font-size: inherit;
+}
+.chart-actions { display: flex; justify-content: space-between; gap: 8px }
+.chart-actions .button { border-color: #997750; touch-action: manipulation }
+#show-pirate-skills { color: #ffe2ae; background: #3d3025 }
+#show-pirate-skills:hover { background: #584233 }
+
+.learned-sheet {
+  width: min(100%, 820px);
+  max-height: 100%;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  gap: 9px;
+}
+.learned-sheet h2 { font-size: clamp(1.6rem, 5vmin, 2.8rem); margin-bottom: 4px }
+.learned-book { overflow: auto; overscroll-behavior: contain; min-height: 0; text-align: left }
+#skills-empty { padding: 10px 0; color: #d4c1a2; text-align: center }
+#learned-skills { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 7px; margin: 0; padding: 0; list-style: none }
+#learned-skills li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 9px;
+  min-width: 0;
+  border: 1px solid #846b4b;
+  background: #0f1b20;
+  color: #e9dac0;
+  font-size: .82rem;
+}
+#learned-skills .skill-icon { --skill-icon: 37px }
+#learned-skills li > span:nth-child(2) { gap: 2px }
+
+@media(max-width:620px) {
+  .chart-instructions { max-width: 45%; line-height: 1.17 }
+  .chart-details { grid-template-columns: 1fr }
+  #learned-skills { grid-template-columns: 1fr }
+}
+@media(max-height:450px) {
+  .chart-box { gap: 5px }
+  .chart-actions .button { min-height: 34px; padding-block: 5px }
+  .chart-details .rescue-journal { padding-block: 2px }
+  .chart-zoom .utility { width: 34px; height: 34px; min-height: 34px }
+}

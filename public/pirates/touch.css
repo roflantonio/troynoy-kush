@@ -1,3 +1,27 @@
+[data-game-touch], [data-game-touch] body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: pan-x pan-y;
+}
+[data-game-touch] body {
+  position: fixed;
+  inset: 0;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+[data-game-touch] :is(input, textarea) {
+  -webkit-user-select: text;
+  user-select: text;
+}
+[data-game-touch] :is(.sheet,.learned-book,.trade-catalog,.settings) {
+  overscroll-behavior: contain;
+}
+[data-game-touch] :is(#scene,#sea-view,.title-art) { touch-action: none }
+
 [data-touch] {
   --touch-top: max(8px, env(safe-area-inset-top));
   --touch-left: max(12px, env(safe-area-inset-left));
