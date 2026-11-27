@@ -1,4 +1,4 @@
-import { CAPTAIN_SKILLS, UPGRADES, drawSkills, learnSkill, skillAtRank, skillPower } from "./skills.js?v=17";
+import { CAPTAIN_SKILLS, MINIMAP_ID, UPGRADES, drawSkills, learnSkill, skillAtRank, skillPower } from "./skills.js?v=23";
 export { UPGRADES };
 
 const SIDE = 3;
@@ -878,8 +878,9 @@ function draftSkill(world) {
   const rest = pool.map(skill => skillAtRank(skill, (owned.get(skill.id) ?? 0) + 1)).filter(Boolean);
   if (!rest.length) return;
   world.skillChoices = world.training ? shuffled(rest, world.lootRandom).slice(0, 3) : drawSkills(rest, world.lootRandom, 3);
+  if (!world.skillChoices.length) return;
   if (world.map.key === "island" && world.skillChoices.every(skill => skill.id.startsWith("gear-"))) {
-    const fresh = rest.find(skill => !skill.id.startsWith("gear-"));
+    const fresh = rest.find(skill => skill.id !== MINIMAP_ID && !skill.id.startsWith("gear-"));
     if (fresh) world.skillChoices[2] = fresh;
   }
   if (world.skillChoices.every(skill => skill.rank === 1)) {

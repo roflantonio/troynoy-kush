@@ -1,5 +1,7 @@
 import { RARITIES, TREASURE_SKILLS } from "./captain-skills.js?v=17";
 export { RARITIES };
+export const MINIMAP_ID = "minimap";
+const MINIMAP_CHANCE = .001;
 
 const scale = (stat, direction = 1, inverse = false) => (player, before, after) => {
   const ratio = (1 + direction * after / 100) / (1 + direction * before / 100);
@@ -53,7 +55,10 @@ export const UPGRADES = legacy.map(([name, description, steps, apply], icon) => 
 export const CAPTAIN_SKILLS = [...UPGRADES, ...island.map(([id, name, description, steps], i) => ({
   id, name, description, steps, icon: i + UPGRADES.length, rarity: id === "revive" ? 4 : i % 3 === 0 ? 3 : 2,
   apply: player => player.traits.add(id),
-})), ...TREASURE_SKILLS];
+})), ...TREASURE_SKILLS, {
+  id: MINIMAP_ID, name: "Миникарта", description: "Заменяет компас миникартой. Показывает открытые проходы, твоё положение и направление к цели",
+  rarity: 5, icon: 0, atlas: "minimap", apply: player => player.traits.add(MINIMAP_ID),
+}];
 
 export function skillAtRank(skill, rank) {
   const maxRank = skill.steps?.length ?? 1;
@@ -72,7 +77,9 @@ export const skillPower = (player, id) => ((player.skillPowers ? player.skillPow
   : player.skills.find(skill => skill.id === id)?.power) ?? 0) / 100;
 
 export function drawSkills(pool, random, count) {
-  const groups = RARITIES.map(([, weight], rarity) => ({ weight, entries: pool.filter(skill => skill.rarity === rarity) }));
+  const groups = RARITIES.map(([, weight], rarity) => ({
+    weight, entries: pool.filter(skill => skill.rarity === rarity && skill.id !== MINIMAP_ID),
+  }));
   const drawn = [];
   while (drawn.length < count) {
     const available = groups.filter(group => group.entries.length);
@@ -81,6 +88,11 @@ export function drawSkills(pool, random, count) {
     let roll = random() * total;
     const group = available.find(entry => (roll -= entry.weight) < 0) ?? available.at(-1);
     drawn.push(group.entries.splice(Math.floor(random() * group.entries.length), 1)[0]);
+  }
+  const minimap = pool.find(skill => skill.id === MINIMAP_ID);
+  if (count > 0 && minimap && random() < MINIMAP_CHANCE) {
+    if (drawn.length === count) drawn.pop();
+    drawn.push(minimap);
   }
   return drawn;
 }

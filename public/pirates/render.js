@@ -1,4 +1,4 @@
-import { ISLAND_TERRAIN, SECRET_PANEL, VAULT_MOSAIC, VAULT_WALL, cast, discovered, seeded, shieldRaised, tileAt } from "./world.js?v=20";
+import { ISLAND_TERRAIN, SECRET_PANEL, VAULT_MOSAIC, VAULT_WALL, cast, discovered, seeded, shieldRaised, tileAt } from "./world.js?v=23";
 
 export const VIEW_W = 432;
 export const VIEW_H = 244;
@@ -987,4 +987,58 @@ export function mapDraw(canvas, world) {
   poly(ctx, "#3c2723", [[9, 0], [-4, -4], [-1, 0], [-4, 4]]);
   ctx.restore();
   return { x, y };
+}
+
+export function createMinimap(canvas) {
+  const ctx = canvas.getContext("2d", { alpha: false });
+  const { width, height } = canvas;
+  const scale = 7;
+  const centerX = width / 2, centerY = height / 2;
+  const inset = 7;
+
+  return (world, objective) => {
+    const p = world.player;
+    const left = Math.round(centerX - p.x * scale);
+    const top = Math.round(centerY - p.y * scale);
+    const minX = Math.max(0, Math.floor(-left / scale));
+    const minY = Math.max(0, Math.floor(-top / scale));
+    const maxX = Math.min(world.width, Math.ceil((width - left) / scale));
+    const maxY = Math.min(world.height, Math.ceil((height - top) / scale));
+
+    rect(ctx, "#101e24", 0, 0, width, height);
+    for (let y = minY; y < maxY; y++) {
+      for (let x = minX; x < maxX; x++) {
+        if (!discovered(world, x, y) || tileAt(world, x, y)) continue;
+        const px = left + x * scale, py = top + y * scale;
+        const floor = world.floor[y * world.width + x];
+        rect(ctx, floor >= 5 ? "#445d51" : "#655947", px, py, scale, scale);
+        if (tileAt(world, x - 1, y)) rect(ctx, "#b39b72", px, py, 1, scale);
+        if (tileAt(world, x + 1, y)) rect(ctx, "#b39b72", px + scale - 1, py, 1, scale);
+        if (tileAt(world, x, y - 1)) rect(ctx, "#b39b72", px, py, scale, 1);
+        if (tileAt(world, x, y + 1)) rect(ctx, "#b39b72", px, py + scale - 1, scale, 1);
+      }
+    }
+
+    const dx = left + objective.x * scale - centerX;
+    const dy = top + objective.y * scale - centerY;
+    const edge = Math.max(Math.abs(dx) / (centerX - inset), Math.abs(dy) / (centerY - inset));
+    if (edge <= 1 && discovered(world, objective.x, objective.y)) {
+      const x = centerX + dx, y = centerY + dy;
+      poly(ctx, "#14272f", [[x,y-6],[x+6,y],[x,y+6],[x-6,y]]);
+      poly(ctx, "#83d9ff", [[x,y-4],[x+4,y],[x,y+4],[x-4,y]]);
+    } else if (edge > .001) {
+      ctx.save();
+      ctx.translate(centerX + dx / edge, centerY + dy / edge);
+      ctx.rotate(Math.atan2(dy, dx));
+      poly(ctx, "#83d9ff", [[4,0],[-3,-4],[-1,0],[-3,4]]);
+      ctx.restore();
+    }
+
+    ctx.save();
+    ctx.translate(centerX, centerY);
+    ctx.rotate(p.angle);
+    poly(ctx, "#14272f", [[8,0],[-6,-5],[-3,0],[-6,5]]);
+    poly(ctx, "#ffdf96", [[6,0],[-4,-3],[-2,0],[-4,3]]);
+    ctx.restore();
+  };
 }

@@ -29,7 +29,7 @@ export function setupOfflineMenu() {
     return;
   }
 
-  const workerUrl = new URL("./offline-worker.js?v=22", document.baseURI).href;
+  const workerUrl = new URL("./offline-worker.js?v=23", document.baseURI).href;
   const registration = workers.register(workerUrl, { type: "module", updateViaCache: "none" }).catch(async error => {
     const existing = await workers.getRegistration();
     if (existing?.active?.scriptURL === workerUrl) return existing;

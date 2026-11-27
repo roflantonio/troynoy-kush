@@ -1,0 +1,33 @@
+.minimap {
+  display: grid;
+  gap: 4px;
+  width: clamp(123px, 17vw, 168px);
+  min-width: 0;
+  padding: 4px 5px 5px;
+  border-radius: 6px;
+}
+#minimap-view {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid #92734d;
+  image-rendering: pixelated;
+}
+.minimap-caption {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px;
+}
+.minimap-caption .instrument-label { color: #b2e2f1 }
+#minimap-shards { color: #e4c898; font-size: .66rem; white-space: nowrap }
+.skill-icon[data-atlas="minimap"] { background-image: url("./minimap-icon.png"); background-size: contain }
+
+[data-touch] .minimap { width: clamp(94px, 29vw, 123px); padding: 3px }
+[data-touch] .minimap .instrument-label { font-size: .63rem }
+[data-touch] .view:has(.minimap:not([hidden])) { --hud-line: 151px }
+
+@media (orientation: landscape) and (min-width: 620px) {
+  [data-touch] .minimap { width: clamp(95px, 19dvh, 119px) }
+  [data-touch] .view:has(.minimap:not([hidden])) { --hud-line: 82px }
+}

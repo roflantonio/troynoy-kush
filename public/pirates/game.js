@@ -1,19 +1,22 @@
-import { ARMORY, advanceDream, cast, chooseSkill, compassObjective, createDream, createPort, createRun, dreamHint, learnRescueCode, location, nextLevel, portInteraction, rescueInteraction, secretAhead, seeded, stepRun, switchWeapon, unlockRescue, weaponCapacity } from "./world.js?v=20";
-import { createRenderer, mapDraw } from "./render.js?v=21";
+import { ARMORY, advanceDream, cast, chooseSkill, compassObjective, createDream, createPort, createRun, dreamHint, learnRescueCode, location, nextLevel, portInteraction, rescueInteraction, secretAhead, seeded, stepRun, switchWeapon, unlockRescue, weaponCapacity } from "./world.js?v=23";
+import { createMinimap, createRenderer, mapDraw } from "./render.js?v=23";
 import { pirateSound } from "./sound.js?v=18";
 import { FLEET_TOTAL, FLEET_WAVES, KRAKEN_HP, HELM, answerHelm, beginKraken, broadsideTarget, fireBroadside, newVoyage, stepVoyage } from "./sea.js?v=17";
-import { TRADERS, offers, purchase } from "./trade.js?v=20";
+import { TRADERS, offers, purchase } from "./trade.js?v=23";
 import { seaRenderer } from "./sea-render.js?v=19";
 import { SPEAKERS as speakers, sceneFor } from "./story.js?v=17";
-import { RARITIES } from "./skills.js?v=17";
+import { MINIMAP_ID, RARITIES } from "./skills.js?v=23";
 import { chartView } from "./chart-view.js?v=21";
-import { setupOfflineMenu } from "./offline.js?v=22";
+import { setupOfflineMenu } from "./offline.js?v=23";
 import { animateFortMenu } from "./menu-scene.js?v=13";
 
 const $ = id => document.getElementById(id);
 const cabinet = $("cabinet");
 const scene = $("scene");
 const paint = createRenderer(scene);
+const minimap = $("minimap");
+const compass = $("compass");
+const paintMinimap = createMinimap($("minimap-view"));
 const chart = chartView($("chart-window"), $("map"), mapDraw, $("chart-zoom-in"), $("chart-zoom-out"));
 const paintMenu = animateFortMenu($("title-art"));
 const seaView = $("sea-view");
@@ -783,15 +786,24 @@ function updateHud() {
   const health = $("health-meter");
   health.max = player.max;
   health.value = player.hp;
-  $("compass").dataset.filled = String(player.relics);
-  for (const [i, mark] of relicMarks.entries()) {
-    mark.hidden = i >= run.total;
-    mark.dataset.filled = String(i < player.relics);
-  }
+  const hasMinimap = player.traits.has(MINIMAP_ID);
+  compass.hidden = hasMinimap;
+  minimap.hidden = !hasMinimap;
   const { point, label } = compassObjective(run);
-  const bearing = Math.atan2(point.y - player.y, point.x - player.x) - player.angle;
-  $("compass-needle").style.rotate = bearing + "rad";
-  text("compass-target", label);
+  if (hasMinimap) {
+    if (mode === "play") paintMinimap(run, point);
+    text("minimap-target", label);
+    text("minimap-shards", run.total ? player.relics + "/" + run.total : "");
+  } else {
+    compass.dataset.filled = String(player.relics);
+    for (const [i, mark] of relicMarks.entries()) {
+      mark.hidden = i >= run.total;
+      mark.dataset.filled = String(i < player.relics);
+    }
+    const bearing = Math.atan2(point.y - player.y, point.x - player.x) - player.angle;
+    $("compass-needle").style.rotate = bearing + "rad";
+    text("compass-target", label);
+  }
   const weapon = ARMORY[player.weapon];
   const capacity = weaponCapacity(player);
   const ready = player.chambers[player.weapon];

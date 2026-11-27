@@ -3,15 +3,15 @@ import { SCORE, scoreUrl } from "./score.js?v=18";
 const scope = new URL(self.registration.scope);
 const url = path => new URL(path, scope).href;
 const cachePrefix = "fortune-offline:" + scope.pathname + ":";
-const release = "22";
+const release = "23";
 const cacheName = cachePrefix + release;
-const previousName = cachePrefix + "21";
+const previousName = cachePrefix + "22";
 const shell = url("./?v=" + release);
 const complete = url(".offline-complete");
 const files = [
-  "./?v=" + release, "./game.js?v=22", "./offline.js?v=22", "./chart-view.js?v=21", "./chart.css?v=21", "./chart-paper.webp",
+  "./?v=" + release, "./game.js?v=23", "./offline.js?v=23", "./minimap.css?v=23", "./minimap-icon.png", "./chart-view.js?v=21", "./chart.css?v=21", "./chart-paper.webp",
   "./pirates.css?v=22", "./touch.css?v=21", "./chapter.css?v=21", "./port.css?v=16", "./sea.css?v=19",
-  "./world.js?v=20", "./render.js?v=21", "./trade.js?v=20", "./skills.js?v=17", "./captain-skills.js?v=17",
+  "./world.js?v=23", "./render.js?v=23", "./trade.js?v=23", "./skills.js?v=23", "./captain-skills.js?v=17",
   "./story.js?v=17", "./menu-scene.js?v=13", "./sea.js?v=17", "./sea-render.js?v=19", "./sound.js?v=18", "./score.js?v=18",
   "./soundtrack.html", "./soundtrack.js?v=18", "./soundtrack.css?v=17", "./pirates.css?v=15",
   "./fortune.webmanifest", "./icon-32.png", "./icon-180.png", "./icon-192.png", "./icon-512.png",
@@ -56,7 +56,7 @@ async function downloadBundle(signal) {
       const file = missing[next++];
       try {
         signal.throwIfAborted();
-        // The versioned paths shared with release 21 still have the same game assets.
+        // The versioned paths shared with the previous release still have the same game assets.
         const reused = await previous?.match(file);
         const response = reused ?? await fetch(file, { cache: "reload", redirect: "error", signal });
         if (response.status !== 200) throw new Error("Failed to download " + file);

@@ -1,5 +1,5 @@
-import { ARMORY } from "./world.js?v=20";
-import { CAPTAIN_SKILLS, drawSkills, learnSkill, skillAtRank } from "./skills.js?v=17";
+import { ARMORY } from "./world.js?v=23";
+import { CAPTAIN_SKILLS, MINIMAP_ID, drawSkills, learnSkill, skillAtRank } from "./skills.js?v=23";
 
 export const TRADERS = {
   skills: {
@@ -23,7 +23,7 @@ export const TRADERS = {
   },
 };
 
-const INTRO_STOCK = new Set(["gear-0", "gear-3", "parry", "brine-ward", "undertow", "left-pocket", "damp-flint"]);
+const INTRO_STOCK = new Set(["gear-0", "gear-3", "parry", "brine-ward", "undertow", "left-pocket", "damp-flint", MINIMAP_ID]);
 const ARM_PRICES = [22, 36, 55];
 const SKILL_PRICES = [16, 23, 34];
 
@@ -43,14 +43,14 @@ export function offers(player, vendor) {
   }
   if (vendor === "skills") {
     return availableSkills(player).filter(skill => skill.rank > 1 || INTRO_STOCK.has(skill.id))
-      .sort((a, b) => b.rank - a.rank)
+      .sort((a, b) => Number(b.id === MINIMAP_ID) - Number(a.id === MINIMAP_ID) || b.rank - a.rank)
       .map(skill => ({ id: skill.id, title: skill.name, detail: skill.effect, rank: skill.rank, maxRank: skill.maxRank,
-        skill, price: SKILL_PRICES[skill.rank - 1] + skill.rarity * 3 }));
+        skill, price: skill.id === MINIMAP_ID ? 150 : SKILL_PRICES[skill.rank - 1] + skill.rarity * 3 }));
   }
   if (vendor === "chests") {
     return [{ id: "chest", title: "Запертый сундук", icon: "chest",
       detail: "Случайное новое умение или следующий ранг. После покупки цена вырастет на 8 дублонов.",
-      price: availableSkills(player).length ? 14 + player.boxes * 8 : undefined }];
+      price: availableSkills(player).some(skill => skill.id !== MINIMAP_ID) ? 14 + player.boxes * 8 : undefined }];
   }
   return [];
 }
