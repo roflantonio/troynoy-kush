@@ -1,8 +1,8 @@
-import { ARMORY, advanceDream, cast, chooseSkill, compassObjective, createDream, createPort, createRun, dreamHint, learnRescueCode, location, nextLevel, portInteraction, rescueInteraction, secretAhead, seeded, stepRun, switchWeapon, unlockRescue, weaponCapacity } from "./world.js?v=19";
-import { createRenderer, mapDraw } from "./render.js?v=19";
+import { ARMORY, advanceDream, cast, chooseSkill, compassObjective, createDream, createPort, createRun, dreamHint, learnRescueCode, location, nextLevel, portInteraction, rescueInteraction, secretAhead, seeded, stepRun, switchWeapon, unlockRescue, weaponCapacity } from "./world.js?v=20";
+import { createRenderer, mapDraw } from "./render.js?v=20";
 import { pirateSound } from "./sound.js?v=18";
 import { FLEET_TOTAL, FLEET_WAVES, KRAKEN_HP, HELM, answerHelm, beginKraken, broadsideTarget, fireBroadside, newVoyage, stepVoyage } from "./sea.js?v=17";
-import { TRADERS, offers, purchase } from "./trade.js?v=19";
+import { TRADERS, offers, purchase } from "./trade.js?v=20";
 import { seaRenderer } from "./sea-render.js?v=19";
 import { SPEAKERS as speakers, sceneFor } from "./story.js?v=17";
 import { RARITIES } from "./skills.js?v=17";
@@ -17,7 +17,7 @@ const seaView = $("sea-view");
 const paintSea = seaRenderer(seaView);
 const broadsides = [$("port-cannon"), $("starboard-cannon")];
 const reloadMeters = broadsides.map(button => button.querySelector("progress"));
-const touch = matchMedia("(pointer: coarse)").matches;
+const touch = matchMedia("(pointer: coarse), (any-pointer: coarse) and (any-hover: none)").matches;
 cabinet.toggleAttribute("data-touch", touch);
 const touchCannons = [$("touch-port"), $("touch-starboard")];
 const touchReloads = touchCannons.map(button => button.querySelector("progress"));
@@ -122,31 +122,39 @@ function tapAction(button, action) {
   });
 }
 
+const movementZone = $("movement-zone");
 const stick = $("touch-stick");
 const knob = $("stick-knob");
 const movement = { x: 0, y: 0 };
-let stickArea;
+let stickOrigin;
 
 function moveStick(event) {
-  const { x, y, width, height } = stickArea;
-  const dx = event.clientX - x - width / 2;
-  const dy = event.clientY - y - height / 2;
-  const reach = width * .32;
+  const dx = event.clientX - stickOrigin.x;
+  const dy = event.clientY - stickOrigin.y;
   const distance = Math.hypot(dx, dy);
-  const raw = Math.min(1, distance / reach);
+  const raw = Math.min(1, distance / stickOrigin.reach);
   const power = Math.max(0, (raw - .12) / .88);
   movement.x = distance ? dx / distance * power : 0;
   movement.y = distance ? dy / distance * power : 0;
-  const travel = raw * reach / (distance || 1);
+  const travel = raw * stickOrigin.reach / (distance || 1);
   knob.style.transform = "translate(" + dx * travel + "px," + dy * travel + "px)";
 }
 
-const stickInput = pointerControl(stick, ["play", "sea"], event => {
-  stickArea = stick.getBoundingClientRect();
-  moveStick(event);
+const stickInput = pointerControl(movementZone, ["play", "sea"], event => {
+  stick.hidden = false;
+  const { width } = stick.getBoundingClientRect();
+  const { left, right, top, bottom } = movementZone.getBoundingClientRect();
+  const stage = cabinet.getBoundingClientRect();
+  const radius = width / 2;
+  const visualX = Math.max(left + radius, Math.min(right - radius * .45, event.clientX));
+  const visualY = Math.min(bottom - radius, event.clientY);
+  stick.style.left = visualX - stage.left + "px";
+  stick.style.top = Math.max(top, visualY) - stage.top + "px";
+  stickOrigin = { x: event.clientX, y: event.clientY, reach: width * .32 };
 }, moveStick, () => {
   movement.x = movement.y = 0;
   knob.style.transform = "";
+  stick.hidden = true;
 });
 
 let fireAim;
@@ -169,10 +177,32 @@ function fireAtBroadside() {
 
 const touchBroadside = pointerControl(seaFireButton, ["sea"], fireAtBroadside);
 
+function cycleWeapon() {
+  if (mode !== "play") return;
+  const { arsenal, weapon } = run.player;
+  const list = [...arsenal];
+  switchWeapon(run, list[(list.indexOf(weapon) + 1) % list.length]);
+}
+
+const weaponButton = $("touch-weapon");
+let lastWeaponPointer = null;
+let lastWeaponRelease = -Infinity;
+const touchWeapon = pointerControl(weaponButton, ["play"], event => {
+  lastWeaponPointer = event.pointerId;
+  cycleWeapon();
+}, undefined, () => { lastWeaponRelease = performance.now(); });
+weaponButton.addEventListener("click", event => {
+  // A completed pointer press already switched weapons. Keep keyboard and assistive clicks.
+  const handled = event.detail > 0 && performance.now() - lastWeaponRelease < 350
+    && (event.pointerId === lastWeaponPointer || !event.pointerType);
+  if (!handled) cycleWeapon();
+});
+
 function clearInput() {
   keys.clear();
   stickInput.reset();
   touchGun.reset();
+  touchWeapon.reset();
   touchBroadside.reset();
   firing = false;
   firePressed = false;
@@ -765,7 +795,7 @@ function updateHud() {
       fireButton.setAttribute("aria-label", blade ? "Удар саблей" : "Огонь");
     }
     $("touch-dash").dataset.ready = String(!player.dashCooldown);
-    $("touch-weapon").disabled = player.arsenal.size < 2;
+    weaponButton.disabled = player.arsenal.size < 2;
   }
   $("weapon-hud").dataset.weapon = player.weapon;
   $("rounds").hidden = !capacity;
@@ -1028,11 +1058,6 @@ seaFireButton.addEventListener("click", event => {
 });
 tapAction($("touch-dash"), () => { if (mode === "play") dashPressed = true; });
 tapAction($("touch-reload"), () => { if (mode === "play") reloadPressed = true; });
-tapAction($("touch-weapon"), () => {
-  if (mode !== "play") return;
-  const list = [...run.player.arsenal];
-  switchWeapon(run, list[(list.indexOf(run.player.weapon) + 1) % list.length]);
-});
 $("start").addEventListener("click", () => start());
 $("chapter-select").addEventListener("click", () => {
   show("chapters");
@@ -1068,7 +1093,7 @@ $("dream-replay").addEventListener("click", () => {
 if (touch) {
   $("map-toggle").setAttribute("aria-label", "Карта");
   $("pause-toggle").setAttribute("aria-label", "Пауза");
-  text("brief-course", "Веди корабль джойстиком слева. Держи цели вдоль борта.");
+  text("brief-course", "Коснись экрана слева и веди корабль появившимся джойстиком. Держи цели вдоль борта.");
   text("brief-fire", "«Огонь» стреляет по подсвеченным целям. Стрелки рядом стреляют с выбранного борта.");
   text("brief-orders", "При тревоге нажми кнопку с указанным номером, пока идёт отсчёт.");
 }

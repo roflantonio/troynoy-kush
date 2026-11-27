@@ -27,7 +27,7 @@
   touch-action: manipulation;
 }
 
-[data-touch] .game-tool kbd { display: none }
+[data-touch] :is(.game-tool,#skip-scene,#shop-close,.skill-card) kbd { display: none }
 [data-touch] .game-tool .emblem { --emblem: 23px }
 
 [data-touch] .instruments {
@@ -117,21 +117,28 @@
   -webkit-user-select: none;
 }
 
+.movement-zone {
+  position: absolute;
+  top: 35%;
+  bottom: var(--touch-bottom);
+  left: var(--touch-left);
+  width: min(43%, calc(50% - var(--touch-left)));
+  pointer-events: auto;
+  touch-action: none;
+}
+
 .touch-stick {
   position: absolute;
-  left: var(--touch-left);
-  top: var(--control-y);
   width: clamp(82px, min(25vw, 33dvh), 126px);
   aspect-ratio: 1;
-  transform: translateY(-50%);
+  transform: translate(-50%, -50%);
   display: grid;
   place-items: center;
   border: 1px solid #c5a372b3;
   border-radius: 50%;
   background: radial-gradient(circle, #24393782 24%, #14252cac 67%, #a98b5f65 70%, #0e1a219e 72%);
   box-shadow: inset 0 0 13px #02090b96, 0 5px 17px #06101665;
-  pointer-events: auto;
-  touch-action: none;
+  pointer-events: none;
 }
 .stick-guides {
   position: absolute;
@@ -155,8 +162,6 @@
   background: radial-gradient(circle at 39% 32%, #5f7c6a, #233f42 65%, #162a30);
   box-shadow: inset 0 0 0 3px #a8996133, 0 4px 12px #060c11a8;
 }
-.touch-stick[data-active] { border-color: #d9cba1 }
-.touch-stick[data-active] #stick-knob { border-color: #c8e7c8 }
 
 .touch-actions {
   position: absolute;

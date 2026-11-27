@@ -13,7 +13,6 @@
 .cinematic .scene-title{top:clamp(37px,6.8vh,75px);line-height:1.1}
 .cinematic[data-shot="dark"] .cinematic-chapter{opacity:0}
 .cinematic[data-shot="cell"]{background:radial-gradient(ellipse at 53% 30%,#1b343c18,#090e17cf 89%),linear-gradient(0deg,#090f16,#14303915 58%)}
-.cinematic[data-emotion="tense"][data-speaker="pirate"]{--expressive:url("./portraits/pirate-tense.webp")}
 .cinematic[data-emotion="tense"][data-speaker="watcher"]{--expressive:url("./portraits/watcher-tense.webp")}
 .cinematic[data-emotion="tense"][data-speaker="king"]{--expressive:url("./portraits/king-tense.webp")}
 .cinematic[data-emotion="tense"][data-speaker="rust"]{--expressive:url("./portraits/rust-tense.webp")}
@@ -21,8 +20,14 @@
 .cinematic[data-emotion="tense"][data-speaker="brann"]{--expressive:url("./portraits/brann-tense.webp")}
 .cinematic[data-emotion="joy"][data-speaker="runa"]{--expressive:url("./portraits/runa-joy.webp")}
 .cinematic[data-emotion="joy"][data-speaker="shkiv"]{--expressive:url("./portraits/shkiv-joy.webp")}
-.cinematic:is([data-emotion="tense"],[data-emotion="joy"]) .portrait{
+.cinematic:not([data-speaker="pirate"]):is([data-emotion="tense"],[data-emotion="joy"]) .portrait{
   background:var(--expressive) center bottom/contain no-repeat;aspect-ratio:1;mask-image:none
+}
+/* Register the expressive face to the captain's fixed portrait and retain his silhouette. */
+.cinematic[data-speaker="pirate"][data-emotion="tense"] .portrait::after{
+  content:"";position:absolute;inset:0;
+  background:url("./portraits/pirate-tense.webp") 18% 40%/95.33% auto no-repeat;
+  mask-image:radial-gradient(ellipse 36% 23% at 54% 34%,#000 57%,transparent 94%);
 }
 .rescue-sheet{display:grid;justify-items:center;gap:9px}
 .rescue-sheet label{color:#dbd2b9}

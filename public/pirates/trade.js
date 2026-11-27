@@ -1,4 +1,4 @@
-import { ARMORY } from "./world.js?v=19";
+import { ARMORY } from "./world.js?v=20";
 import { CAPTAIN_SKILLS, drawSkills, learnSkill, skillAtRank } from "./skills.js?v=17";
 
 export const TRADERS = {

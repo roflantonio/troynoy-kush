@@ -1,4 +1,4 @@
-import { ISLAND_TERRAIN, SECRET_PANEL, VAULT_MOSAIC, VAULT_WALL, cast, discovered, seeded, shieldRaised, tileAt } from "./world.js?v=19";
+import { ISLAND_TERRAIN, SECRET_PANEL, VAULT_MOSAIC, VAULT_WALL, cast, discovered, seeded, shieldRaised, tileAt } from "./world.js?v=20";
 
 export const VIEW_W = 432;
 export const VIEW_H = 244;
