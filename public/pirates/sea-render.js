@@ -12,13 +12,15 @@ function shape(c, color, points) {
   c.fill();
 }
 
-function ocean(ctx, time, storm) {
-  box(ctx, storm ? "#0f1722" : "#263544", 0, 0, W, 54);
-  box(ctx, storm ? "#182732" : "#675b55", 0, 24, W, 24);
-  box(ctx, storm ? "#223844" : "#af8262", 0, 43, W, 11);
+function ocean(ctx, time, storm, view) {
+  const { left, top, width, height } = view;
+  const bottom = top + height;
+  box(ctx, storm ? "#0f1722" : "#263544", left, top, width, 54 - top);
+  box(ctx, storm ? "#182732" : "#675b55", left, 24, width, 24);
+  box(ctx, storm ? "#223844" : "#af8262", left, 43, width, 11);
   shape(ctx, storm ? "#426270" : "#e9bc84", [[306,44],[306,39],[311,33],[323,33],[328,39],[328,45]]);
-  for (let i = 0; i < 19; i++) {
-    const x = (i * 59 + Math.floor(time * .8)) % (W + 88) - 45;
+  for (let i = 0; i < 19 * width / W; i++) {
+    const x = left + (i * 59 + Math.floor(time * .8)) % (width + 88) - 45;
     const y = 11 + i * 17 % 34;
     box(ctx, storm ? "#222e3b" : "#3c454c", x, y, 24 + i % 7 * 6, 2 + i % 3);
     box(ctx, storm ? "#192833" : "#525350", x - 15, y + 4, 37 + i % 8 * 7, 2);
@@ -27,17 +29,22 @@ function ocean(ctx, time, storm) {
     : ["#43676c","#365b62","#2d5058","#264651","#1c3b47","#173540"];
   for (const [i, color] of palette.entries()) {
     const y = 53 + i * 12 + i * i * 3;
-    box(ctx, color, 0, y, W, H - y);
+    box(ctx, color, left, y, width, bottom - y);
   }
-  for (let i = 0; i < 150; i++) {
+  for (let i = 0; i < 150 * width / W; i++) {
     const advance = (time * (storm ? .24 : .16) + i * .618) % 1;
     const y = 54 + Math.floor(advance ** 1.7 * 190);
-    const x = (i * 71 + Math.floor(time * (2 + i % 6))) % (W + 32) - 16;
+    const x = left + (i * 71 + Math.floor(time * (2 + i % 6))) % (width + 32) - 16;
     const len = Math.round(2 + advance * (9 + i % 7 * 5));
     const colors = storm ? ["#45636b","#243f50","#3b5965","#162d3a"] : ["#53767a","#31555d","#567d7e","#20414c"];
     box(ctx, colors[i % 4], x, y, len, advance > .89 ? 2 : 1);
   }
-  box(ctx, storm ? "#3d545c" : "#c09b75", 0, 53, W, 1);
+  for (let i = 0; i < Math.max(0, bottom - H) * width / 2500; i++) {
+    const x = left + (i * 133 + Math.floor(time * (1 + i % 3))) % (width + 34) - 17;
+    const y = H + (i * 53) % (bottom - H);
+    box(ctx, storm ? "#243d49" : "#2b5058", x, y, 3 + i % 9, 1);
+  }
+  box(ctx, storm ? "#3d545c" : "#c09b75", left, 53, width, 1);
 }
 
 function vessel(c, x, y, time, { player = false, tier = 0, sunk = 0 } = {}) {
@@ -178,15 +185,20 @@ function attackWarning(c, attack, time) {
 
 export function seaRenderer(canvas) {
   const c = canvas.getContext("2d", { alpha: false });
-  return (sea, film, reduced) => {
+  let view = { left: 0, top: 0, width: W, height: H };
+  let scale = 1;
+  let last;
+  function draw(sea, film, reduced) {
+    last = [sea, film, reduced];
+    c.setTransform(scale, 0, 0, scale, -view.left * scale, -view.top * scale);
     const time = sea.time + film;
     const p = sea.player;
     const storm = sea.phase !== "fleet";
-    ocean(c, time, storm);
+    ocean(c, time, storm, view);
     if (sea.phase === "reveal") {
       const rise = reduced ? 1 : Math.min(1, Math.max(.05, film - .45) / 2.4);
       const flash = !reduced && (film > .55 && film < .68 || film > 2 && film < 2.09);
-      if (flash) box(c, "#456075", 0, 0, W, 78);
+      if (flash) box(c, "#456075", view.left, view.top, view.width, 78 - view.top);
       monster(c, 216, 140, 1.45 + rise * .34, rise, time, true);
       vessel(c, 216, 191, time, { player: true });
       return;
@@ -261,6 +273,23 @@ export function seaRenderer(canvas) {
         box(c, color, effect.x + Math.cos(a) * radius, effect.y + Math.sin(a) * radius * .65, 2, 2);
       }
     }
-    if (sea.damage > 0 && !reduced) box(c, "#b5384a35", 0, 0, W, H);
-  };
+    if (sea.damage > 0 && !reduced) box(c, "#b5384a35", view.left, view.top, view.width, view.height);
+  }
+
+  const observer = new ResizeObserver(([{ contentRect: { width, height } }]) => {
+    if (!width || !height) return;
+    const ratio = width / height;
+    const logicalWidth = Math.max(W, H * ratio);
+    const logicalHeight = Math.max(H, W / ratio);
+    scale = Math.min(1, 820 / logicalWidth, 720 / logicalHeight);
+    canvas.width = Math.max(1, Math.round(logicalWidth * scale));
+    canvas.height = Math.max(1, Math.round(logicalHeight * scale));
+    const drawnWidth = canvas.width / scale;
+    const drawnHeight = canvas.height / scale;
+    view = { left: (W - drawnWidth) / 2, top: (H - drawnHeight) / 2, width: drawnWidth, height: drawnHeight };
+    c.imageSmoothingEnabled = false;
+    if (last) draw(...last);
+  });
+  observer.observe(canvas);
+  return draw;
 }

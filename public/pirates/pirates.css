@@ -12,8 +12,8 @@ button{font:inherit;cursor:pointer}
 button:disabled{opacity:.6;cursor:default}
 h1,h2,p,dl,dd{margin:0}
 :focus-visible{outline:2px solid var(--sea);outline-offset:4px}
-.cabinet{position:relative;min-height:100svh;display:grid;place-items:center;overflow:hidden;background:radial-gradient(ellipse at 50% 40%,#182e31,#0c1317 76%)}
-.view{width:min(100%,calc(100svh * 1.78));aspect-ratio:432/244;max-height:100svh;position:relative;isolation:isolate;background:#122328;border-inline:1px solid #2a4243}
+.cabinet{position:relative;height:100svh;height:100dvh;display:grid;place-items:center;overflow:hidden;background:radial-gradient(ellipse at 50% 40%,#182e31,#0c1317 76%)}
+.view{position:absolute;inset:0;isolation:isolate;background:#122328}
 #scene{width:100%;height:100%;display:block;image-rendering:pixelated;touch-action:none;outline-offset:-3px}
 [data-dream] .view::after{content:"";position:absolute;inset:0;pointer-events:none;box-shadow:inset 0 0 42px #689d9a60,inset 0 0 110px #223947b0;background:linear-gradient(0deg,#3757771a,#4c9a9b19)}
 .crosshair{position:absolute;top:50%;left:50%;width:10px;height:10px;transform:translate(-50%,-50%);pointer-events:none;color:#e5dfbf;filter:drop-shadow(0 1px #151c1d)}
@@ -23,7 +23,6 @@ h1,h2,p,dl,dd{margin:0}
 .signal,.interaction{position:absolute;left:50%;transform:translateX(-50%);width:max-content;max-width:86%;pointer-events:none}
 .signal{top:21%;z-index:1}
 .interaction{top:56%;z-index:1}
-#touch-interact{min-height:44px;padding:4px 12px;pointer-events:auto;touch-action:manipulation}
 .overlay{position:absolute;inset:0;z-index:2}
 .title-screen{isolation:isolate;display:grid;align-items:center;background:#0b1419;overflow:hidden}
 .title-screen::before,.title-screen::after,.sea-haze,.cinders{content:"";position:absolute;inset:0;pointer-events:none}
@@ -66,10 +65,6 @@ h1,h2,p,dl,dd{margin:0}
 .game-tool{display:inline-flex;align-items:center;gap:5px}
 .game-tool kbd{margin-left:0}
 .pause-mark{display:inline-block;width:13px;height:14px;border-inline:4px solid #d9b17e;border-radius:1px}
-.touch{position:absolute;inset:auto 0 63px;padding:0 12px;z-index:3;display:flex;align-items:flex-end;justify-content:space-between;gap:6px;touch-action:none;pointer-events:none;user-select:none}
-.touch-group{display:flex;gap:5px;pointer-events:auto}
-.touch-group .utility,.touch-group .button{touch-action:none;min-height:45px;min-width:42px;background:#162125c9}
-.touch-group .primary{background:#e4ab64;color:#21181a}
 .modal-screen{display:grid;grid-template-columns:minmax(0,1fr);place-items:center;background:#091416da;padding:16px}
 .sheet{width:min(100%,460px);padding:24px;background:linear-gradient(150deg,#233437,#101d21);border:1px solid #937c59;border-radius:3px;box-shadow:inset 0 0 0 4px #101c20,inset 0 0 0 5px #7e6c4d55,0 20px 60px #070c12;text-align:center}
 .sheet h2,dialog h2{font:400 clamp(2.05rem,5vw,3.65rem)/1.07 var(--inscription);margin-bottom:11px;color:var(--coin)}
@@ -223,7 +218,6 @@ kbd{font:inherit;font-size:.78em;border:1px solid currentColor;border-radius:2px
   .cinematic[data-shot="fort"]::before{background-position:63% center}
   .title-content{padding-block:44px 23px}
   .title-content h1{font-size:clamp(2.55rem,11.65vw,5.8rem)}
-  .touch{bottom:14px}
   .vital,.weapon-hud{padding:5px 7px}
   .chambers i{width:8px;height:17px;background-size:56px 16px}
   .armory-label .emblem{--emblem:17px}
@@ -236,8 +230,6 @@ kbd{font:inherit;font-size:.78em;border:1px solid currentColor;border-radius:2px
   .cinematic[data-speaker="watcher"] .portrait{right:2vw}
   .dialogue{min-height:168px}
   .toolbar{gap:4px}
-  .touch-group{gap:3px}
-  .touch-group .utility,.touch-group .button{min-width:34px;padding-inline:5px}
   .chart-box{padding:17px 12px 14px}
   .skill-card{padding:8px 5px}
   .skill-card .skill-icon{--skill-icon:clamp(31px,11vw,48px)}
@@ -258,7 +250,6 @@ kbd{font:inherit;font-size:.78em;border:1px solid currentColor;border-radius:2px
   .title-choice{min-height:33px}
   .menu-buttons{gap:5px}
   .menu-buttons .button{min-height:34px}
-  .touch{bottom:54px}
   .sheet h2{margin-bottom:5px}
   .chart-scroll{max-height:34svh}
   .skill-card{min-height:144px}

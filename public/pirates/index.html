@@ -6,13 +6,17 @@
   <meta name="theme-color" content="#111a1c">
   <meta name="description" content="Проклятие фортуны — пиратский шутер-рогалик. Пройди форт и остров, сразись с Кракеном и найди казну Ржавого Крюка.">
   <title>Проклятие фортуны</title>
+  <link rel="manifest" href="./fortune.webmanifest">
+  <link rel="icon" type="image/png" sizes="32x32" href="./icon-32.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="./icon-180.png">
   <link rel="preload" as="image" href="./awakening.webp">
   <link rel="preload" as="image" href="./viewmodels.png?v=11">
-  <link rel="stylesheet" href="./pirates.css?v=15">
-  <link rel="stylesheet" href="./sea.css?v=13">
+  <link rel="stylesheet" href="./pirates.css?v=19">
+  <link rel="stylesheet" href="./sea.css?v=19">
   <link rel="stylesheet" href="./port.css?v=16">
-  <link rel="stylesheet" href="./chapter.css?v=17">
-  <script type="module" src="./game.js?v=18"></script>
+  <link rel="stylesheet" href="./chapter.css?v=19">
+  <link rel="stylesheet" href="./touch.css?v=19">
+  <script type="module" src="./game.js?v=19"></script>
 </head>
 <body>
   <main class="cabinet" id="cabinet" data-mode="menu">
@@ -22,7 +26,6 @@
       <p id="signal" class="field-hint signal" hidden role="status"></p>
       <div id="interaction" class="interaction" hidden>
         <p id="interact-hint" class="field-hint">E · Открыть тайный ход</p>
-        <button id="touch-interact" class="field-hint" type="button" hidden>Открыть тайный ход</button>
       </div>
       <div class="boss-hud" id="boss-hud" data-stage="1" hidden>
         <span id="boss-name" class="boss-name">Смотритель</span>
@@ -89,10 +92,6 @@
         <button class="button sea-fire" id="port-cannon" type="button"><kbd>Q</kbd><span>Левый борт</span><progress value="1" max="1" aria-label="Готовность левого борта"></progress></button>
         <div class="sea-course" aria-label="Управление кораблём">
           <p>Курс <kbd>WASD</kbd> / <kbd>↑↓←→</kbd></p>
-          <button class="utility" type="button" data-course="KeyA" aria-label="Плыть влево">←</button>
-          <button class="utility" type="button" data-course="KeyW" aria-label="Плыть вперёд">↑</button>
-          <button class="utility" type="button" data-course="KeyS" aria-label="Плыть назад">↓</button>
-          <button class="utility" type="button" data-course="KeyD" aria-label="Плыть вправо">→</button>
         </div>
         <button class="button sea-fire" id="starboard-cannon" type="button"><kbd>E</kbd><span>Правый борт</span><progress value="1" max="1" aria-label="Готовность правого борта"></progress></button>
       </div>
@@ -238,18 +237,37 @@
       <button id="map-toggle" type="button" class="utility game-tool" aria-label="Карта (Tab)" title="Карта" hidden><span class="emblem chart-mark" aria-hidden="true"></span><kbd aria-hidden="true">Tab</kbd></button>
       <button id="pause-toggle" type="button" class="utility game-tool" aria-label="Пауза (Esc)" title="Пауза" hidden><span class="pause-mark" aria-hidden="true"></span><kbd aria-hidden="true">Esc</kbd></button>
     </div>
-    <div id="touch" class="touch" hidden aria-label="Экранное управление">
-      <div class="touch-group">
-        <button class="utility touch-key" data-key="left" aria-label="Повернуть влево">‹</button>
-        <button class="utility touch-key" data-key="back" aria-label="Назад">⌄</button>
-        <button class="utility touch-key" data-key="forward" aria-label="Вперёд">⌃</button>
-        <button class="utility touch-key" data-key="right" aria-label="Повернуть вправо">›</button>
+    <div id="touch" class="touch" hidden aria-label="Сенсорное управление">
+      <div id="touch-stick" class="touch-stick" role="group" aria-label="Джойстик движения">
+        <span class="stick-guides" aria-hidden="true"></span><span id="stick-knob" aria-hidden="true"></span>
       </div>
-      <div class="touch-group">
-        <button class="utility" id="touch-weapon" type="button" aria-label="Сменить оружие" title="Оружие"><span class="emblem weapon-mark" aria-hidden="true"></span></button>
-        <button class="utility touch-key" data-key="reload" type="button" aria-label="Перезарядка" title="Перезарядка"><span class="emblem cartridge-mark" aria-hidden="true"></span></button>
-        <button class="utility touch-key" data-key="dash" type="button" aria-label="Рывок" title="Рывок">⇢</button>
-        <button class="button primary touch-key" data-key="fire" type="button">Огонь</button>
+      <div id="touch-land" class="touch-actions">
+        <button class="touch-button touch-main" id="touch-fire" type="button" aria-label="Огонь">
+          <span class="fire-mark" aria-hidden="true"></span><span>Огонь</span>
+        </button>
+        <button class="touch-button touch-upper" id="touch-reload" type="button" aria-label="Перезарядить">
+          <span class="emblem cartridge-mark" aria-hidden="true"></span>
+        </button>
+        <button class="touch-button touch-left-upper" id="touch-weapon" type="button" aria-label="Сменить оружие">
+          <span class="emblem weapon-mark" aria-hidden="true"></span>
+        </button>
+        <button class="touch-button touch-left-lower" id="touch-dash" type="button" aria-label="Рывок">
+          <span class="emblem dash-mark" aria-hidden="true"></span>
+        </button>
+        <button class="touch-button touch-lower" id="touch-interact" type="button" aria-label="Взаимодействовать" hidden>
+          <span class="interact-mark" aria-hidden="true">✋︎</span>
+        </button>
+      </div>
+      <div id="touch-sea" class="touch-actions" hidden>
+        <button class="touch-button touch-main" id="touch-cannons" type="button" aria-label="Стрелять из пушек по цели">
+          <span class="fire-mark" aria-hidden="true"></span><span>Огонь</span>
+        </button>
+        <button class="touch-button touch-left-upper" id="touch-port" type="button" aria-label="Стрелять с левого борта">
+          <span aria-hidden="true">←</span><progress max="1" value="1" aria-label="Готовность левого борта"></progress>
+        </button>
+        <button class="touch-button touch-left-lower" id="touch-starboard" type="button" aria-label="Стрелять с правого борта">
+          <span aria-hidden="true">→</span><progress max="1" value="1" aria-label="Готовность правого борта"></progress>
+        </button>
       </div>
     </div>
   </main>

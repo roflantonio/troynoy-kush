@@ -1,4 +1,4 @@
-import { ISLAND_TERRAIN, SECRET_PANEL, VAULT_MOSAIC, VAULT_WALL, cast, discovered, seeded, shieldRaised, tileAt } from "./world.js?v=17";
+import { ISLAND_TERRAIN, SECRET_PANEL, VAULT_MOSAIC, VAULT_WALL, cast, discovered, seeded, shieldRaised, tileAt } from "./world.js?v=19";
 
 export const VIEW_W = 432;
 export const VIEW_H = 244;
@@ -626,7 +626,7 @@ function createViewModel(ctx) {
   const atlas = new Image();
   atlas.src = new URL("./viewmodels.png?v=11", import.meta.url).href;
 
-  return (p, time) => {
+  return (p, time, viewWidth, viewHeight) => {
     if (!atlas.complete || !atlas.naturalWidth) return;
     const model = VIEW_MODELS[p.weapon];
     const blade = p.weapon === "blade";
@@ -639,14 +639,17 @@ function createViewModel(ctx) {
     const settle = Math.sin(reload * Math.PI * 2) * dip;
     const step = p.moving * Math.sin(p.bob * .64);
     const breathe = Math.sin(time * 2.2) * .5;
-    const x = Math.round((VIEW_W - HAND_W) / 2 + step * 3 - slash * 62 + dip * 5);
-    const y = Math.round(VIEW_H - HAND_H + 5 + Math.abs(Math.sin(p.bob)) * p.moving * 3 + breathe
+    const size = Math.min(1, viewWidth * .80 / HAND_W, viewHeight / VIEW_H);
+    const x = Math.round(step * 3 - slash * 62 + dip * 5);
+    const y = Math.round(5 + Math.abs(Math.sin(p.bob)) * p.moving * 3 + breathe
       + (model.kick ?? 0) * recoil + (model.dip ?? 0) * dip + slash * 8 + p.dash * 18);
     const turn = blade ? -slash * .71 : model.tilt * dip + settle * .052;
     const [wx, wy] = model.wrist;
     const [sx, sy] = model.cell;
 
     ctx.save();
+    ctx.translate(Math.round((viewWidth - HAND_W * size) / 2), Math.round(viewHeight - HAND_H * size));
+    ctx.scale(size, size);
     ctx.translate(x + wx, y + wy);
     ctx.rotate(turn);
     if (!blade && p.recoil > .015 && !p.reloadLeft) {
@@ -743,9 +746,9 @@ function sceneSprites(world, time) {
 
 export function createRenderer(canvas) {
   const ctx = canvas.getContext("2d", { alpha: false });
-  const id = ctx.createImageData(VIEW_W, VIEW_H);
-  const pixels = new Uint32Array(id.data.buffer);
-  const depth = new Float32Array(VIEW_W);
+  let viewWidth = 0, viewHeight = 0;
+  let id, pixels, depth, vignette;
+  let lastWorld, lastCamera;
   const palettes = panel => Array.from({ length: VAULT_MOSAIC + 1 }, (_, kind) => {
     const base = wallPixels(kind, panel);
     return Array.from({ length: 16 }, (_, i) => Uint32Array.from(base, c => shaded(c, .21 + i * .059)));
@@ -754,18 +757,37 @@ export function createRenderer(canvas) {
   const sprites = spriteBook();
   const sky = islandSky();
   const drawViewModel = createViewModel(ctx);
-  const vignette = ctx.createRadialGradient(VIEW_W / 2, VIEW_H * .44, 44, VIEW_W / 2, VIEW_H * .44, VIEW_W * .66);
-  vignette.addColorStop(0, "#05090b00");
-  vignette.addColorStop(.78, "#020a1070");
-  vignette.addColorStop(1, "#020810de");
-  ctx.imageSmoothingEnabled = false;
+  function resize(width, height) {
+    if (!width || !height) return false;
+    const ratio = width / height;
+    const nextHeight = Math.max(1, Math.min(VIEW_H, Math.round(640 / ratio)));
+    const nextWidth = Math.max(1, Math.min(640, Math.round(nextHeight * ratio)));
+    if (viewWidth === nextWidth && viewHeight === nextHeight) return false;
+    canvas.width = viewWidth = nextWidth;
+    canvas.height = viewHeight = nextHeight;
+    id = ctx.createImageData(viewWidth, viewHeight);
+    pixels = new Uint32Array(id.data.buffer);
+    depth = new Float32Array(viewWidth);
+    vignette = ctx.createRadialGradient(viewWidth / 2, viewHeight * .44, Math.min(44, viewWidth * .19),
+      viewWidth / 2, viewHeight * .44, Math.max(viewWidth * .66, viewHeight * .42));
+    vignette.addColorStop(0, "#05090b00");
+    vignette.addColorStop(.78, "#020a1070");
+    vignette.addColorStop(1, "#020810de");
+    ctx.imageSmoothingEnabled = false;
+    return true;
+  }
 
-  return (world, camera = world.player) => {
+  function draw(world, camera = world.player) {
+    lastWorld = world;
+    lastCamera = camera;
     const p = camera;
     const ux = Math.cos(p.angle), uy = Math.sin(p.angle);
-    const vx = -uy * SCALE, vy = ux * SCALE;
-    const horizon = Math.floor(VIEW_H * (1 + p.pitch) / 2 + Math.sin(p.bob) * p.moving * 2.6);
-    const rowLimit = Math.max(horizon + 1, VIEW_H - horizon);
+    // Keep the default projection in landscape and a playable horizontal field of view in portrait.
+    const focalHeight = Math.min(viewHeight, viewWidth * 1.05);
+    const plane = SCALE * viewWidth * VIEW_H / (VIEW_W * focalHeight);
+    const vx = -uy * plane, vy = ux * plane;
+    const horizon = Math.floor((viewHeight + focalHeight * p.pitch) / 2 + Math.sin(p.bob) * p.moving * 2.6);
+    const rowLimit = Math.max(horizon + 1, viewHeight - horizon);
     const island = world.map.key === "island";
     const vault = world.map.key === "vault";
     const port = world.map.key === "port";
@@ -792,19 +814,19 @@ export function createRenderer(canvas) {
 
     pixels.fill(island ? rgb(105, 133, 106) : rgb(43, 51, 57));
     for (let row = 1; row <= rowLimit; row++) {
-      const distance = VIEW_H * .49 / row;
-      const dx = 2 * vx * distance / VIEW_W;
-      const dy = 2 * vy * distance / VIEW_W;
+      const distance = focalHeight * .49 / row;
+      const dx = 2 * vx * distance / viewWidth;
+      const dy = 2 * vy * distance / viewWidth;
       let fx = p.x + (ux - vx) * distance;
       let fy = p.y + (uy - vy) * distance;
       const light = clamp(Math.round(14.8 / (1 + distance * .195)), 1, 15);
       const floorY = horizon + row;
       const roofY = horizon - row;
       const skyRow = Math.max(0, SKY_H - row - 1) * SKY_W;
-      for (let x = 0; x < VIEW_W; x++, fx += dx, fy += dy) {
+      for (let x = 0; x < viewWidth; x++, fx += dx, fy += dy) {
         const tx = Math.floor(fx * T) & (T - 1);
         const ty = Math.floor(fy * T) & (T - 1);
-        if (floorY >= 0 && floorY < VIEW_H) {
+        if (floorY >= 0 && floorY < viewHeight) {
           const index = sampleFloor(fx, fy);
           const tile = world.floor[index];
           let color = palette[floorPalette[tile] ?? floorPalette[island ? 6 : 0]][Math.min(15, light + (vault ? 4 : outdoor ? 2 : 0))][ty * T + tx];
@@ -832,24 +854,24 @@ export function createRenderer(canvas) {
             else if (d >= (radius - .11) ** 2) color = rgb(228, 110, 68);
             else if ((tx + ty) % 6 < 2) color = rgb(150, 65, 48);
           }
-          pixels[floorY * VIEW_W + x] = color;
+          pixels[floorY * viewWidth + x] = color;
         }
-        if (roofY >= 0 && roofY < VIEW_H) {
+        if (roofY >= 0 && roofY < viewHeight) {
           if (outdoor) {
-            pixels[roofY * VIEW_W + x] = sky[skyRow + ((skyAzimuth + (x >> 1)) & (SKY_W - 1))];
-          } else pixels[roofY * VIEW_W + x] = palette[vault ? VAULT_WALL : 6][Math.max(0, light - (vault ? 3 : 4))][ty * T + tx];
+            pixels[roofY * viewWidth + x] = sky[skyRow + ((skyAzimuth + (x >> 1)) & (SKY_W - 1))];
+          } else pixels[roofY * viewWidth + x] = palette[vault ? VAULT_WALL : 6][Math.max(0, light - (vault ? 3 : 4))][ty * T + tx];
         }
       }
     }
 
-    for (let x = 0; x < VIEW_W; x++) {
-      const cam = x / VIEW_W * 2 - 1;
+    for (let x = 0; x < viewWidth; x++) {
+      const cam = x / viewWidth * 2 - 1;
       const hit = cast(world, p.x, p.y, ux + vx * cam, uy + vy * cam);
       const distance = Math.max(.04, hit.distance);
       depth[x] = distance;
-      const tall = VIEW_H / distance;
+      const tall = focalHeight / distance;
       const top = horizon - tall / 2;
-      const bottom = Math.min(VIEW_H, Math.ceil(top + tall));
+      const bottom = Math.min(viewHeight, Math.ceil(top + tall));
       const shade = clamp(Math.round(15.2 / (1 + distance * .167)) - hit.side * 2 + (vault ? 4 : island ? 3 : 0), 0, 15);
       const slab = hit.wall === SECRET_PANEL
         ? panelPalette[world.secretWalls[hit.y * width + hit.x] || 1][shade]
@@ -857,7 +879,7 @@ export function createRenderer(canvas) {
       const column = Math.min(T - 1, Math.max(0, Math.floor(hit.u * T)));
       for (let y = Math.max(0, Math.floor(top)); y < bottom; y++) {
         const tex = clamp(Math.floor((y - top) * T / tall), 0, T - 1) * T + column;
-        pixels[y * VIEW_W + x] = slab[tex];
+        pixels[y * viewWidth + x] = slab[tex];
       }
     }
     ctx.putImageData(id, 0, 0);
@@ -869,19 +891,19 @@ export function createRenderer(canvas) {
 
     for (const s of view) {
       const image = sprites[s.art];
-      const height = VIEW_H * s.h / s.z;
+      const height = focalHeight * s.h / s.z;
       const width = height * image.width / image.height;
-      const center = VIEW_W * .5 * (1 + s.q / (SCALE * s.z));
+      const center = viewWidth * .5 * (1 + s.q / (plane * s.z));
       const left = center - width / 2;
-      const top = horizon + VIEW_H * (.51 - s.h - s.lift) / s.z;
-      if (left > VIEW_W || left + width < 0) continue;
+      const top = horizon + focalHeight * (.51 - s.h - s.lift) / s.z;
+      if (left > viewWidth || left + width < 0) continue;
       ctx.globalAlpha = clamp(1.10 - s.z * .053, .23, 1);
-      for (let x = Math.max(0, Math.floor(left)); x < Math.min(VIEW_W, Math.ceil(left + width)); x++) {
+      for (let x = Math.max(0, Math.floor(left)); x < Math.min(viewWidth, Math.ceil(left + width)); x++) {
         if (depth[x] <= s.z) continue;
         const u = clamp(Math.floor((x - left) * image.width / width), 0, image.width - 1);
         ctx.drawImage(image, u, 0, 1, image.height, x, Math.round(top), 1, Math.ceil(height));
       }
-      if ((s.art === "torch" || s.art === "torch-lit") && depth[clamp(Math.round(center), 0, VIEW_W - 1)] > s.z) {
+      if ((s.art === "torch" || s.art === "torch-lit") && depth[clamp(Math.round(center), 0, viewWidth - 1)] > s.z) {
         ctx.globalAlpha = .68;
         const glow = ctx.createRadialGradient(center, top + height * .25, 0, center, top + height * .25, Math.max(1, height * .67));
         glow.addColorStop(0, "#ef984b58");
@@ -891,13 +913,20 @@ export function createRenderer(canvas) {
     }
     ctx.globalAlpha = 1;
     if (vault) ctx.globalAlpha = .55;
-    rect(ctx, vignette, 0, 0, VIEW_W, VIEW_H);
+    rect(ctx, vignette, 0, 0, viewWidth, viewHeight);
     ctx.globalAlpha = 1;
     if (camera !== world.player) return;
-    if (!port) drawViewModel(p, world.time);
-    if (p.hurt) rect(ctx, "rgba(179,46,35," + Math.min(.31, p.hurt * .8) + ")", 0, 0, VIEW_W, VIEW_H);
-    if (p.dash) rect(ctx, "rgba(95,181,175," + (p.dash * .36) + ")", 0, 0, VIEW_W, VIEW_H);
-  };
+    if (!port) drawViewModel(p, world.time, viewWidth, viewHeight);
+    if (p.hurt) rect(ctx, "rgba(179,46,35," + Math.min(.31, p.hurt * .8) + ")", 0, 0, viewWidth, viewHeight);
+    if (p.dash) rect(ctx, "rgba(95,181,175," + (p.dash * .36) + ")", 0, 0, viewWidth, viewHeight);
+  }
+
+  resize(canvas.clientWidth || VIEW_W, canvas.clientHeight || VIEW_H);
+  const observer = new ResizeObserver(([{ contentRect }]) => {
+    if (resize(contentRect.width, contentRect.height) && lastWorld) draw(lastWorld, lastCamera);
+  });
+  observer.observe(canvas);
+  return draw;
 }
 
 export function mapDraw(canvas, world) {

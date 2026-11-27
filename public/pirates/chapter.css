@@ -66,5 +66,4 @@
 .active-skills kbd{border:0;margin:0;font-size:.72rem;line-height:1}
 .active-skills button:disabled{opacity:.8;filter:saturate(.55)}
 .active-cooldown:not(:empty){position:absolute;inset:0;display:grid;place-items:center;background:#0f1520b5;color:white;font-size:clamp(.72rem,2vw,1.25rem)}
-@media(pointer:coarse){.active-skills{bottom:37%}}
 .skill-icon[data-atlas="captain"]{background-image:url("./captain-icons.png");background-size:1000% 500%}

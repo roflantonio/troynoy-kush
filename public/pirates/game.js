@@ -1,14 +1,15 @@
-import { ARMORY, advanceDream, cast, chooseSkill, compassObjective, createDream, createPort, createRun, dreamHint, learnRescueCode, location, nextLevel, portInteraction, rescueInteraction, secretAhead, seeded, stepRun, switchWeapon, unlockRescue, weaponCapacity } from "./world.js?v=17";
-import { createRenderer, mapDraw } from "./render.js?v=17";
+import { ARMORY, advanceDream, cast, chooseSkill, compassObjective, createDream, createPort, createRun, dreamHint, learnRescueCode, location, nextLevel, portInteraction, rescueInteraction, secretAhead, seeded, stepRun, switchWeapon, unlockRescue, weaponCapacity } from "./world.js?v=19";
+import { createRenderer, mapDraw } from "./render.js?v=19";
 import { pirateSound } from "./sound.js?v=18";
 import { FLEET_TOTAL, FLEET_WAVES, KRAKEN_HP, HELM, answerHelm, beginKraken, broadsideTarget, fireBroadside, newVoyage, stepVoyage } from "./sea.js?v=17";
-import { TRADERS, offers, purchase } from "./trade.js?v=17";
-import { seaRenderer } from "./sea-render.js?v=17";
+import { TRADERS, offers, purchase } from "./trade.js?v=19";
+import { seaRenderer } from "./sea-render.js?v=19";
 import { SPEAKERS as speakers, sceneFor } from "./story.js?v=17";
 import { RARITIES } from "./skills.js?v=17";
 import { animateFortMenu } from "./menu-scene.js?v=13";
 
 const $ = id => document.getElementById(id);
+const cabinet = $("cabinet");
 const scene = $("scene");
 const paint = createRenderer(scene);
 const paintMenu = animateFortMenu($("title-art"));
@@ -16,9 +17,14 @@ const seaView = $("sea-view");
 const paintSea = seaRenderer(seaView);
 const broadsides = [$("port-cannon"), $("starboard-cannon")];
 const reloadMeters = broadsides.map(button => button.querySelector("progress"));
-const touch = matchMedia("(any-pointer: coarse)").matches;
+const touch = matchMedia("(pointer: coarse)").matches;
+cabinet.toggleAttribute("data-touch", touch);
+const touchCannons = [$("touch-port"), $("touch-starboard")];
+const touchReloads = touchCannons.map(button => button.querySelector("progress"));
+const useButton = $("touch-interact");
+const fireButton = $("touch-fire");
+const seaFireButton = $("touch-cannons");
 const keys = new Set();
-const held = new Set();
 const relicMarks = [...document.querySelectorAll(".compass-gems i")];
 const activeSkills = $("active-skills");
 const skillKeys = new Set(["KeyQ", "KeyF", "KeyC", "KeyX", "KeyZ", "KeyV"]);
@@ -63,9 +69,111 @@ let firePressed = false;
 let lockedBefore = false;
 let drag = null;
 
+function pointerControl(element, modes, onStart, onMove, onStop) {
+  let activeId = null;
+  function reset() {
+    if (activeId === null) return;
+    const id = activeId;
+    activeId = null;
+    if (element.hasPointerCapture(id)) element.releasePointerCapture(id);
+    onStop?.();
+    element.removeAttribute("data-active");
+  }
+  element.addEventListener("pointerdown", event => {
+    if (!modes.includes(mode)) return;
+    if (event.button !== 0 || activeId !== null) return;
+    event.preventDefault();
+    activeId = event.pointerId;
+    element.setPointerCapture(activeId);
+    element.setAttribute("data-active", "");
+    onStart(event);
+  });
+  element.addEventListener("pointermove", event => {
+    if (activeId === event.pointerId) onMove?.(event);
+  });
+  for (const type of ["pointerup", "pointercancel", "lostpointercapture"]) {
+    element.addEventListener(type, event => {
+      if (activeId === event.pointerId) reset();
+    });
+  }
+  return { get active() { return activeId !== null; }, reset };
+}
+
+function tapAction(button, action) {
+  let pressed;
+  let touchAt = -Infinity;
+  button.addEventListener("click", event => {
+    const handledTouch = event.pointerType === "touch"
+      || (!event.pointerType && event.detail && performance.now() - touchAt < 350);
+    if (!touch || !handledTouch) action();
+  });
+  if (!touch) return;
+  button.addEventListener("pointerdown", event => {
+    if (event.pointerType === "touch") pressed = event;
+  });
+  button.addEventListener("pointercancel", () => { pressed = null; });
+  button.addEventListener("pointerup", event => {
+    if (event.pointerId !== pressed?.pointerId) return;
+    const distance = Math.hypot(event.clientX - pressed.clientX, event.clientY - pressed.clientY);
+    pressed = null;
+    if (distance > 14 || button.disabled) return;
+    touchAt = performance.now();
+    action();
+  });
+}
+
+const stick = $("touch-stick");
+const knob = $("stick-knob");
+const movement = { x: 0, y: 0 };
+let stickArea;
+
+function moveStick(event) {
+  const { x, y, width, height } = stickArea;
+  const dx = event.clientX - x - width / 2;
+  const dy = event.clientY - y - height / 2;
+  const reach = width * .32;
+  const distance = Math.hypot(dx, dy);
+  const raw = Math.min(1, distance / reach);
+  const power = Math.max(0, (raw - .12) / .88);
+  movement.x = distance ? dx / distance * power : 0;
+  movement.y = distance ? dy / distance * power : 0;
+  const travel = raw * reach / (distance || 1);
+  knob.style.transform = "translate(" + dx * travel + "px," + dy * travel + "px)";
+}
+
+const stickInput = pointerControl(stick, ["play", "sea"], event => {
+  stickArea = stick.getBoundingClientRect();
+  moveStick(event);
+}, moveStick, () => {
+  movement.x = movement.y = 0;
+  knob.style.transform = "";
+});
+
+let fireAim;
+const touchGun = pointerControl(fireButton, ["play"], event => {
+  firePressed = true;
+  fireAim = event;
+}, event => {
+  if (!drag) {
+    look += (event.clientX - fireAim.clientX) * .009;
+    tilt -= (event.clientY - fireAim.clientY) * .009;
+  }
+  fireAim = event;
+}, () => { fireAim = null; });
+
+function fireAtBroadside() {
+  for (const side of [-1, 1]) {
+    if (broadsideTarget(voyage, side)) fireBroadside(voyage, side);
+  }
+}
+
+const touchBroadside = pointerControl(seaFireButton, ["sea"], fireAtBroadside);
+
 function clearInput() {
   keys.clear();
-  held.clear();
+  stickInput.reset();
+  touchGun.reset();
+  touchBroadside.reset();
   firing = false;
   firePressed = false;
   look = 0;
@@ -263,15 +371,16 @@ function trade(id) {
 
 function updateInteraction() {
   if (mode !== "play") {
-    $("interaction").hidden = true;
+    $("interaction").hidden = useButton.hidden = true;
     return;
   }
   const target = portInteraction(run) ?? rescueInteraction(run);
   const label = target?.name ?? (secretAhead(run) ? "Открыть тайный ход" : "");
   $("interaction").hidden = !label;
+  useButton.hidden = !touch || !label;
   if (label) {
-    text("interact-hint", "E · " + label);
-    text("touch-interact", label);
+    text("interact-hint", touch ? label : "E · " + label);
+    useButton.setAttribute("aria-label", label);
   }
 }
 
@@ -291,13 +400,15 @@ function updateRescueJournal() {
 
 function show(next) {
   mode = next;
-  $("cabinet").dataset.mode = next;
-  $("cabinet").toggleAttribute("data-dream", !!run.training);
+  cabinet.dataset.mode = next;
+  cabinet.toggleAttribute("data-dream", !!run.training);
+  cabinet.toggleAttribute("data-port", run.map.key === "port");
   clearInput();
   for (const screen of screens) $(screen).hidden = next !== screen;
   const seaVisible = !!voyage && (["sea", "pause", "sea-briefing"].includes(next) || (next === "cinematic" && cinematic.kind === "kraken"));
   $("sea").hidden = !seaVisible;
-  $("sea-hud").hidden = $("sea-controls").hidden = next !== "sea";
+  $("sea-hud").hidden = next !== "sea";
+  $("sea-controls").hidden = next !== "sea" || touch;
   if (next !== "sea") {
     for (const id of ["sea-notice", "sea-qte", "kraken-meter"]) $(id).hidden = true;
   }
@@ -306,7 +417,9 @@ function show(next) {
   $("crosshair").hidden = next !== "play";
   $("signal").hidden = next !== "play" || run.hintUntil < run.time || !run.hint;
   updateInteraction();
-  $("touch").hidden = !touch || next !== "play";
+  $("touch").hidden = !touch || (next !== "play" && next !== "sea");
+  $("touch-land").hidden = next !== "play";
+  $("touch-sea").hidden = next !== "sea";
   $("map-toggle").hidden = next !== "play";
   $("pause-toggle").hidden = next !== "play" && next !== "sea";
   $("skip-dream").hidden = !run.training || next !== "pause";
@@ -411,7 +524,7 @@ function leaveScene(interactive) {
     return;
   }
   if (kind === "port-market") {
-    run.hint = touch ? "Подойди к торговцу и нажми его имя" : "Подойди к торговцу · E откроет лавку";
+    run.hint = touch ? "Подойди к торговцу и нажми кнопку с ладонью" : "Подойди к торговцу · E откроет лавку";
     run.hintUntil = run.time + 7;
   }
   if (kind === "vault-end") {
@@ -539,9 +652,17 @@ function updateSeaHud() {
   $("sea-notice").hidden = !!qte || noticeUntil <= time || phase === "victory";
   text("sea-notice", voyage.notice);
   for (const [i, cannon] of broadsides.entries()) {
-    cannon.dataset.aimed = String(!!broadsideTarget(voyage, i * 2 - 1));
-    reloadMeters[i].value = 1 - voyage.reload[i] / .83;
+    const aimed = String(!!broadsideTarget(voyage, i * 2 - 1));
+    const ready = 1 - voyage.reload[i] / .83;
+    cannon.dataset.aimed = aimed;
+    reloadMeters[i].value = ready;
+    if (touch) {
+      touchCannons[i].dataset.aimed = aimed;
+      touchReloads[i].value = ready;
+    }
   }
+  if (touch) seaFireButton.dataset.aimed = String(touchCannons.some((button, i) =>
+    button.dataset.aimed === "true" && !voyage.reload[i]));
 }
 
 function seaFrame(dt) {
@@ -563,11 +684,12 @@ function seaFrame(dt) {
     return;
   }
   const axis = (key, arrow) => Number(keys.has(key) || keys.has(arrow));
-  const x = axis("KeyD", "ArrowRight") - axis("KeyA", "ArrowLeft");
-  const y = axis("KeyS", "ArrowDown") - axis("KeyW", "ArrowUp");
+  const x = axis("KeyD", "ArrowRight") - axis("KeyA", "ArrowLeft") + movement.x;
+  const y = axis("KeyS", "ArrowDown") - axis("KeyW", "ArrowUp") + movement.y;
   const magnitude = Math.max(1, Math.hypot(x, y));
   if (keys.has("KeyQ")) fireBroadside(voyage, -1);
   if (keys.has("KeyE")) fireBroadside(voyage, 1);
+  if (touchBroadside.active) fireAtBroadside();
   stepVoyage(voyage, { x: x / magnitude, y: y / magnitude }, dt);
   for (const cue of voyage.cues.splice(0)) {
     if (cue === "shkiv" || cue === "sea-rescue") sound.voice("shkiv", true);
@@ -600,7 +722,7 @@ function updateActiveSkills(player) {
       cooldown.className = "active-cooldown";
       button.append(skillIcon(skill), key, cooldown);
       button.addEventListener("pointerdown", event => { if (event.pointerType === "mouse") event.preventDefault(); });
-      button.addEventListener("click", () => { if (mode === "play") skillPressed = skill.key; });
+      tapAction(button, () => { if (mode === "play") skillPressed = skill.key; });
       return { button, cooldown, skill };
     });
     activeSkills.replaceChildren(...skillButtons.map(entry => entry.button));
@@ -634,6 +756,17 @@ function updateHud() {
   const weapon = ARMORY[player.weapon];
   const capacity = weaponCapacity(player);
   const ready = player.chambers[player.weapon];
+  if (touch) {
+    $("touch-reload").disabled = !capacity || !!player.reloadLeft || ready >= capacity || !player.ammo;
+    const blade = player.weapon === "blade";
+    const caption = blade ? "Удар" : "Огонь";
+    if (fireButton.lastElementChild.textContent !== caption) {
+      fireButton.lastElementChild.textContent = caption;
+      fireButton.setAttribute("aria-label", blade ? "Удар саблей" : "Огонь");
+    }
+    $("touch-dash").dataset.ready = String(!player.dashCooldown);
+    $("touch-weapon").disabled = player.arsenal.size < 2;
+  }
   $("weapon-hud").dataset.weapon = player.weapon;
   $("rounds").hidden = !capacity;
   if (capacity) {
@@ -678,14 +811,13 @@ function updateHud() {
 }
 
 function control(dt) {
-  const value = (code, touchKey) => keys.has(code) || held.has(touchKey);
-  const up = value("KeyW", "forward") || keys.has("ArrowUp");
-  const down = value("KeyS", "back") || keys.has("ArrowDown");
-  const right = value("ArrowRight", "right");
-  const left = value("ArrowLeft", "left");
+  const up = keys.has("KeyW") || keys.has("ArrowUp");
+  const down = keys.has("KeyS") || keys.has("ArrowDown");
   const input = {
-    forward: Number(up) - Number(down), strafe: Number(keys.has("KeyD")) - Number(keys.has("KeyA")),
-    turn: Number(right) - Number(left), look, fire: firePressed || firing || value("Space", "fire"),
+    forward: Number(up) - Number(down) - movement.y,
+    strafe: Number(keys.has("KeyD")) - Number(keys.has("KeyA")) + movement.x,
+    turn: Number(keys.has("ArrowRight")) - Number(keys.has("ArrowLeft")), look,
+    fire: firePressed || firing || touchGun.active || keys.has("Space"),
     tilt: tilt + (Number(keys.has("PageUp")) - Number(keys.has("PageDown"))) * dt * 1.5,
     dash: dashPressed, reload: reloadPressed, interact: interactPressed, skill: skillPressed,
   };
@@ -862,7 +994,7 @@ document.addEventListener("mousemove", event => {
   }
 });
 scene.addEventListener("pointerdown", event => {
-  if (mode !== "play" || event.button !== 0) return;
+  if (mode !== "play" || event.button !== 0 || drag && event.pointerType === "touch") return;
   scene.focus({ preventScroll: true });
   drag = { id: event.pointerId, x: event.clientX, y: event.clientY };
   if (event.pointerType !== "touch") {
@@ -885,24 +1017,19 @@ const release = event => {
 };
 document.addEventListener("pointerup", release);
 document.addEventListener("pointercancel", release);
+if (touch) window.addEventListener("resize", clearInput);
 window.addEventListener("blur", () => { if (mode === "play" || mode === "sea") show("pause"); else clearInput(); });
 document.addEventListener("visibilitychange", () => { if (document.hidden && (mode === "play" || mode === "sea")) show("pause"); });
-for (const button of document.querySelectorAll(".touch-key")) {
-  const action = button.dataset.key;
-  button.addEventListener("pointerdown", event => {
-    event.preventDefault();
-    if (mode !== "play") return;
-    button.setPointerCapture?.(event.pointerId);
-    if (action === "dash") dashPressed = true;
-    else if (action === "reload") reloadPressed = true;
-    else {
-      if (action === "fire") firePressed = true;
-      held.add(action);
-    }
-  });
-  for (const type of ["pointerup","pointercancel","lostpointercapture"]) button.addEventListener(type, () => held.delete(action));
-}
-$("touch-weapon").addEventListener("click", () => {
+fireButton.addEventListener("click", event => {
+  if (mode === "play" && !event.detail) firePressed = true;
+});
+seaFireButton.addEventListener("click", event => {
+  if (mode === "sea" && !event.detail) fireAtBroadside();
+});
+tapAction($("touch-dash"), () => { if (mode === "play") dashPressed = true; });
+tapAction($("touch-reload"), () => { if (mode === "play") reloadPressed = true; });
+tapAction($("touch-weapon"), () => {
+  if (mode !== "play") return;
   const list = [...run.player.arsenal];
   switchWeapon(run, list[(list.indexOf(run.player.weapon) + 1) % list.length]);
 });
@@ -939,40 +1066,34 @@ $("dream-replay").addEventListener("click", () => {
   start(true);
 });
 if (touch) {
-  text("brief-course", "Кнопки со стрелками ведут корабль. Держи цели вдоль борта.");
-  text("brief-fire", "Нажимай «Левый борт» или «Правый борт», когда цель отмечена.");
+  $("map-toggle").setAttribute("aria-label", "Карта");
+  $("pause-toggle").setAttribute("aria-label", "Пауза");
+  text("brief-course", "Веди корабль джойстиком слева. Держи цели вдоль борта.");
+  text("brief-fire", "«Огонь» стреляет по подсвеченным целям. Стрелки рядом стреляют с выбранного борта.");
   text("brief-orders", "При тревоге нажми кнопку с указанным номером, пока идёт отсчёт.");
 }
 for (const [i, button] of broadsides.entries()) button.addEventListener("click", () => {
   if (mode === "sea") fireBroadside(voyage, i * 2 - 1);
 });
-for (const button of document.querySelectorAll("[data-helm]")) button.addEventListener("click", () => {
+for (const button of document.querySelectorAll("[data-helm]")) tapAction(button, () => {
   if (mode === "sea") {
     answerHelm(voyage, Number(button.dataset.helm));
     seaView.focus({ preventScroll: true });
   }
 });
-for (const button of document.querySelectorAll("[data-course]")) {
-  const code = button.dataset.course;
-  button.addEventListener("pointerdown", event => {
-    if (mode !== "sea") return;
-    button.setPointerCapture?.(event.pointerId);
-    keys.add(code);
-  });
-  for (const type of ["pointerup","pointercancel","lostpointercapture"]) button.addEventListener(type, () => keys.delete(code));
-}
+for (const [i, button] of touchCannons.entries()) tapAction(button, () => {
+  if (mode === "sea") fireBroadside(voyage, i * 2 - 1);
+});
 $("skip-scene").addEventListener("click", () => leaveScene(true));
 $("scene-next").addEventListener("click", advanceScene);
 $("continue").addEventListener("click", resumePlay);
 $("shop-close").addEventListener("click", resumePlay);
 $("menu-return").addEventListener("click", () => show("menu"));
 $("result-menu").addEventListener("click", () => show("menu"));
-$("pause-toggle").addEventListener("click", () => show("pause"));
-$("map-toggle").addEventListener("click", () => show("chart"));
+tapAction($("pause-toggle"), () => { if (mode === "play" || mode === "sea") show("pause"); });
+tapAction($("map-toggle"), () => { if (mode === "play") show("chart"); });
 $("chart-close").addEventListener("click", resumePlay);
-$("interact-hint").hidden = touch;
-$("touch-interact").hidden = !touch;
-$("touch-interact").addEventListener("click", () => {
+tapAction(useButton, () => {
   if (mode === "play") {
     interactPressed = true;
     scene.focus({ preventScroll: true });
