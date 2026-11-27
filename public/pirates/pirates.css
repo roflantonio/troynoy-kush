@@ -53,8 +53,11 @@ h1,h2,p,dl,dd{margin:0}
 .title-choices:has(.title-choice:is(:hover,:focus-visible):not(:first-child)) .title-choice:first-child{background:none;border-color:transparent}
 .title-choices:has(.title-choice:is(:hover,:focus-visible):not(:first-child)) .title-choice:first-child::before{opacity:0}
 .title-return{font-size:clamp(.9rem,1.75vw,1.17rem);color:#cbc2ac}
-#offline-progress{width:min(100%,272px);height:8px;margin-top:9px;accent-color:#e3b475}
-#offline-status{max-width:min(100%,310px);font-size:.76rem;color:#e8d9b8;margin-top:6px;line-height:1.3}
+.offline-panel{width:min(100%,310px);margin-top:8px;padding:8px 10px;border:1px solid #a1845c;background:#162526ee;color:#f6e5c3;font-size:.79rem;line-height:1.35}
+#offline-progress{display:block;width:100%;height:7px;margin-top:6px;accent-color:#e3b475}
+#offline-status,#offline-delete-status{font-size:.75rem;color:#ddcfaf;line-height:1.3}
+#offline-status:not(:empty),#offline-delete-status{margin-top:5px}
+.offline-settings{margin-top:12px}
 #download-game:disabled{color:#b7caba;opacity:.85}
 .menu-buttons{display:flex;flex-direction:column;gap:8px;width:min(100%,290px)}
 .button{min-height:44px;display:inline-flex;align-items:center;justify-content:center;padding:9px 13px;border-radius:2px;border:1px solid transparent;font-weight:800;font-size:.94rem;line-height:1.2}

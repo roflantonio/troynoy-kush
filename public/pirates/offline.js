@@ -1,34 +1,71 @@
+const downloadLabel = "Загрузить файлы игры";
+const unsupported = "Офлайн-загрузка недоступна в этом браузере.";
+
 export function setupOfflineMenu() {
   const button = document.getElementById("download-game");
+  const panel = document.getElementById("offline-panel");
   const status = document.getElementById("offline-status");
   const meter = document.getElementById("offline-progress");
-  const message = value => {
-    status.textContent = value;
-    status.hidden = !value;
-  };
-  const ready = () => {
-    button.textContent = "Игра загружена";
-    button.disabled = true;
-    meter.hidden = true;
-    message("Можно играть без интернета с ярлыка или по этой же ссылке.");
-  };
-  const unsupported = "Офлайн-загрузка недоступна в этом браузере.";
+  const remove = document.getElementById("delete-game-files");
+  const removeStatus = document.getElementById("offline-delete-status");
   const workers = navigator.serviceWorker;
+
+  function showPanel() {
+    panel.hidden = false;
+    button.setAttribute("aria-expanded", "true");
+  }
+
+  function deleteMessage(value) {
+    removeStatus.hidden = !value;
+    removeStatus.textContent = value;
+  }
+
   if (!workers || !window.caches) {
-    button.addEventListener("click", () => message(unsupported));
+    button.addEventListener("click", () => {
+      showPanel();
+      status.textContent = unsupported;
+    });
+    remove.addEventListener("click", () => deleteMessage("Удаление офлайн-файлов недоступно в этом браузере."));
     return;
   }
 
-  const registration = workers.register("./offline-worker.js", { type: "module", updateViaCache: "none" }).catch(async error => {
+  const workerUrl = new URL("./offline-worker.js?v=22", document.baseURI).href;
+  const registration = workers.register(workerUrl, { type: "module", updateViaCache: "none" }).catch(async error => {
     const existing = await workers.getRegistration();
-    if (existing?.active) return existing;
+    if (existing?.active?.scriptURL === workerUrl) return existing;
     throw error;
   });
+  let ready = false;
   let saving = false;
+  let removing = false;
+  let revision = 0;
+
+  function updateButtons() {
+    button.disabled = saving || removing || ready;
+    button.textContent = saving ? "Загрузка…" : ready ? "Игра загружена" : downloadLabel;
+    remove.disabled = removing;
+  }
+
+  async function activeWorker() {
+    const reg = await registration;
+    const worker = [reg.installing, reg.waiting, reg.active].find(candidate => candidate?.scriptURL === workerUrl);
+    if (!worker) throw new Error("Offline worker unavailable");
+    if (worker.state === "activated") return worker;
+    return new Promise((resolve, reject) => {
+      function check() {
+        if (worker.state === "activated" || worker.state === "redundant") {
+          worker.removeEventListener("statechange", check);
+          if (worker.state === "activated") resolve(worker);
+          else reject(new Error("Offline worker unavailable"));
+        }
+      }
+      worker.addEventListener("statechange", check);
+      check();
+    });
+  }
 
   async function request(command, onProgress) {
-    const reg = await registration;
-    const active = reg.active ?? (await workers.ready).active;
+    const worker = await activeWorker();
     return new Promise((resolve, reject) => {
       const channel = new MessageChannel();
       channel.port1.onmessage = ({ data }) => {
@@ -40,36 +77,65 @@ export function setupOfflineMenu() {
         if (data.type === "error") reject(data);
         else resolve(data);
       };
-      active.postMessage(command, [channel.port2]);
+      worker.postMessage(command, [channel.port2]);
     });
   }
 
   button.addEventListener("click", async () => {
+    const operation = ++revision;
     saving = true;
-    button.disabled = true;
-    button.textContent = "Загрузка…";
-    message("Проверяем файлы игры.");
+    showPanel();
+    updateButtons();
+    status.textContent = "Проверяем файлы игры.";
     navigator.storage?.persist?.().catch(() => {});
     try {
       await request("download", ({ done, total }) => {
+        if (operation !== revision) return;
         meter.max = total;
         meter.value = done;
         meter.hidden = false;
-        message("Загружено " + done + " из " + total + " файлов.");
+        status.textContent = "Загружено " + done + " из " + total + " файлов.";
       });
-      ready();
+      if (operation === revision) {
+        ready = true;
+        status.textContent = "Можно играть без интернета с ярлыка или по этой же ссылке.";
+      }
     } catch (error) {
-      meter.hidden = true;
-      button.disabled = false;
-      button.textContent = "Загрузить игру";
-      message(error?.storage ? "Освободи место и повтори загрузку."
-        : navigator.onLine ? "Загрузка прервалась. Нажми кнопку ещё раз." : "Подключись к интернету и повтори загрузку.");
+      if (operation === revision) {
+        status.textContent = error?.storage ? "Освободи место и повтори загрузку."
+          : error?.cancelled ? "Загрузка остановлена."
+          : navigator.onLine ? "Загрузка прервалась. Нажми кнопку ещё раз."
+          : "Подключись к интернету и повтори загрузку.";
+      }
     } finally {
+      meter.hidden = true;
       saving = false;
+      updateButtons();
+    }
+  });
+
+  remove.addEventListener("click", async () => {
+    revision++;
+    removing = true;
+    updateButtons();
+    deleteMessage("Удаляем файлы игры…");
+    try {
+      const result = await request("delete");
+      ready = false;
+      panel.hidden = true;
+      button.setAttribute("aria-expanded", "false");
+      deleteMessage(result.removed ? "Файлы игры удалены." : "Скачанных файлов игры нет.");
+    } catch {
+      deleteMessage("Не удалось удалить файлы. Попробуй ещё раз.");
+    } finally {
+      removing = false;
+      updateButtons();
     }
   });
 
   request("status").then(state => {
-    if (state.ready && !saving) ready();
+    if (revision !== 0) return;
+    ready = state.ready;
+    updateButtons();
   }).catch(() => {});
 }

@@ -7,7 +7,7 @@ import { seaRenderer } from "./sea-render.js?v=19";
 import { SPEAKERS as speakers, sceneFor } from "./story.js?v=17";
 import { RARITIES } from "./skills.js?v=17";
 import { chartView } from "./chart-view.js?v=21";
-import { setupOfflineMenu } from "./offline.js?v=21";
+import { setupOfflineMenu } from "./offline.js?v=22";
 import { animateFortMenu } from "./menu-scene.js?v=13";
 
 const $ = id => document.getElementById(id);

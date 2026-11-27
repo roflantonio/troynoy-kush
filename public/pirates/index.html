@@ -12,13 +12,13 @@
   <link rel="preload" as="image" href="./awakening.webp">
   <link rel="preload" as="image" href="./portraits/pirate-tense.webp">
   <link rel="preload" as="image" href="./viewmodels.png?v=11">
-  <link rel="stylesheet" href="./pirates.css?v=21">
+  <link rel="stylesheet" href="./pirates.css?v=22">
   <link rel="stylesheet" href="./sea.css?v=19">
   <link rel="stylesheet" href="./port.css?v=16">
   <link rel="stylesheet" href="./chapter.css?v=21">
   <link rel="stylesheet" href="./touch.css?v=21">
   <link rel="stylesheet" href="./chart.css?v=21">
-  <script type="module" src="./game.js?v=21"></script>
+  <script type="module" src="./game.js?v=22"></script>
 </head>
 <body>
   <main class="cabinet" id="cabinet" data-mode="menu">
@@ -124,12 +124,15 @@
         <nav class="title-choices" aria-label="Главное меню">
           <button id="start" class="title-choice" type="button" disabled>Начать поход</button>
           <button id="chapter-select" class="title-choice" type="button">Выбрать главу</button>
-          <button id="download-game" class="title-choice" type="button">Загрузить игру</button>
+          <button id="download-game" class="title-choice" type="button" aria-controls="offline-panel" aria-expanded="false">Загрузить файлы игры</button>
           <button id="menu-settings" class="title-choice" type="button">Настройки</button>
           <a class="title-choice title-return" href="../">Вернуться в лаунчер</a>
         </nav>
-        <progress id="offline-progress" max="1" value="0" aria-label="Загрузка файлов игры" hidden></progress>
-        <p id="offline-status" role="status" hidden></p>
+        <div id="offline-panel" class="offline-panel" hidden>
+          <p>Игра скачает файлы на ваше устройство. После этого можно играть без интернета.</p>
+          <progress id="offline-progress" max="1" value="0" aria-label="Загрузка файлов игры" hidden></progress>
+          <p id="offline-status" role="status"></p>
+        </div>
       </div>
     </section>
     <section id="chapters" class="overlay modal-screen" hidden aria-labelledby="chapters-title">
@@ -306,6 +309,10 @@
     <div class="volume-control">
       <label for="effects-volume">Звуки игры</label><output id="effects-percent" for="effects-volume">100%</output>
       <input id="effects-volume" type="range" min="0" max="100" value="100">
+    </div>
+    <div class="offline-settings">
+      <button class="button plain" id="delete-game-files" type="button">Удалить файлы игры</button>
+      <p id="offline-delete-status" role="status" hidden></p>
     </div>
     <button class="button plain" id="dream-replay" type="button">Сон-обучение</button>
   </dialog>

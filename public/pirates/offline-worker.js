@@ -3,13 +3,14 @@ import { SCORE, scoreUrl } from "./score.js?v=18";
 const scope = new URL(self.registration.scope);
 const url = path => new URL(path, scope).href;
 const cachePrefix = "fortune-offline:" + scope.pathname + ":";
-const release = "21";
+const release = "22";
 const cacheName = cachePrefix + release;
+const previousName = cachePrefix + "21";
 const shell = url("./?v=" + release);
 const complete = url(".offline-complete");
 const files = [
-  "./?v=" + release, "./game.js?v=21", "./offline.js?v=21", "./chart-view.js?v=21", "./chart.css?v=21", "./chart-paper.webp",
-  "./pirates.css?v=21", "./touch.css?v=21", "./chapter.css?v=21", "./port.css?v=16", "./sea.css?v=19",
+  "./?v=" + release, "./game.js?v=22", "./offline.js?v=22", "./chart-view.js?v=21", "./chart.css?v=21", "./chart-paper.webp",
+  "./pirates.css?v=22", "./touch.css?v=21", "./chapter.css?v=21", "./port.css?v=16", "./sea.css?v=19",
   "./world.js?v=20", "./render.js?v=21", "./trade.js?v=20", "./skills.js?v=17", "./captain-skills.js?v=17",
   "./story.js?v=17", "./menu-scene.js?v=13", "./sea.js?v=17", "./sea-render.js?v=19", "./sound.js?v=18", "./score.js?v=18",
   "./soundtrack.html", "./soundtrack.js?v=18", "./soundtrack.css?v=17", "./pirates.css?v=15",
@@ -25,6 +26,8 @@ const files = [
 const paths = new Set(files.map(file => new URL(file).pathname));
 const clientsWaiting = new Set();
 let download;
+let controller;
+let deletion;
 
 self.addEventListener("install", event => event.waitUntil(self.skipWaiting()));
 self.addEventListener("activate", event => event.waitUntil(self.clients.claim()));
@@ -35,11 +38,12 @@ async function currentFiles(cache) {
   return { missing, ready: missing.length === 0 && entries.has(complete) };
 }
 
-async function downloadBundle() {
+async function downloadBundle(signal) {
   const cache = await caches.open(cacheName);
   const { missing, ready } = await currentFiles(cache);
   if (ready) return;
   await cache.delete(complete);
+  const previous = await caches.has(previousName) ? await caches.open(previousName) : null;
   let next = 0;
   let done = files.length - missing.length;
   let failed = false;
@@ -51,7 +55,10 @@ async function downloadBundle() {
     while (!failed && next < missing.length) {
       const file = missing[next++];
       try {
-        const response = await fetch(file, { cache: "reload", redirect: "error" });
+        signal.throwIfAborted();
+        // The versioned paths shared with release 21 still have the same game assets.
+        const reused = await previous?.match(file);
+        const response = reused ?? await fetch(file, { cache: "reload", redirect: "error", signal });
         if (response.status !== 200) throw new Error("Failed to download " + file);
         if (file === shell && !(await response.clone().text()).includes("./game.js?v=" + release)) {
           throw new Error("Game page belongs to another release");
@@ -67,32 +74,51 @@ async function downloadBundle() {
   });
   const rejected = (await Promise.allSettled(slots)).find(result => result.status === "rejected");
   if (rejected) throw rejected.reason;
+  signal.throwIfAborted();
   await cache.put(complete, new Response("ready"));
   const outdated = (await caches.keys()).filter(name => name.startsWith(cachePrefix) && name !== cacheName);
   await Promise.allSettled(outdated.map(name => caches.delete(name)));
 }
 
+async function deleteBundle() {
+  controller?.abort();
+  await download?.catch(() => {});
+  const names = (await caches.keys()).filter(name => name.startsWith(cachePrefix));
+  const removed = await Promise.all(names.map(name => caches.delete(name)));
+  return removed.some(Boolean);
+}
+
 async function answer(port, command) {
   try {
     if (command === "status") {
-      const cache = await caches.open(cacheName);
-      const { ready } = await currentFiles(cache);
-      port.postMessage({ type: "status", ready });
+      const cache = !deletion && await caches.has(cacheName) ? await caches.open(cacheName) : null;
+      const state = cache ? await currentFiles(cache) : { ready: false };
+      port.postMessage({ type: "status", ready: state.ready });
+    } else if (command === "delete") {
+      deletion ??= deleteBundle().finally(() => { deletion = undefined; });
+      port.postMessage({ type: "deleted", removed: await deletion });
     } else {
+      if (deletion) await deletion;
       clientsWaiting.add(port);
-      download ??= downloadBundle().finally(() => { download = undefined; });
+      if (!download) {
+        controller = new AbortController();
+        download = downloadBundle(controller.signal).finally(() => {
+          download = undefined;
+          controller = undefined;
+        });
+      }
       await download;
       port.postMessage({ type: "ready" });
     }
   } catch (error) {
-    port.postMessage({ type: "error", storage: error?.name === "QuotaExceededError" });
+    port.postMessage({ type: "error", storage: error?.name === "QuotaExceededError", cancelled: error?.name === "AbortError" });
   } finally {
     clientsWaiting.delete(port);
     port.close();
   }
 }
 self.addEventListener("message", event => {
-  if (event.ports[0] && ["status", "download"].includes(event.data)) {
+  if (event.ports[0] && ["status", "download", "delete"].includes(event.data)) {
     event.waitUntil(answer(event.ports[0], event.data));
   }
 });
@@ -100,10 +126,10 @@ self.addEventListener("message", event => {
 async function savedResponse(request, target, gamePage) {
   const names = (await caches.keys()).filter(name => name.startsWith(cachePrefix)).reverse();
   for (const name of names) {
-    const cache = await caches.open(name);
-    if (!await cache.match(complete)) continue;
+    const marker = await caches.match(complete, { cacheName: name });
+    if (!marker) continue;
     const key = gamePage ? url("./?v=" + name.slice(cachePrefix.length)) : target;
-    const stored = await cache.match(key);
+    const stored = await caches.match(key, { cacheName: name });
     if (stored) return audioRange(stored, request.headers.get("Range"));
   }
   return Response.error();
